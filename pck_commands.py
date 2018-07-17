@@ -1,6 +1,6 @@
 import re
 
-import pypck.lcn_defs
+from pypck import lcn_defs
 
 class PckParser(object):
     """
