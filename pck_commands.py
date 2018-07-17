@@ -1,6 +1,6 @@
 import re
 
-import lcn_defs
+import pypck.lcn_defs
 
 class PckParser(object):
     """
@@ -8,9 +8,6 @@ class PckParser(object):
     
     LCN-PCK is the command-syntax used by LCN-PCHK to send and receive LCN commands.
     """
-    def __init__(self):
-        pass
-
     # Authentication at LCN-PCHK: Request user name.
     AUTH_USERNAME = 'Username:'
     
@@ -74,6 +71,16 @@ class PckParser(object):
     # Pattern to parse key-locks status responses.
     PATTERN_STATUS_KEYLOCKS = re.compile(r'=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.TX(?P<table0>\d{3})(?P<table1>\d{3})(?P<table2>\d{3})((?P<table3>\d{3}))?')
    
+    @staticmethod
+    def getBooleanValue(input_byte):
+        if input_byte < 0 or input_byte > 255:
+            raise ValueError('Invalid input_byte.')
+        
+        result = []
+        for i in range(8):
+            result.append((input_byte & (1 << i)) != 0)
+        return result
+
 
 class PckGenerator(object):
     """
@@ -87,7 +94,8 @@ class PckGenerator(object):
     # Terminates a PCK command
     TERMINATION = '\n'
     
-    def ping(self, counter):
+    @staticmethod
+    def ping(counter):
         """
         Generates a keep-alive.
         LCN-PCHK will close the connection if it does not receive any commands from
@@ -98,7 +106,8 @@ class PckGenerator(object):
         """
         return '^ping{:d}'.format(counter)
     
-    def set_operation_mode(self, dim_mode, status_mode):
+    @staticmethod
+    def set_operation_mode(dim_mode, status_mode):
         """
         Generates a PCK command that will set the LCN-PCHK connection's operation mode.
         This influences how output-port commands and status are interpreted and must be
@@ -111,14 +120,14 @@ class PckGenerator(object):
         return '!OM{:s}{:s}'.format('1' if (dim_mode == lcn_defs.output_port_dim_mode.STEPS200) else '0',
                                     'P' if (status_mode == lcn_defs.output_port_status_mode.PERCENT) else 'N') 
 
-
-    def generate_address_header(self, addr, local_seg_id, wants_ack):
+    @staticmethod
+    def generate_address_header(addr, local_seg_id, wants_ack):
         return '>{:s}{:03d}{:03d}{%s}'.format('G' if addr.is_group() else 'M',
                                               addr.get_physical_seg_id(local_seg_id),
                                               addr.get_id(),
                                               '!' if wants_ack else '.')
-        
-    def request_output_status(self, output_id):
+    @staticmethod
+    def request_output_status(output_id):
         """
         Generates an output-port status request.
 
@@ -129,7 +138,8 @@ class PckGenerator(object):
             raise ValueError('Invalid output_id.')
         return 'SMA{:d}'.format(output_id + 1)
 
-    def dim_ouput(self, output_id, percent, ramp):
+    @staticmethod
+    def dim_ouput(output_id, percent, ramp):
         """
         Generates a dim command for a single output-port.
 
@@ -145,8 +155,9 @@ class PckGenerator(object):
             return 'A{:d}DI{:03d}{:03d}'.format(output_id + 1, n / 2, ramp)
         else:               # We have a ".5" value. Use the native command (supported since LCN-PCHK 2.3)
             return 'O{:d}DI{:03d}{:03d}'.format(output_id + 1, n, ramp)
-        
-    def request_relay_status(self):
+    
+    @staticmethod   
+    def request_relay_status():
         """
         Generates a command to control relays.
          
@@ -155,7 +166,8 @@ class PckGenerator(object):
         """
         return 'SMR'
     
-    def control_relays(self, states):
+    @staticmethod
+    def control_relays(states):
         """
         Generates a command to control relays.
 
