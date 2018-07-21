@@ -122,10 +122,30 @@ class PckGenerator(object):
 
     @staticmethod
     def generate_address_header(addr, local_seg_id, wants_ack):
-        return '>{:s}{:03d}{:03d}{%s}'.format('G' if addr.is_group() else 'M',
+        return '>{:s}{:03d}{:03d}{:s}'.format('G' if addr.is_group() else 'M',
                                               addr.get_physical_seg_id(local_seg_id),
                                               addr.get_id(),
                                               '!' if wants_ack else '.')
+        
+    @staticmethod
+    def segment_coupler_scan():
+        """
+        Generates a scan-command for LCN segment-couplers.
+        Used to detect the local segment (where the physical bus connection is located).
+
+        @return the PCK command (without address header) as text
+        """
+        return 'SK'
+    
+    @staticmethod
+    def request_sn():
+        """
+        Generates a firmware/serial-number request.
+        
+        @return the PCK command (without address header) as text
+        """
+        return 'SN'
+    
     @staticmethod
     def request_output_status(output_id):
         """
