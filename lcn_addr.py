@@ -47,8 +47,10 @@ class LcnAddr(object):
         raise NotImplementedError
 
     def __hash__(self):
-        assert(self.is_valid())
-        return self.is_group() << 9 + reverse_uint8(self.get_id()) << 8 + reverse_uint8(self.get_seg_id())
+        if self.is_valid():
+            return self.is_group() << 9 + reverse_uint8(self.get_id()) << 8 + reverse_uint8(self.get_seg_id())
+        else:
+            return -1
     
     def __eq__(self, obj):
         if not isinstance(obj, self.__class__):
@@ -96,6 +98,8 @@ class LcnAddrMod(LcnAddr):
     def get_id(self):
         return self.mod_id
     
+    def __repr__(self):
+        return 'Address: S{:03d}.M{:03d}'.format(self.seg_id, self.mod_id)
     
 
 class LcnAddrGrp(LcnAddr):

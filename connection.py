@@ -5,9 +5,8 @@ from pypck.pck_commands import PckGenerator
 from pypck import lcn_defs
 from pypck.input import InputParser
 from pypck.lcn_addr import LcnAddrMod, LcnAddrGrp
+from pypck.module import ModuleConnection
 from pypck.timeout_retry import TimeoutRetryHandler, DEFAULT_TIMEOUT_MSEC
-from psutil._common import addr
- 
 
 
 class PchkConnection(asyncio.Protocol):
@@ -39,6 +38,7 @@ class PchkConnection(asyncio.Protocol):
             self.logger.info('Connection lost.')
         super().connection_lost(error)
    
+    @property
     def is_socket_connected(self):
         return self.transport != None
    
@@ -114,11 +114,10 @@ class PchkConnectionManager(PchkConnection):
     def physical_to_logical(self, addr):
         return LcnAddrMod(self.local_seg_id if addr.get_seg_id() == 0 else addr.get_seg_id(), addr.get_mod_id())
 
-    def on_ack(self, addr, code):
-        # TODO:  Continue development in LcnAddrMod 
-        info = self.mod_data.get(addr, None)
-#        if info is not None:
-#            info.on_ack(code)
+#     def on_ack(self, addr, code):
+#         info = self.mod_data.get(addr, None)
+#         if info is not None:
+#             info.on_ack(code, DEFAULT_TIMEOUT_MSEC)
 
     def is_ready(self):
         """
@@ -127,23 +126,24 @@ class PchkConnectionManager(PchkConnection):
 
         @return true if everything is set-up        
         """
-        return self.is_socket_conneted & self.is_lcn_connected & (self.local_seg_id != -1)
+        return self.is_socket_connected & self.is_lcn_connected & (self.local_seg_id != -1)
  
     def get_mod_info(self, addr):
-        return self.mod_data.get(addr)
+        info = self.mod_data.get(addr, None)
+        return info
  
-# TODO: Has this to be implemented?
-#     def update_module_data(self):
-#         """
-#         Creates and/or returns cached data for the given LCN module.
-#         @param addr the module's address
-#         @return the data (never null)       
-#         """
-#         data = self.mod_data.get(addr, None)
-#         if data != None:
-#             data = ModInfo(addr)
-#             self.mod_data[addr] = data
-#         return data
+    def update_module_data(self, addr):
+        """
+        Creates and/or returns cached data for the given LCN module.
+        @param addr the module's address
+        @return the data (never null)       
+        """
+        data = self.mod_data.get(addr, None)
+        if data is None:
+            data = ModuleConnection(loop, self, addr.seg_id, addr.mod_id)
+            self.mod_data[addr] = data
+            self.start_status_request_handlers(data)
+        return data
     
     async def send_ping(self):
         # Send a ping command to keep the connection to LCN-PCHK alive.
@@ -156,15 +156,22 @@ class PchkConnectionManager(PchkConnection):
     def segment_scan_timeout(self, num_retry):
         if num_retry == 0:
             self.logger.info('No segment coupler found.')
+            self.set_local_seg_id(0)
         else:
             self.send_module_command(LcnAddrGrp(3, 3), False, PckGenerator.segment_coupler_scan())
+ 
+        for data in self.mod_data.values():
+            self.start_status_request_handlers(data)
+ 
+    def start_status_request_handlers(self, module_connection):
+        #TODO: Start StatusRequest TimoutRetryHandlers
  
     def send_module_command(self, addr, wants_ack, pck):
         """
         Sends a command to the specified module or group.
         """
         if (not addr.is_group()) & wants_ack:
-            self.update_module_data(addr).send_command_with_ack(pck, self, DEFAULT_TIMEOUT_MSEC)
+            self.update_module_data(addr).schedule_command_with_ack(pck, self, DEFAULT_TIMEOUT_MSEC)
         else:
             self.send_command(PckGenerator.generate_address_header(addr, self.local_seg_id, wants_ack) + pck)
  
@@ -179,6 +186,7 @@ if __name__ == '__main__':
  
     loop = asyncio.get_event_loop()
     connection = PchkConnectionManager(loop, '10.1.2.3', 4114, 'lcn', 'lcn')
+    connection.update_module_data(LcnAddrMod(0, 7))
     connection.connect()
     loop.run_forever()
     loop.close()
