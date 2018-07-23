@@ -61,10 +61,11 @@ class PchkConnection(asyncio.Protocol):
 class PchkConnectionManager(PchkConnection):
     """
     Has the following tasks:
+    - Initiates login procedure.
     - Ping PCHK.
     - Parse incoming commands and create input objects.
     - Calls input object's process method.
-    - If command has a module source, send input object to appropriate modules.
+    - Updates seg_id of ModuleConnections if segment scan finishes. 
     """
     def __init__(self, loop, server_addr, port, username, password):
         super().__init__(loop, server_addr, port, username, password)
@@ -78,7 +79,9 @@ class PchkConnectionManager(PchkConnection):
         self.is_lcn_connected = False
         self.local_seg_id = -1
        
-        self.mod_data = {}
+        # All modules from or to a communication occurs are represented by a unique ModuleConnection object.
+        # All ModuleConnection objects are stored in this dictionary.
+        self.module_conns = {}
         
         self.status_segment_scan = TimeoutRetryHandler(loop, 3, DEFAULT_TIMEOUT_MSEC)
        
@@ -102,22 +105,26 @@ class PchkConnectionManager(PchkConnection):
             self.status_segment_scan.reset()
             # While we are disconnected we will miss all status messages.
             # Clearing our runtime data will give us a fresh start.
-            self.mod_data.clear()
+            self.module_conns.clear()
 
     def set_local_seg_id(self, local_seg_id):
         """
         Sets the local segment id.
         """
+        old_local_seg_id = self.local_seg_id
+
         self.local_seg_id = local_seg_id
-        self.status_segment_scan.cancel()
+        # replace all module_conns with current local_seg_id with new local_seg_id
+        for addr in self.module_conns:
+            if addr.seg_id == old_local_seg_id:
+                module_conn = self.module_conns.pop(addr)
+                module_conn.seg_id = self.local_seg_id
+                self.module_conns[LcnAddrMod(self.local_seg_id, addr.mod_id)] = module_conn
+                
+        # self.status_segment_scan.cancel()
  
     def physical_to_logical(self, addr):
         return LcnAddrMod(self.local_seg_id if addr.get_seg_id() == 0 else addr.get_seg_id(), addr.get_mod_id())
-
-#     def on_ack(self, addr, code):
-#         info = self.mod_data.get(addr, None)
-#         if info is not None:
-#             info.on_ack(code, DEFAULT_TIMEOUT_MSEC)
 
     def is_ready(self):
         """
@@ -126,25 +133,41 @@ class PchkConnectionManager(PchkConnection):
 
         @return true if everything is set-up        
         """
-        return self.is_socket_connected & self.is_lcn_connected & (self.local_seg_id != -1)
+        return self.is_socket_connected and self.is_lcn_connected and (self.local_seg_id != -1)
  
-    def get_mod_info(self, addr):
-        info = self.mod_data.get(addr, None)
-        return info
- 
-    def update_module_data(self, addr):
+    def get_module_conn(self, addr):
+        module_conn = self.module_conns.get(addr, None)
+        return module_conn
+     
+    def update_module_conn(self, addr):
         """
         Creates and/or returns cached data for the given LCN module.
         @param addr the module's address
         @return the data (never null)       
         """
-        data = self.mod_data.get(addr, None)
-        if data is None:
-            data = ModuleConnection(loop, self, addr.seg_id, addr.mod_id)
-            self.mod_data[addr] = data
-            self.start_status_request_handlers(data)
-        return data
+        module_conn = self.module_conns.get(addr, None)
+        if module_conn is None:
+            module_conn = ModuleConnection(loop, self, addr.seg_id, addr.mod_id)
+            self.module_conns[addr] = module_conn
+            
+            # Check if segment scan has finished and activate module's request handlers immediately (good for manually added module_conns).
+            # Otherwise module's request handlers will be started, if segment scan finishes.  
+            if self.is_ready():
+                module_conn.activate_status_request_handlers()
+        return module_conn
     
+    def segment_scan_timeout(self, failed):
+        """
+        Gets called if no response from segment coupler was received.
+        """
+        if failed:
+            self.logger.info('No segment coupler found.')
+            self.set_local_seg_id(0)
+            for module_conn in self.module_conns.values():
+                module_conn.activate_status_request_handlers()
+        else:
+            self.send_module_command(LcnAddrGrp(3, 3), False, PckGenerator.segment_coupler_scan())
+ 
     async def send_ping(self):
         # Send a ping command to keep the connection to LCN-PCHK alive.
         # (default is every 10 minutes)
@@ -152,26 +175,13 @@ class PchkConnectionManager(PchkConnection):
             self.send_command('^ping{:d}'.format(self.ping_counter))
             self.ping_counter += 1
             await asyncio.sleep(self.ping_interval)
-
-    def segment_scan_timeout(self, num_retry):
-        if num_retry == 0:
-            self.logger.info('No segment coupler found.')
-            self.set_local_seg_id(0)
-        else:
-            self.send_module_command(LcnAddrGrp(3, 3), False, PckGenerator.segment_coupler_scan())
- 
-        for data in self.mod_data.values():
-            self.start_status_request_handlers(data)
- 
-    def start_status_request_handlers(self, module_connection):
-        #TODO: Start StatusRequest TimoutRetryHandlers
  
     def send_module_command(self, addr, wants_ack, pck):
         """
         Sends a command to the specified module or group.
         """
-        if (not addr.is_group()) & wants_ack:
-            self.update_module_data(addr).schedule_command_with_ack(pck, self, DEFAULT_TIMEOUT_MSEC)
+        if (not addr.is_group()) and wants_ack:
+            self.update_module_conn(addr).schedule_command_with_ack(pck, self, DEFAULT_TIMEOUT_MSEC)
         else:
             self.send_command(PckGenerator.generate_address_header(addr, self.local_seg_id, wants_ack) + pck)
  
@@ -186,7 +196,7 @@ if __name__ == '__main__':
  
     loop = asyncio.get_event_loop()
     connection = PchkConnectionManager(loop, '10.1.2.3', 4114, 'lcn', 'lcn')
-    connection.update_module_data(LcnAddrMod(0, 7))
+    connection.update_module_conn(LcnAddrMod(0, 7))
     connection.connect()
     loop.run_forever()
     loop.close()

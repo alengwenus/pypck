@@ -72,7 +72,7 @@ class PckParser(object):
     PATTERN_STATUS_KEYLOCKS = re.compile(r'=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.TX(?P<table0>\d{3})(?P<table1>\d{3})(?P<table2>\d{3})((?P<table3>\d{3}))?')
    
     @staticmethod
-    def getBooleanValue(input_byte):
+    def get_boolean_value(input_byte):
         if input_byte < 0 or input_byte > 255:
             raise ValueError('Invalid input_byte.')
         
@@ -154,7 +154,7 @@ class PckGenerator(object):
         @param outputId 0..3
         @return the PCK command (without address header) as text
         """
-        if output_id < 0 or output_id > 3:
+        if (output_id < 0) or (output_id > 3):
             raise ValueError('Invalid output_id.')
         return 'SMA{:d}'.format(output_id + 1)
 
@@ -168,7 +168,7 @@ class PckGenerator(object):
         @param ramp use {@link LcnDefs#timeToRampValue(int)}
         @return the PCK command (without address header) as text
         """
-        if output_id < 0 or output_id > 3:
+        if (output_id < 0) or (output_id > 3:)
             raise ValueError('Invalid output_id.')
         n = round(percent*2)
         if (n % 2) == 0:    # Use the percent command (supported by all LCN-PCHK versions)
@@ -176,12 +176,74 @@ class PckGenerator(object):
         else:               # We have a ".5" value. Use the native command (supported since LCN-PCHK 2.3)
             return 'O{:d}DI{:03d}{:03d}'.format(output_id + 1, n, ramp)
     
-    @staticmethod   
-    def request_relay_status():
+    @staticmethod
+    def dim_all_outputs(percent, ramp, is1805=False):
         """
-        Generates a command to control relays.
+        Generates a dim command for all output-ports.
+
+        @param percent 0..100
+        @param ramp use {@link LcnDefs#timeToRampValue(int)} (might be ignored in some cases)
+        @param is1805 true if the target module's firmware is 180501 or newer
+        @return the PCK command (without address header) as text        
+        """
+        n = round(percent * 2)
+        if is1805:
+            return 'OY{:03d}{:03d}{:03d}{:03d}{:03d}'.format(n, n, n, n, ramp)  # Supported since LCN-PCHK 2.61
+        
+        if n == 0:  # All off
+            return 'AA{:03d}'.format(ramp)
+        elif (n == 200):    # All on
+            return 'AE{:03d}'.format(ramp)
+        
+        # This is our worst-case: No high-res, no ramp
+        return 'AH{:03d}'.format(n / 2) 
+    
+    @staticmethod
+    def rel_output(output_id, percent):
+        """
+        Generates a command to change the value of an output-port.
+
+        @param outputId 0..3
+        @param percent -100..100
+        @return the PCK command (without address header) as text
+        """
+        if (output_id < 0) or (output_id > 3):
+            raise ValueError('Invalid output_id.')
+        
+        n = round(percent * 2)
+        if n % 2 == 0:  # Use the percent command (supported by all LCN-PCHK versions)
+            return 'A{:d}{:s}{:03d}'.format(output_id + 1, 'AD' if percent >= 0 else 'SB', abs(n / 2))
+        else:   # We have a ".5" value. Use the native command (supported since LCN-PCHK 2.3)
+            return 'O{:d}{:s}{:03d}'.format(output_id + 1, 'AD' if percent >= 0 else 'SB', abs(n))
+    
+    @staticmethod
+    def toggle_output(output_id, ramp):
+        """
+        Generates a command that toggles a single output-port (on->off, off->on).
+
+        @param outputId 0..3
+        @param ramp see {@link LcnDefs#timeToRampValue(int)}
+        @return the PCK command (without address header) as text        
+        """
+        if (output_id < 0) or (output_id > 3):
+            raise ValueError('Invalid output_id.')
+        return 'A{:d}TA{:03d}'.format(output_id, ramp)
+    
+    @staticmethod
+    def toggle_all_outputs(ramp):
+        """
+        Generates a command that toggles all output-ports (on->off, off->on).
+
+        @param ramp see {@link LcnDefs#timeToRampValue(int)}
+        @return the PCK command (without address header) as text        
+        """
+        return 'AU{:03d}'.format(ramp)
+    
+    @staticmethod   
+    def request_relays_status():
+        """
+        Generates a relays-status request.
          
-        @param states the 8 modifiers for the relay states
         @return the PCK command (without address header) as text
         """
         return 'SMR'
@@ -209,4 +271,13 @@ class PckGenerator(object):
             else:
                 raise ValueError('Invalid state.')
         return ret
+
+    @staticmethod   
+    def request_bin_sensors_status():
+        """
+        Generates a binary-sensors status request.
+         
+        @return the PCK command (without address header) as text
+        """
+        return 'SMB'
     

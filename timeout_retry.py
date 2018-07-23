@@ -14,7 +14,7 @@ class TimeoutRetryHandler(object):
         """
         Constructor.
        
-        @param numTries the maximum number of tries until the request is marked as failed
+        @param numTries the maximum number of tries until the request is marked as failed (-1 means forever)
         """
         self.logger = logging.getLogger(self.__class__.__name__)
  
@@ -30,19 +30,19 @@ class TimeoutRetryHandler(object):
         """
         timeout_callback function is called, if timeout expires.
         Function has to take one argument:
-            num_tries_left:  If 0, no further call to timeout_callback function will occur.
+            returns failed state (True if failed)
         """
         self._timeout_callback = func
  
     def on_timeout(self):
         if self._timeout_callback is not None:
-            self._timeout_callback(self._num_tries_left)
+            self._timeout_callback(self._num_tries_left == 0)
  
         if self._num_tries_left == 0:
             self.cancel()
             return
-       
-        self._num_tries_left -= 1
+        elif self._num_tries_left > 0 :
+            self._num_tries_left -= 1
         self._timeout_handle = self.loop.call_later(self._timeout_msec/1000, self.on_timeout)
  
     def reset(self):
@@ -56,7 +56,7 @@ class TimeoutRetryHandler(object):
         Checks whether the request logic is active.
         """
         return self._timeout_handle is not None
-       
+
     def activate(self, timeout_callback = None):
         """
         Schedules the next request.

@@ -127,12 +127,14 @@ class ModAck(ModInput):
            
     def process(self, conn):
         super().process(conn)   # Will replace source segment 0 with the local segment id
-        info = conn.get_mod_info(self.logical_source_addr)
-        if info is not None:
-            info.on_ack(self.code, conn.DEFAULT_TIMEOUT_MSEC)       
+        module_conn = conn.update_module_conn(self.logical_source_addr)
+        module_conn.on_ack(self.code, conn.DEFAULT_TIMEOUT_MSEC)       
  
  
 class ModSk(ModInput):
+    """
+    Segment information received from an LCN segment coupler.
+    """
     def __init__(self, physical_source_addr, reported_seg_id):
         super().__init__(physical_source_addr)
         self.reported_seg_id = reported_seg_id
@@ -152,6 +154,37 @@ class ModSk(ModInput):
         if self.physical_source_addr.seg_id == 0:
             conn.set_local_seg_id(self.reported_seg_id)
         super().process(conn)   # Will replace source segment 0 with the local segment id
+        conn.status_segment_scan.cancel()
+        for module_conn in conn.module_conns.values():
+            module_conn.activate_status_request_handlers()
+
+
+class ModSn(ModInput):
+    """
+    Serial number and firmware version received from an LCN module.
+    """
+    def __init__(self, physical_source_addr, sw_age):
+        super().__init__(physical_source_addr)
+        self.sw_age = sw_age
+   
+    def get_sw_age(self):
+        return self.sw_age
+   
+    @staticmethod
+    def try_parse(input):
+        matcher = PckParser.PATTERN_SN.match(input)
+        if matcher:
+            addr = LcnAddrMod(int(matcher.group('seg_id')),
+                              int(matcher.group('mod_id')))
+            return ModSn(addr, int(matcher.group('sw_age'), 16))
+ 
+    def process(self, conn):
+        super().process(conn)   # Will replace source segment 0 with the local segment id
+        module_conn = conn.update_module_conn(self.logical_source_addr)
+        module_conn.set_sw_age(self.sw_age)        
+        module_conn.request_sw_age.cancel()
+        module_conn.initialize_variables()
+
 
 
 class ModStatusOutput(ModInput):
@@ -185,38 +218,75 @@ class ModStatusOutput(ModInput):
 
     def process(self, conn):
         super().process(conn)   # Will replace source segment 0 with the local segment id
-        info = conn.get_mod_info(self.logical_source_addr)
-        if info is not None:
-            info.request_status_outputs[self.output_id].cancel()
-            info.new_input(self)
+        module_conn = conn.update_module_conn(self.logical_source_addr)
+        #module_conn.request_status_outputs[self.output_id].cancel()
+        module_conn.new_input(self)
 
 
-# ### Inputs send to modules
-# 
-# class OutputDimAbs(ModInput):
-#     # Pattern to parse ON and OFF commands (shortcuts for DIM 0 and DIM 100).
-#     PATTERN_ONOFF = re.compile(r'(?P<outputId>[1234]|(ALL))(\.(?P<ramp>\d+(,\d+)?(?P<timeUnit>.+)))?')
-#     # Pattern to parse DIM commands.
-#     PATTERN_DIM = re.compile(r'(?P<outputId>[1234]|(ALL))\.(?P<value>\d+(,\d+)?)%(\.(?P<ramp>\d+(,\d+)?(?P<timeUnit>.+)))?')
-#     # Pattern to parse DIM commands with i%.
-#     PATTERN_DIMI = re.compile(r'(?P<outputId>[1234]|(ALL))\.%i(\.(?P<ramp>\d+(,\d+)?(?P<timeUnit>.+)))?')
-#     
-#     def __init__(self, physical_source_addr, output_id, percent, ramp_msec):
-#         super().__init__(physical_source_addr)
-#         self.output_id = output_id
-#         self.percent = percent
-#         self.ramp_msec = ramp_msec
-#     
-#     @staticmethod
-#     def try_parse(input):
-#         pass
-#     
-#     def process(self, conn):
-#         super().process(conn)   # Will replace source segment 0 with the local segment id
-#         info = conn.get_mod_info(self.logical_source_addr)
-#         if info is not None:
-#             info.request_status_outputs[self.output_id].cancel()
-#             info.new_command(self)
+class ModStatusRelays(ModInput):
+    """
+    Status of 8 relays received from an LCN module.
+    """
+    def __init__(self, physical_source_addr, states):
+        super().__init__(physical_source_addr)
+        self.states = states
+        
+    def get_state(self, relay_id):
+        """
+        Gets the state of a single relay.
+        
+        @param relay_id 0..7
+        @return the relay's state
+        """
+        return self.states[relay_id]
+    
+    @staticmethod
+    def try_parse(input):
+        matcher = PckParser.PATTERN_STATUS_RELAYS.match(input)
+        if matcher:
+            addr = LcnAddrMod(int(matcher.group('seg_id')),
+                              int(matcher.group('mod_id')))
+            return ModStatusRelays(addr, PckParser.get_boolean_value(matcher.group('byte_value')))
+
+    def process(self, conn):
+        super().process(conn)   # Will replace source segment 0 with the local segment id
+        module_conn = conn.update_module_conn(self.logical_source_addr)
+        # module_conn.request_status_relays.cancel()
+        module_conn.new_input(self)
+
+
+class ModStatusBinSensors(ModInput):
+    """
+    Status of 8 binary sensors received from an LCN module.
+    """
+    def __init__(self, physical_source_addr, states):
+        super().__init__(physical_source_addr)
+        self.states = states
+        
+    def get_state(self, bin_sensor_id):
+        """
+        Gets the state of a single binary-sensor.
+        
+        @param bin_sensor_id 0..7
+        @return the binary-sensor's state
+        """
+        return self.states[bin_sensor_id]
+    
+    @staticmethod
+    def try_parse(input):
+        matcher = PckParser.PATTERN_STATUS_BINSENSORS.match(input)
+        if matcher:
+            addr = LcnAddrMod(int(matcher.group('seg_id')),
+                              int(matcher.group('mod_id')))
+            return ModStatusRelays(addr, PckParser.get_boolean_value(matcher.group('byte_value')))
+
+    def process(self, conn):
+        super().process(conn)   # Will replace source segment 0 with the local segment id
+        module_conn = conn.update_module_conn(self.logical_source_addr)
+        # module_conn.request_status_relays.cancel()
+        module_conn.new_input(self)
+
+
 
 ### Other inputs
            

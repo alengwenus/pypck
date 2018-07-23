@@ -1,6 +1,7 @@
 from collections import deque
 
 from pypck.lcn_addr import LcnAddrMod
+from pypck import lcn_defs
 from pypck.pck_commands import PckParser, PckGenerator
 from pypck.timeout_retry import TimeoutRetryHandler
 import pck_commands
@@ -32,26 +33,33 @@ class ModuleConnection(LcnAddrMod):
         
         # Firmware version request status
         self.request_sw_age = TimeoutRetryHandler(NUM_TRIES)
+        self.request_sw_age.set_timeout_callback(self.request_sw_age_timeout)
     
         # Output-port request status (0..3)
-        self.request_status_outputs = [TimeoutRetryHandler(NUM_TRIES, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC) for i in range(4)]
-    
+        self.request_status_outputs = [TimeoutRetryHandler(-1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC) for i in range(4)]
+        for output_id in range(4):
+            self.request_status_outputs[output_id].set_timeout_callback(lambda failed: self.request_status_outputs_timeout(failed, output_id))
+        
         # Relay request status (all 8)
-        self.request_status_relays = TimeoutRetryHandler(NUM_TRIES, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC)
+        self.request_status_relays = TimeoutRetryHandler(-1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC)
+        self.request_status_relays.set_timeout_callback(self.request_status_relays_timeout)
         
         # Binary-sensors request status (all 8)
-        self.request_status_bin_sensors = TimeoutRetryHandler(NUM_TRIES, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC)
-    
+        self.request_status_bin_sensors = TimeoutRetryHandler(-1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC)
+        self.request_status_bin_sensors.set_timeout_callback(self.request_status_bin_sensors_timeout)
+        
         # Variables request status.
         # Lazy initialization: Will be filled once the firmware version is known.
-        self.request_status_vars = []
+        self.request_status_vars = {}
      
         # LEDs and logic-operations request status (all 12+4).
-        self.request_status_leds_and_logic_ops = TimeoutRetryHandler(NUM_TRIES, MAX_STATUS_POLLED_VALUEAGE_MSEC)
+        self.request_status_leds_and_logic_ops = TimeoutRetryHandler(-1, MAX_STATUS_POLLED_VALUEAGE_MSEC)
+        self.request_status_leds_and_logic_ops.set_timeout_callback(self.request_status_leds_and_logic_ops_timeout)
      
         # Key lock-states request status (all tables, A-D).
-        self.request_status_locked_keys = TimeoutRetryHandler(NUM_TRIES, MAX_STATUS_POLLED_VALUEAGE_MSEC)
-    
+        self.request_status_locked_keys = TimeoutRetryHandler(-1, MAX_STATUS_POLLED_VALUEAGE_MSEC)
+        self.request_status_locked_keys.set_timeout_callback(self.request_status_locked_keys_timeout)    
+        
         self.request_curr_pck_command_with_ack = TimeoutRetryHandler(NUM_TRIES)
         self.request_curr_pck_command_with_ack.set_timeout_callback(self.request_curr_pck_command_with_ack_timeout)
         
@@ -61,6 +69,23 @@ class ModuleConnection(LcnAddrMod):
         # Commands are always without address header.
         # Note that the first one might currently be "in progress".
         self.pck_commands_with_ack = deque()
+
+    def activate_status_request_handlers(self):
+        self.request_sw_age.activate()
+        for output_id in range(4):
+            self.request_status_outputs[output_id].activate()
+        self.request_status_relays.activate()
+        self.request_status_bin_sensors.activate()
+    
+        #TODO: status_vars, status_leds_and_logic_ops, status_locked_keys
+
+    def initialize_variables(self):
+        # Firmware version has to be set first
+        if self.sw_age != -1:
+            if len(self.request_status_vars) == 0:
+                for var in lcn_defs.var.values():
+                    if var != lcn_defs.var.UNKNOWN:
+                        self.request_status_vars[var] = TimeoutRetryHandler(-1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC if self.sw_age >= 0x170206 else MAX_STATUS_POLLED_VALUEAGE_MSEC)
     
     def get_sw_age(self):
         """
@@ -126,14 +151,14 @@ class ModuleConnection(LcnAddrMod):
         @param timeoutMSec the time to wait for a response before retrying a request
         @return true if a new command was sent
         """
-        if (len(self.pck_commands_with_ack) > 0) & (not self.request_curr_pck_command_with_ack.is_active()):
+        if (len(self.pck_commands_with_ack) > 0) and (not self.request_curr_pck_command_with_ack.is_active()):
             self.request_curr_pck_command_with_ack.activate()
     
-    def request_curr_pck_command_with_ack_timeout(self, num_retry):
+    def request_curr_pck_command_with_ack_timeout(self, failed):
         # Use the chance to remove a failed command first
-        if num_retry == 0:
+        if failed:
             self.pck_commands_with_ack.popleft()
-            self.request_curr_pck_command_with_ack.reset()
+            # self.request_curr_pck_command_with_ack.reset()
             self.try_process_next_command_with_ack()
         else:
             pck = self.pck_commands_with_ack[0]
@@ -146,24 +171,95 @@ class ModuleConnection(LcnAddrMod):
         """
         pass
     
+
+    ### Status requests timeout methods
+    def request_sw_age_timeout(self, failed):
+        if not failed:
+            cmd = PckGenerator.request_sn()
+            self.conn.send_module_command(self, not self.is_group(), cmd)
+    
+    def request_status_outputs_timeout(self, failed, output_id):
+        if not failed:
+            cmd = PckGenerator.request_output_status(output_id)
+            self.conn.send_module_command(self, not self.is_group(), cmd)
+
+    def request_status_relays_timeout(self, failed):
+        if not failed:
+            cmd = PckGenerator.request_relays_status()
+            self.conn.send_module_command(self, not self.is_group(), cmd)
+        
+    def request_status_bin_sensors_timeout(self, failed):
+        if not failed:
+            cmd = PckGenerator.request_bin_sensors_status()
+            self.conn.send_module_command(self, not self.is_group(), cmd)
+
+    def request_status_leds_and_logic_ops_timeout(self, failed):
+        pass
+    
+    def request_status_locked_keys_timeout(self, failed):
+        pass
+
+
+    ### Methods for sending PCK commands
+    
     def dim_output(self, output_id, percent, ramp):
         """
-        Generates a dim command for a single output-port and sends it to the connection.
+        Sends a dim command for a single output-port and sends it to the connection.
 
         @param outputId 0..3
         @param percent 0..100
         @param ramp use {@link LcnDefs#timeToRampValue(int)}
         """
-        if output_id < 0 or output_id > 3:
-            raise ValueError('Invalid output_id.')
-        n = round(percent*2)
-        if (n % 2) == 0:    # Use the percent command (supported by all LCN-PCHK versions)
-            cmd = 'A{:d}DI{:03d}{:03d}'.format(output_id + 1, n / 2, ramp)
-        else:               # We have a ".5" value. Use the native command (supported since LCN-PCHK 2.3)
-            cmd = 'O{:d}DI{:03d}{:03d}'.format(output_id + 1, n, ramp)
-        
-        header = PckGenerator.generate_address_header(self, self.get_seg_id(), False)
-        self.conn.queue(header + cmd)
-
+        cmd = PckGenerator.dim_ouput(output_id, percent, ramp)       
+        self.conn.send_module_command(self, not self.is_group(), cmd)
     
+    def dim_all_outputs(self, percent, ramp, is1805=False):
+        """
+        Sends a dim command for all output-ports.
+
+        @param percent 0..100
+        @param ramp use {@link LcnDefs#timeToRampValue(int)} (might be ignored in some cases)
+        @param is1805 true if the target module's firmware is 180501 or newer
+        """
+        cmd = PckGenerator.dim_all_outputs(percent, ramp, is1805)
+        self.conn.send_module_command(self, not self.is_group(), cmd)
+        
+    def rel_output(self, output_id, percent):
+        """
+        Sends a command to change the value of an output-port.
+
+        @param outputId 0..3
+        @param percent -100..100
+        """
+        cmd = PckGenerator.rel_output(output_id, percent)
+        self.conn.send_module_command(self, not self.is_group(), cmd)
+        
+    def toggle_output(self, output_id, ramp):
+        """
+        Sends a command that toggles a single output-port (on->off, off->on).
+
+        @param outputId 0..3
+        @param ramp see {@link LcnDefs#timeToRampValue(int)}
+        """
+        cmd = PckGenerator.toggle_output(output_id, ramp)
+        self.conn.send_module_command(self, not self.is_group(), cmd)
+        
+    def toggle_all_outputs(self, ramp):
+        """
+        Generates a command that toggles all output-ports (on->off, off->on).
+
+        @param ramp see {@link LcnDefs#timeToRampValue(int)}
+        """
+        cmd = PckGenerator.toggle_all_outputs(ramp)
+        self.conn.send_module_command(self, not self.is_group(), cmd)
+        
+    def control_relays(self, states):
+        """
+        Sends a command to control relays.
+
+        @param states the 8 modifiers for the relay states as a list
+        """
+        cmd = PckGenerator.control_relays(states)
+        self.conn.send_module_command(self, not self.is_group(), cmd)
+        
     
