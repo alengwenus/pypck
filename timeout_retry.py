@@ -26,6 +26,12 @@ class TimeoutRetryHandler(object):
        
         self.reset()
        
+    def is_active(self):
+        """
+        Checks whether the request logic is active.
+        """
+        return self._timeout_handle is not None
+       
     def set_timeout_callback(self, func):
         """
         timeout_callback function is called, if timeout expires.
@@ -43,6 +49,7 @@ class TimeoutRetryHandler(object):
             return
         elif self._num_tries_left > 0 :
             self._num_tries_left -= 1
+        #print('Init next handle')
         self._timeout_handle = self.loop.call_later(self._timeout_msec/1000, self.on_timeout)
  
     def reset(self):
@@ -51,12 +58,6 @@ class TimeoutRetryHandler(object):
             self._timeout_handle = None
         self._num_tries_left = 0
        
-    def is_active(self):
-        """
-        Checks whether the request logic is active.
-        """
-        return self._timeout_handle is not None
-
     def activate(self, timeout_callback = None):
         """
         Schedules the next request.
@@ -83,8 +84,8 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     trh = TimeoutRetryHandler(loop, timeout_msec = 1000)
     trh.activate(timeout_callback)
-    loop.call_later(0.5, lambda: print('Is active:', trh.is_active()))
+    loop.call_later(0.5, lambda: print('Is active:', trh._is_active()))
     loop.call_later(1.5, trh.cancel)
-    loop.call_later(2.0, lambda: print('Is active:', trh.is_active()))
+    loop.call_later(2.0, lambda: print('Is active:', trh._is_active()))
    
     loop.run_forever()

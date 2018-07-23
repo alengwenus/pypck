@@ -32,20 +32,23 @@ class ModuleConnection(LcnAddrMod):
         self.sw_age = -1
         
         # Firmware version request status
-        self.request_sw_age = TimeoutRetryHandler(NUM_TRIES)
+        self.request_sw_age = TimeoutRetryHandler(self.loop, NUM_TRIES)
         self.request_sw_age.set_timeout_callback(self.request_sw_age_timeout)
     
         # Output-port request status (0..3)
-        self.request_status_outputs = [TimeoutRetryHandler(-1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC) for i in range(4)]
-        for output_id in range(4):
-            self.request_status_outputs[output_id].set_timeout_callback(lambda failed: self.request_status_outputs_timeout(failed, output_id))
+        self.request_status_outputs = [TimeoutRetryHandler(self.loop, -1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC) for i in range(4)]
+        #for output_id in range(4):
+        self.request_status_outputs[0].set_timeout_callback(lambda failed: self.request_status_outputs_timeout(failed, 0))
+        self.request_status_outputs[1].set_timeout_callback(lambda failed: self.request_status_outputs_timeout(failed, 1))
+        self.request_status_outputs[2].set_timeout_callback(lambda failed: self.request_status_outputs_timeout(failed, 2))
+        self.request_status_outputs[3].set_timeout_callback(lambda failed: self.request_status_outputs_timeout(failed, 3))
         
         # Relay request status (all 8)
-        self.request_status_relays = TimeoutRetryHandler(-1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC)
+        self.request_status_relays = TimeoutRetryHandler(self.loop, -1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC)
         self.request_status_relays.set_timeout_callback(self.request_status_relays_timeout)
         
         # Binary-sensors request status (all 8)
-        self.request_status_bin_sensors = TimeoutRetryHandler(-1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC)
+        self.request_status_bin_sensors = TimeoutRetryHandler(self.loop, -1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC)
         self.request_status_bin_sensors.set_timeout_callback(self.request_status_bin_sensors_timeout)
         
         # Variables request status.
@@ -53,14 +56,14 @@ class ModuleConnection(LcnAddrMod):
         self.request_status_vars = {}
      
         # LEDs and logic-operations request status (all 12+4).
-        self.request_status_leds_and_logic_ops = TimeoutRetryHandler(-1, MAX_STATUS_POLLED_VALUEAGE_MSEC)
+        self.request_status_leds_and_logic_ops = TimeoutRetryHandler(self.loop, -1, MAX_STATUS_POLLED_VALUEAGE_MSEC)
         self.request_status_leds_and_logic_ops.set_timeout_callback(self.request_status_leds_and_logic_ops_timeout)
      
         # Key lock-states request status (all tables, A-D).
-        self.request_status_locked_keys = TimeoutRetryHandler(-1, MAX_STATUS_POLLED_VALUEAGE_MSEC)
+        self.request_status_locked_keys = TimeoutRetryHandler(self.loop, -1, MAX_STATUS_POLLED_VALUEAGE_MSEC)
         self.request_status_locked_keys.set_timeout_callback(self.request_status_locked_keys_timeout)    
         
-        self.request_curr_pck_command_with_ack = TimeoutRetryHandler(NUM_TRIES)
+        self.request_curr_pck_command_with_ack = TimeoutRetryHandler(self.loop, NUM_TRIES)
         self.request_curr_pck_command_with_ack.set_timeout_callback(self.request_curr_pck_command_with_ack_timeout)
         
 #TODO: #        self.last_requested_var_without_type_in_response = LcnDefs.Var.UNKNOWN
@@ -85,7 +88,7 @@ class ModuleConnection(LcnAddrMod):
             if len(self.request_status_vars) == 0:
                 for var in lcn_defs.var.values():
                     if var != lcn_defs.var.UNKNOWN:
-                        self.request_status_vars[var] = TimeoutRetryHandler(-1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC if self.sw_age >= 0x170206 else MAX_STATUS_POLLED_VALUEAGE_MSEC)
+                        self.request_status_vars[var] = TimeoutRetryHandler(self.loop, -1, MAX_STATUS_EVENTBASED_VALUEAGE_MSEC if self.sw_age >= 0x170206 else MAX_STATUS_POLLED_VALUEAGE_MSEC)
     
     def get_sw_age(self):
         """
@@ -136,8 +139,9 @@ class ModuleConnection(LcnAddrMod):
         @param code the LCN internal code. -1 means "positive" acknowledge
         @param timeoutMSec the time to wait for a response before retrying a request
         """
+        #print('Ack received!')
         if self.request_curr_pck_command_with_ack.is_active(): # Check if we wait for an ack.
-            if len(self.pck_commands_with_ack.maxlen) > 0:
+            if len(self.pck_commands_with_ack) > 0:
                 self.pck_commands_with_ack.popleft()
             self.request_curr_pck_command_with_ack.reset()
             # Try to process next acknowledged command
@@ -156,19 +160,21 @@ class ModuleConnection(LcnAddrMod):
     
     def request_curr_pck_command_with_ack_timeout(self, failed):
         # Use the chance to remove a failed command first
+        #print('AckTimeout', failed)
         if failed:
             self.pck_commands_with_ack.popleft()
             # self.request_curr_pck_command_with_ack.reset()
             self.try_process_next_command_with_ack()
         else:
             pck = self.pck_commands_with_ack[0]
-            self.conn.send_module_command(self.addr, False, pck)
+            self.conn.send_command(PckGenerator.generate_address_header(self, self.conn.local_seg_id, True) + pck)
     
     def new_input(self, input_obj):
         """
         Usually gets called by input object's process method.
         Method to handle incoming commands for this specific module (status, toggle_output, switch_relays, ...)
         """
+        #print(input_obj)
         pass
     
 
@@ -176,7 +182,7 @@ class ModuleConnection(LcnAddrMod):
     def request_sw_age_timeout(self, failed):
         if not failed:
             cmd = PckGenerator.request_sn()
-            self.conn.send_module_command(self, not self.is_group(), cmd)
+            self.conn.send_module_command(self, False, cmd)
     
     def request_status_outputs_timeout(self, failed, output_id):
         if not failed:

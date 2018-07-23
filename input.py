@@ -3,7 +3,7 @@ import re
  
 from pypck.pck_commands import PckParser, PckGenerator
 from pypck.lcn_addr import LcnAddrMod
- 
+from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC
  
 class Input(object):
     """
@@ -112,7 +112,7 @@ class ModAck(ModInput):
         return self.code
  
     @staticmethod
-    def try_parse(self, input):
+    def try_parse(input):
         matcher_pos = PckParser.PATTERN_ACK_POS.match(input)
         if matcher_pos:
             addr = LcnAddrMod(int(matcher_pos.group('seg_id')),
@@ -128,7 +128,7 @@ class ModAck(ModInput):
     def process(self, conn):
         super().process(conn)   # Will replace source segment 0 with the local segment id
         module_conn = conn.update_module_conn(self.logical_source_addr)
-        module_conn.on_ack(self.code, conn.DEFAULT_TIMEOUT_MSEC)       
+        module_conn.on_ack(self.code, DEFAULT_TIMEOUT_MSEC)       
  
  
 class ModSk(ModInput):
@@ -180,8 +180,11 @@ class ModSn(ModInput):
  
     def process(self, conn):
         super().process(conn)   # Will replace source segment 0 with the local segment id
+        #print(self.logical_source_addr)
         module_conn = conn.update_module_conn(self.logical_source_addr)
-        module_conn.set_sw_age(self.sw_age)        
+        #print(module_conn.seg_id, module_conn.mod_id)
+        #print(conn.module_conns)
+        module_conn.set_sw_age(self.sw_age)
         module_conn.request_sw_age.cancel()
         module_conn.initialize_variables()
 
@@ -246,7 +249,7 @@ class ModStatusRelays(ModInput):
         if matcher:
             addr = LcnAddrMod(int(matcher.group('seg_id')),
                               int(matcher.group('mod_id')))
-            return ModStatusRelays(addr, PckParser.get_boolean_value(matcher.group('byte_value')))
+            return ModStatusRelays(addr, PckParser.get_boolean_value(int(matcher.group('byte_value'))))
 
     def process(self, conn):
         super().process(conn)   # Will replace source segment 0 with the local segment id
@@ -278,7 +281,7 @@ class ModStatusBinSensors(ModInput):
         if matcher:
             addr = LcnAddrMod(int(matcher.group('seg_id')),
                               int(matcher.group('mod_id')))
-            return ModStatusRelays(addr, PckParser.get_boolean_value(matcher.group('byte_value')))
+            return ModStatusRelays(addr, PckParser.get_boolean_value(int(matcher.group('byte_value'))))
 
     def process(self, conn):
         super().process(conn)   # Will replace source segment 0 with the local segment id
@@ -317,7 +320,12 @@ class InputParser(object):
                AuthPassword,
                AuthUsername,
                LcnConnState,
+               ModAck,
+               ModSk,
+               ModSn,
                ModStatusOutput,
+               ModStatusRelays,
+               ModStatusBinSensors,
                Unknown]
     
     @staticmethod

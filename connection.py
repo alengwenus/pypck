@@ -83,7 +83,7 @@ class PchkConnectionManager(PchkConnection):
         # All ModuleConnection objects are stored in this dictionary.
         self.module_conns = {}
         
-        self.status_segment_scan = TimeoutRetryHandler(loop, 3, DEFAULT_TIMEOUT_MSEC)
+        self.status_segment_scan = TimeoutRetryHandler(loop, 1, DEFAULT_TIMEOUT_MSEC)
        
     def on_successful_login(self):
         self.ping_task = self.loop.create_task(self.send_ping())
@@ -148,6 +148,7 @@ class PchkConnectionManager(PchkConnection):
         module_conn = self.module_conns.get(addr, None)
         if module_conn is None:
             module_conn = ModuleConnection(loop, self, addr.seg_id, addr.mod_id)
+            #print(self.module_conns, type(addr), type(module_conn))
             self.module_conns[addr] = module_conn
             
             # Check if segment scan has finished and activate module's request handlers immediately (good for manually added module_conns).
@@ -181,13 +182,13 @@ class PchkConnectionManager(PchkConnection):
         Sends a command to the specified module or group.
         """
         if (not addr.is_group()) and wants_ack:
-            self.update_module_conn(addr).schedule_command_with_ack(pck, self, DEFAULT_TIMEOUT_MSEC)
+            self.update_module_conn(addr).schedule_command_with_ack(pck) #, self, DEFAULT_TIMEOUT_MSEC)
         else:
             self.send_command(PckGenerator.generate_address_header(addr, self.local_seg_id, wants_ack) + pck)
  
     def process_input(self, input):
-        command = InputParser.parse(input)
         self.logger.info('from PCHK: {}'.format(input))
+        command = InputParser.parse(input)
         command.process(self)
     
  

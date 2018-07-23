@@ -33,7 +33,7 @@ class PckParser(object):
     PATTERN_SK_RESPONSE = re.compile(r'=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.SK(?P<id>\d+)')
 
     # Pattern to parse serial number and firmware date responses.
-    PATTERN_SN = re.compile(r'=M(?P<seg_id>\d{3})(?P<mod_id>\d{3}).SN(?P<sn>[0-9|A-F]{10})(?P<manu>[0-9|A-F]{2})FW(?P<swAge>[0-9|A-F]{6})HW(?P<hwType>\d+)')
+    PATTERN_SN = re.compile(r'=M(?P<seg_id>\d{3})(?P<mod_id>\d{3}).SN(?P<sn>[0-9|A-F]{10})(?P<manu>[0-9|A-F]{2})FW(?P<sw_age>[0-9|A-F]{6})HW(?P<hw_type>\d+)')
 
     # Pattern to parse output-port status responses in percent.
     PATTERN_STATUS_OUTPUT_PERCENT = re.compile(r':M(?P<seg_id>\d{3})(?P<mod_id>\d{3})A(?P<output_id>\d)(?P<percent>\d+)')
@@ -73,7 +73,7 @@ class PckParser(object):
    
     @staticmethod
     def get_boolean_value(input_byte):
-        if input_byte < 0 or input_byte > 255:
+        if (input_byte < 0) or (input_byte > 255):
             raise ValueError('Invalid input_byte.')
         
         result = []
@@ -168,7 +168,7 @@ class PckGenerator(object):
         @param ramp use {@link LcnDefs#timeToRampValue(int)}
         @return the PCK command (without address header) as text
         """
-        if (output_id < 0) or (output_id > 3:)
+        if (output_id < 0) or (output_id > 3):
             raise ValueError('Invalid output_id.')
         n = round(percent*2)
         if (n % 2) == 0:    # Use the percent command (supported by all LCN-PCHK versions)
