@@ -6,7 +6,7 @@ from pypck import lcn_defs
 from pypck.input import InputParser
 from pypck.lcn_addr import LcnAddrMod, LcnAddrGrp
 from pypck.module import ModuleConnection
-from pypck.timeout_retry import TimeoutRetryHandler, DEFAULT_TIMEOUT_MSEC
+from pypck.timeout_retry import TimeoutRetryHandler
 
 
 class PchkConnection(asyncio.Protocol):
@@ -58,6 +58,7 @@ class PchkConnection(asyncio.Protocol):
         pass
  
  
+ 
 class PchkConnectionManager(PchkConnection):
     """
     Has the following tasks:
@@ -67,14 +68,17 @@ class PchkConnectionManager(PchkConnection):
     - Calls input object's process method.
     - Updates seg_id of ModuleConnections if segment scan finishes. 
     """
-    def __init__(self, loop, server_addr, port, username, password):
+    def __init__(self, loop, server_addr, port, username, password, settings = {}):
         super().__init__(loop, server_addr, port, username, password)
+       
+        self.settings = lcn_defs.default_connection_settings
+        self.settings.update(settings)
        
         self.ping_interval = 60 * 10     # seconds
         self.ping_counter = 0
        
-        self.dim_mode = lcn_defs.output_port_dim_mode.STEPS50
-        self.status_mode = lcn_defs.output_port_status_mode.PERCENT
+        self.dim_mode = lcn_defs.OutputPortDimMode.STEPS50
+        self.status_mode = lcn_defs.OutputPortStatusMode.PERCENT
  
         self.is_lcn_connected = False
         self.local_seg_id = -1
@@ -83,10 +87,21 @@ class PchkConnectionManager(PchkConnection):
         # All ModuleConnection objects are stored in this dictionary.
         self.module_conns = {}
         
-        self.status_segment_scan = TimeoutRetryHandler(loop, 1, DEFAULT_TIMEOUT_MSEC)
+        self.status_segment_scan = TimeoutRetryHandler(loop, 1)
+        self.ping = TimeoutRetryHandler(loop, -1, self.settings['PING_TIMEOUT'])
+        self.ping.set_timeout_callback(self.ping_timeout)
+
+    def connection_lost(self, error):
+        super().connection_lost(error)
+        
+        self.status_segment_scan.cancel()
+        self.ping.cancel()
+        for module_conn in self.module_conns.values():
+            module_conn.cancel_timeout_retries()
        
     def on_successful_login(self):
-        self.ping_task = self.loop.create_task(self.send_ping())
+        self.ping.activate()
+        #self.ping_task = self.loop.create_task(self.send_ping())
  
     def on_auth_ok(self):
         self.logger.info('Authorization successful!')
@@ -136,10 +151,6 @@ class PchkConnectionManager(PchkConnection):
         return self.is_socket_connected and self.is_lcn_connected and (self.local_seg_id != -1)
  
     def get_module_conn(self, addr):
-        module_conn = self.module_conns.get(addr, None)
-        return module_conn
-     
-    def update_module_conn(self, addr):
         """
         Creates and/or returns cached data for the given LCN module.
         @param addr the module's address
@@ -169,27 +180,26 @@ class PchkConnectionManager(PchkConnection):
         else:
             self.send_module_command(LcnAddrGrp(3, 3), False, PckGenerator.segment_coupler_scan())
  
-    async def send_ping(self):
+    def ping_timeout(self, failed):
         # Send a ping command to keep the connection to LCN-PCHK alive.
         # (default is every 10 minutes)
-        while not self.transport.is_closing():
-            self.send_command('^ping{:d}'.format(self.ping_counter))
-            self.ping_counter += 1
-            await asyncio.sleep(self.ping_interval)
+        self.send_command('^ping{:d}'.format(self.ping_counter))
+        self.ping_counter += 1
  
-    def send_module_command(self, addr, wants_ack, pck):
-        """
-        Sends a command to the specified module or group.
-        """
-        if (not addr.is_group()) and wants_ack:
-            self.update_module_conn(addr).schedule_command_with_ack(pck) #, self, DEFAULT_TIMEOUT_MSEC)
-        else:
-            self.send_command(PckGenerator.generate_address_header(addr, self.local_seg_id, wants_ack) + pck)
+#     def send_module_command(self, addr, wants_ack, pck):
+#         """
+#         Sends a command to the specified module or group.
+#         """
+#         if (not addr.is_group()) and wants_ack:
+#             self.get_module_conn(addr).schedule_command_with_ack(pck)
+#         else:
+#             self.send_command(PckGenerator.generate_address_header(addr, self.local_seg_id, wants_ack) + pck)
  
     def process_input(self, input):
         self.logger.info('from PCHK: {}'.format(input))
-        command = InputParser.parse(input)
-        command.process(self)
+        commands = InputParser.parse(input)
+        for command in commands:
+            command.process(self)
     
  
 if __name__ == '__main__':
@@ -197,7 +207,7 @@ if __name__ == '__main__':
  
     loop = asyncio.get_event_loop()
     connection = PchkConnectionManager(loop, '10.1.2.3', 4114, 'lcn', 'lcn')
-    connection.update_module_conn(LcnAddrMod(0, 7))
+    connection.get_module_conn(LcnAddrMod(0, 7))
     connection.connect()
     loop.run_forever()
     loop.close()

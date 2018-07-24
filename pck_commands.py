@@ -2,6 +2,7 @@ import re
 
 from pypck import lcn_defs
 
+
 class PckParser(object):
     """
     Helpers to parse LCN-PCK commands.
@@ -117,8 +118,8 @@ class PckGenerator(object):
         @param statusMode see {@link LcnDefs.OutputPortStatusMode}
         @return the PCK command as text
         """
-        return '!OM{:s}{:s}'.format('1' if (dim_mode == lcn_defs.output_port_dim_mode.STEPS200) else '0',
-                                    'P' if (status_mode == lcn_defs.output_port_status_mode.PERCENT) else 'N') 
+        return '!OM{:s}{:s}'.format('1' if (dim_mode == lcn_defs.OutputPortDimMode.STEPS200) else '0',
+                                    'P' if (status_mode == lcn_defs.OutputPortStatusMode.PERCENT) else 'N') 
 
     @staticmethod
     def generate_address_header(addr, local_seg_id, wants_ack):
@@ -260,13 +261,13 @@ class PckGenerator(object):
             raise ValueError('Invalid states length.')
         ret = 'R8'
         for i in range(8):
-            if states[i] == lcn_defs.relay_state_modifier.ON:
+            if states[i] == lcn_defs.RelayStateModifier.ON:
                 ret += '1'
-            elif states[i] == lcn_defs.relay_state_modifier.OFF:
+            elif states[i] == lcn_defs.RelayStateModifier.OFF:
                 ret += '0'
-            elif states[i] == lcn_defs.relay_state_modifier.TOGGLE:
+            elif states[i] == lcn_defs.RelayStateModifier.TOGGLE:
                 ret += 'U'
-            elif states[i] == lcn_defs.relay_state_modifier.NOCHANGE:
+            elif states[i] == lcn_defs.RelayStateModifier.NOCHANGE:
                 ret += '-'
             else:
                 raise ValueError('Invalid state.')
@@ -281,3 +282,43 @@ class PckGenerator(object):
         """
         return 'SMB'
     
+    @staticmethod
+    def request_var_status(var, sw_age):
+        """
+        Generates a variable value request.
+    
+        @param var the variable to request
+        @param swAge the target module's firmware version
+        @return the PCK command (without address header) as text
+        """        
+        if sw_age >= 0x170206:
+            id = lcn_defs.var.to_var_id(var)
+            if id != -1:
+                return 'MWT{:03d}'.format(id + 1)
+            
+            id = lcn_defs.var.to_set_point_id(var)
+            if id != -1:
+                return 'MWS{:03d}'.format(id + 1)
+            
+            id = lcn_defs.var.to_thrs_register_id(var)
+            if id != -1:
+                return 'SE{:03d}'.format(id + 1)    # Whole register
+            
+            id = lcn_defs.var.to_s0_id(var)
+            if id != -1:
+                return 'MWC{:03d}'.format(id + 1)
+        else:
+            if var == lcn_defs.var.VAR1ORTVAR:
+                return 'MWV'
+            elif var == lcn_defs.var.VAE2ORR1VAR:
+                return 'MWTA'
+            elif var == lcn_defs.var.VAR3ORR2VAR:
+                return 'MWTB'
+            elif var == lcn_defs.var.R1VARSETPOINT:
+                return 'MWSA'
+            elif var == lcn_defs.var.R2VARSETPOINT:
+                return 'MWSB'
+            elif var in [lcn_defs.var.THRS1, lcn_defs.var.THRS2, lcn_defs.var.THRS3, lcn_defs.var.THRS4, lcn_defs.var.THRS5]:
+                return 'SL1'    # Whole register
+            
+            
