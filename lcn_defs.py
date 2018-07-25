@@ -5,7 +5,7 @@ import math
 default_connection_settings = {'NUM_TRIES': 3,  # Total number of request to sent before going into failed-state.
                                'PING_TIMEOUT': 600000,  # The default timeout for pings sent to PCHK.
                                'MAX_STATUS_EVENTBASED_VALUEAGE_MSEC': 600000,   # Poll interval for status values that automatically send their values on change.
-                               'MAX_STATUS_POLLED_VALUEAGE_MSEC': 30000,    # Poll interval for status values that automatically send their values on change.
+                               'MAX_STATUS_POLLED_VALUEAGE_MSEC': 30000,    # Poll interval for status values that do not send their values on change (always polled).
                                'STATUS_REQUEST_DELAY_AFTER_COMMAND_MSEC': 2000  # Status request delay after a command has been send which potentially changed that status.
                                }
 
@@ -110,23 +110,6 @@ class Var(Enum):
     S0INPUT3 = auto()
     S0INPUT4 = auto()       # LCN-BU4L
 
-    # Helper list to get var by numeric id.
-    _var_id_to_var = [VAR1ORTVAR, VAR2ORR1VAR, VAR3ORR2VAR,
-                      VAR4, VAR5, VAR6, VAR7, VAR8,
-                      VAR9, VAR10, VAR11, VAR12]
-
-    # Helper list to get set-point var by numeric id.
-    _set_point_id_to_var = [R1VARSETPOINT, R2VARSETPOINT]
-    
-    # Helper list to get threshold var by numeric id.
-    _thrs_id_to_var = [[THRS1, THRS2, THRS3, THRS4, THRS5],
-                            [THRS2_1, THRS2_2, THRS2_3, THRS2_4],
-                            [THRS3_1, THRS3_2, THRS3_3, THRS3_4],
-                            [THRS4_1, THRS4_2, THRS4_3, THRS4_4]]
-    
-    # Helper list to get S0-input var by numeric id.
-    _s0_id_to_var = [S0INPUT1, S0INPUT2, S0INPUT3, S0INPUT4]
-
     @staticmethod
     def var_id_to_var(var_id):
         """
@@ -160,7 +143,8 @@ class Var(Enum):
         @param thrsId 0..4 for register 0, 0..3 for registers 1..3
         @return the translated var Var
         """
-        if (register_id < 0) or (register_id >= len(Var._thrs_to_var)) or (thrs_id < 0) or (thrs_id >= (5 if register_id == 0 else 4)):
+        if (register_id < 0) or (register_id >= len(Var._thrs_id_to_var)) or (thrs_id < 0) or (thrs_id >= (5 if (register_id == 0) else 4)):
+            print(register_id, thrs_id)
             raise ValueError('Bad register_id and/or thrs_id.')
         return Var._thrs_id_to_var[register_id][thrs_id]
     
@@ -236,11 +220,11 @@ class Var(Enum):
         """
         if var in [Var.THRS1, Var.THRS2, Var.THRS3, Var.THRS4, Var.THRS5]:
             return 0
-        elif var in [Var.THRS2_, Var.THRS2_2, Var.THRS2_3, Var.THRS2_4]:
+        elif var in [Var.THRS2_1, Var.THRS2_2, Var.THRS2_3, Var.THRS2_4]:
             return 1
-        elif var in [Var.THRS3_, Var.THRS3_2, Var.THRS3_3, Var.THRS3_4]:
+        elif var in [Var.THRS3_1, Var.THRS3_2, Var.THRS3_3, Var.THRS3_4]:
             return 2
-        elif var in [Var.THRS4_, Var.THRS4_2, Var.THRS4_3, Var.THRS4_4]:
+        elif var in [Var.THRS4_1, Var.THRS4_2, Var.THRS4_3, Var.THRS4_4]:
             return 3
         else:
             return -1
@@ -379,6 +363,22 @@ class Var(Enum):
         return (lock_state == False) and (sw_age < 0x170206)
 
 
+# Helper list to get var by numeric id.
+Var._var_id_to_var = [Var.VAR1ORTVAR, Var.VAR2ORR1VAR, Var.VAR3ORR2VAR,
+                      Var.VAR4, Var.VAR5, Var.VAR6, Var.VAR7, Var.VAR8,
+                      Var.VAR9, Var.VAR10, Var.VAR11, Var.VAR12]
+
+# Helper list to get set-point var by numeric id.
+Var._set_point_id_to_var = [Var.R1VARSETPOINT, Var.R2VARSETPOINT]
+
+# Helper list to get threshold var by numeric id.
+Var._thrs_id_to_var = [[Var.THRS1, Var.THRS2, Var.THRS3, Var.THRS4, Var.THRS5],
+                       [Var.THRS2_1, Var.THRS2_2, Var.THRS2_3, Var.THRS2_4],
+                       [Var.THRS3_1, Var.THRS3_2, Var.THRS3_3, Var.THRS3_4],
+                       [Var.THRS4_1, Var.THRS4_2, Var.THRS4_3, Var.THRS4_4]]
+
+# Helper list to get S0-input var by numeric id.
+Var._s0_id_to_var = [Var.S0INPUT1, Var.S0INPUT2, Var.S0INPUT3, Var.S0INPUT4]
 
 
 

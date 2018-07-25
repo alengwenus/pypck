@@ -87,7 +87,7 @@ class PchkConnectionManager(PchkConnection):
         # All ModuleConnection objects are stored in this dictionary.
         self.module_conns = {}
         
-        self.status_segment_scan = TimeoutRetryHandler(loop, 1)
+        self.status_segment_scan = TimeoutRetryHandler(loop, 3)
         self.ping = TimeoutRetryHandler(loop, -1, self.settings['PING_TIMEOUT'])
         self.ping.set_timeout_callback(self.ping_timeout)
 
@@ -158,7 +158,7 @@ class PchkConnectionManager(PchkConnection):
         """
         module_conn = self.module_conns.get(addr, None)
         if module_conn is None:
-            module_conn = ModuleConnection(loop, self, addr.seg_id, addr.mod_id)
+            module_conn = ModuleConnection(self.loop, self, addr.seg_id, addr.mod_id)
             #print(self.module_conns, type(addr), type(module_conn))
             self.module_conns[addr] = module_conn
             
@@ -178,7 +178,8 @@ class PchkConnectionManager(PchkConnection):
             for module_conn in self.module_conns.values():
                 module_conn.activate_status_request_handlers()
         else:
-            self.send_module_command(LcnAddrGrp(3, 3), False, PckGenerator.segment_coupler_scan())
+            self.send_command(PckGenerator.generate_address_header(LcnAddrGrp(3, 3), self.local_seg_id, False) + PckGenerator.segment_coupler_scan())
+            #self.send_module_command(LcnAddrGrp(3, 3), False, PckGenerator.segment_coupler_scan())
  
     def ping_timeout(self, failed):
         # Send a ping command to keep the connection to LCN-PCHK alive.
@@ -207,7 +208,8 @@ if __name__ == '__main__':
  
     loop = asyncio.get_event_loop()
     connection = PchkConnectionManager(loop, '10.1.2.3', 4114, 'lcn', 'lcn')
-    connection.get_module_conn(LcnAddrMod(0, 7))
+    module_conn = connection.get_module_conn(LcnAddrMod(0, 7))
+    module_conn.set_s0_enabled(False)
     connection.connect()
     loop.run_forever()
     loop.close()

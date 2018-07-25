@@ -55,7 +55,7 @@ class PckParser(object):
     PATTERN_STATUS_SETVAR = re.compile(r'%M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.S(?P<id>\d)(?P<value>\d+)')
 
     # Pattern to parse threshold status responses (since 170206).
-    PATTERN_STATUS_THRS = re.compile(r'%M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.T(?P<register_id>\d)(?P<thrsId>\d)(?P<value>\d+)')
+    PATTERN_STATUS_THRS = re.compile(r'%M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.T(?P<register_id>\d)(?P<thrs_id>\d)(?P<value>\d+)')
 
     # Pattern to parse S0-input status responses (LCN-BU4L).
     PATTERN_STATUS_S0INPUT = re.compile(r'%M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.C(?P<id>\d)(?P<value>\d+)')
@@ -170,9 +170,10 @@ class PckGenerator(object):
         """
         if (output_id < 0) or (output_id > 3):
             raise ValueError('Invalid output_id.')
-        n = round(percent*2)
+        n = int(round(percent*2))
+        ramp = int(ramp)
         if (n % 2) == 0:    # Use the percent command (supported by all LCN-PCHK versions)
-            return 'A{:d}DI{:03d}{:03d}'.format(output_id + 1, n / 2, ramp)
+            return 'A{:d}DI{:03d}{:03d}'.format(output_id + 1, n // 2, ramp)
         else:               # We have a ".5" value. Use the native command (supported since LCN-PCHK 2.3)
             return 'O{:d}DI{:03d}{:03d}'.format(output_id + 1, n, ramp)
     
@@ -432,7 +433,7 @@ class PckGenerator(object):
             elif var in [lcn_defs.Var.THRS1, lcn_defs.Var.THRS2, lcn_defs.Var.THRS3, lcn_defs.Var.THRS4, lcn_defs.Var.THRS5]:
                 return 'SL1'    # Whole register
         
-        raise ValueError('Wrong vraible type.')
+        raise ValueError('Wrong variable type.')
     
     @staticmethod
     def request_leds_and_logic_ops():

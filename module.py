@@ -12,11 +12,14 @@ class ModuleConnection(LcnAddrMod):
     Organizes communication with a specific module.
     Sends status requests to the connection and handles status responses.
     '''
-    def __init__(self, loop, conn, seg_id, mod_id):
+    def __init__(self, loop, conn, seg_id, mod_id, has_s0_enabled = False):
         self.loop = loop
         self.conn = conn
         super().__init__(seg_id = seg_id, mod_id = mod_id)
     
+        self.input_callbacks = []
+    
+        self.has_s0_enabled = has_s0_enabled
         self.sw_age = -1
         
         # Firmware version request status
@@ -26,7 +29,7 @@ class ModuleConnection(LcnAddrMod):
         # Output-port request status (0..3)
         self.request_status_outputs = [TimeoutRetryHandler(self.loop, -1, conn.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC']) for i in range(4)]
         for output_id in range(4):
-            self.request_status_outputs[0].set_timeout_callback(lambda failed, id=output_id: self.request_status_outputs_timeout(failed, id))
+            self.request_status_outputs[output_id].set_timeout_callback(lambda failed, id=output_id: self.request_status_outputs_timeout(failed, id))
             
 #         self.request_status_outputs[0].set_timeout_callback(lambda failed: self.request_status_outputs_timeout(failed, 0))
 #         self.request_status_outputs[1].set_timeout_callback(lambda failed: self.request_status_outputs_timeout(failed, 1))
@@ -72,6 +75,9 @@ class ModuleConnection(LcnAddrMod):
             self.request_status_outputs[output_id].activate()
         self.request_status_relays.activate()
         self.request_status_bin_sensors.activate()
+        
+        self.request_status_leds_and_logic_ops.activate()
+        self.request_status_locked_keys.activate()
 
     def cancel_timeout_retries(self):
         """
@@ -90,25 +96,39 @@ class ModuleConnection(LcnAddrMod):
             request_status_var.cancel()
         self.request_status_leds_and_logic_ops.cancel()
         self.request_status_locked_keys.cancel()
-# #TODO:        self.last_requested_var_without_type_in_response = LcnDefs.Var.UNKNOWN
-    
-        #TODO: status_vars, status_leds_and_logic_ops, status_locked_keys
 
+        self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
+    
     def initialize_variables(self):
         # Variable requests
         if self.sw_age != -1:   # Firmware version is required
             # Initialize if not done yet (we had to wait for the firmware version)
             if len(self.request_status_vars) == 0:
-                for var in lcn_defs.Var:
+                for i, var in enumerate(lcn_defs.Var):
+                    if not self.has_s0_enabled and lcn_defs.Var.to_s0_id(var) != -1:
+                        continue
                     if var != lcn_defs.Var.UNKNOWN:
                         if self.sw_age >= 0x170206:
                             timeout_msec = self.conn.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC']
                         else:
                             timeout_msec = self.conn.settings['MAX_STATUS_POLLED_VALUEAGE_MSEC']
                         self.request_status_vars[var] = TimeoutRetryHandler(self.loop, -1, timeout_msec)
-                        self.request_status_vars[var].set_timeout_callback(lambda failed, v=var: self.request_status_vars_timeout[v])
+                        self.request_status_vars[var].set_timeout_callback(lambda failed, v=var: self.request_status_vars_timeout(failed, v))
                         self.request_status_vars[var].activate()
             
+    def set_s0_enabled(self, s0_enabled):
+        """
+        Sets the activation status for S0 variables.
+        @param s0_enabled if True, a BU4L has to be connected to the hardware module and S0 mode
+        has to be activated in LCN-PRO. 
+        """
+        self.has_s0_enabled = s0_enabled
+    
+    def get_s0_enabled(self):
+        """
+        Gets the activation status for S0 variables.
+        """
+        return self.has_s0_enabled
     
     def get_sw_age(self):
         """
@@ -126,12 +146,10 @@ class ModuleConnection(LcnAddrMod):
 
 
     def get_last_requested_var_without_type_in_response(self):
-        pass
-#TODO:        return self.last_requested_var_without_type_in_response
+        return self.last_requested_var_without_type_in_response
 
     def set_last_requested_var_without_type_in_response(self, var):
-        pass
-#TODO:        self.last_requested_var_without_type_in_response = var
+        self.last_requested_var_without_type_in_response = var
 
 
     ###
@@ -200,7 +218,11 @@ class ModuleConnection(LcnAddrMod):
         Method to handle incoming commands for this specific module (status, toggle_output, switch_relays, ...)
         """
         #print(input_obj)
-        pass
+        for input_callback in self.input_callbacks:
+            input_callback(input_obj)
+    
+    def register_for_module_inputs(self, callback):
+        self.input_callbacks.append(callback)
     
 
     ###
@@ -210,35 +232,34 @@ class ModuleConnection(LcnAddrMod):
     def request_sw_age_timeout(self, failed):
         if not failed:
             cmd = PckGenerator.request_sn()
-            self.send_command(self, False, cmd)
+            self.send_command(False, cmd)
     
     def request_status_outputs_timeout(self, failed, output_id):
         if not failed:
             cmd = PckGenerator.request_output_status(output_id)
-            self.send_command(self, not self.is_group(), cmd)
+            self.send_command(not self.is_group(), cmd)
 
     def request_status_relays_timeout(self, failed):
         if not failed:
             cmd = PckGenerator.request_relays_status()
-            self.send_command(self, not self.is_group(), cmd)
+            self.send_command(not self.is_group(), cmd)
         
     def request_status_bin_sensors_timeout(self, failed):
         if not failed:
             cmd = PckGenerator.request_bin_sensors_status()
-            self.send_command(self, not self.is_group(), cmd)
+            self.send_command(not self.is_group(), cmd)
 
     def request_status_vars_timeout(self, failed, var):
         # Use the chance to remove a failed "typeless variable" request
         if self.last_requested_var_without_type_in_response == var:
             self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
 
-        for var in self.request_status_vars:     # key = enum name; value = enum value
-            # Detect if we can send immediately or if we have to wait for a "typeless" request first
-            has_type_in_response = lcn_defs.Var.has_type_in_response(var, self.sw_age)
-            if has_type_in_response or (self.last_requested_var_without_type_in_response == lcn_defs.Var.UNKNOWN):
-                self.send_command(False, PckGenerator.request_var_status(var, self.sw_age))
-                if not has_type_in_response:
-                    self.last_requested_var_without_type_in_response = var
+        # Detect if we can send immediately or if we have to wait for a "typeless" request first
+        has_type_in_response = lcn_defs.Var.has_type_in_response(var, self.sw_age)
+        if has_type_in_response or (self.last_requested_var_without_type_in_response == lcn_defs.Var.UNKNOWN):
+            self.send_command(False, PckGenerator.request_var_status(var, self.sw_age))
+            if not has_type_in_response:
+                self.last_requested_var_without_type_in_response = var
         
             
     def request_status_leds_and_logic_ops_timeout(self, failed):
@@ -261,7 +282,7 @@ class ModuleConnection(LcnAddrMod):
         @param ramp use {@link LcnDefs#timeToRampValue(int)}
         """
         cmd = PckGenerator.dim_ouput(output_id, percent, ramp)       
-        self.send_command(self, not self.is_group(), cmd)
+        self.send_command(not self.is_group(), cmd)
     
     def dim_all_outputs(self, percent, ramp, is1805=False):
         """
@@ -272,7 +293,7 @@ class ModuleConnection(LcnAddrMod):
         @param is1805 true if the target module's firmware is 180501 or newer
         """
         cmd = PckGenerator.dim_all_outputs(percent, ramp, is1805)
-        self.send_command(self, not self.is_group(), cmd)
+        self.send_command(not self.is_group(), cmd)
         
     def rel_output(self, output_id, percent):
         """
@@ -282,7 +303,7 @@ class ModuleConnection(LcnAddrMod):
         @param percent -100..100
         """
         cmd = PckGenerator.rel_output(output_id, percent)
-        self.send_command(self, not self.is_group(), cmd)
+        self.send_command(not self.is_group(), cmd)
         
     def toggle_output(self, output_id, ramp):
         """
@@ -292,7 +313,7 @@ class ModuleConnection(LcnAddrMod):
         @param ramp see {@link LcnDefs#timeToRampValue(int)}
         """
         cmd = PckGenerator.toggle_output(output_id, ramp)
-        self.send_command(self, not self.is_group(), cmd)
+        self.send_command(not self.is_group(), cmd)
         
     def toggle_all_outputs(self, ramp):
         """
@@ -301,7 +322,7 @@ class ModuleConnection(LcnAddrMod):
         @param ramp see {@link LcnDefs#timeToRampValue(int)}
         """
         cmd = PckGenerator.toggle_all_outputs(ramp)
-        self.send_command(self, not self.is_group(), cmd)
+        self.send_command(not self.is_group(), cmd)
         
     def control_relays(self, states):
         """
@@ -310,6 +331,6 @@ class ModuleConnection(LcnAddrMod):
         @param states the 8 modifiers for the relay states as a list
         """
         cmd = PckGenerator.control_relays(states)
-        self.send_command(self, not self.is_group(), cmd)
+        self.send_command(not self.is_group(), cmd)
         
     
