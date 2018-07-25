@@ -302,6 +302,7 @@ class ModStatusVar(ModInput):
         super().__init__(physical_source_addr)
         self.orig_var = orig_var
         self.value = value
+        self.var = self.orig_var
         
     def get_var(self):
         """
@@ -325,7 +326,7 @@ class ModStatusVar(ModInput):
         if matcher:
             addr = LcnAddrMod(int(matcher.group('seg_id')),
                               int(matcher.group('mod_id')))
-            var = lcn_defs.var.var_id_to_var(int(matcher.group('id')) - 1)
+            var = lcn_defs.Var.var_id_to_var(int(matcher.group('id')) - 1)
             value = lcn_defs.VarValue.from_native(int(matcher.group('value')))
             return [ModStatusVar(addr, var, value)]
         
@@ -333,7 +334,7 @@ class ModStatusVar(ModInput):
         if matcher:
             addr = LcnAddrMod(int(matcher.group('seg_id')),
                               int(matcher.group('mod_id')))
-            var = lcn_defs.var.set_point_id_to_var(int(matcher.group('id')) - 1)
+            var = lcn_defs.Var.set_point_id_to_var(int(matcher.group('id')) - 1)
             value = lcn_defs.VarValue.from_native(int(matcher.group('value')))
             return [ModStatusVar(addr, var, value)]
 
@@ -341,7 +342,7 @@ class ModStatusVar(ModInput):
         if matcher:
             addr = LcnAddrMod(int(matcher.group('seg_id')),
                               int(matcher.group('mod_id')))
-            var = lcn_defs.var.thrs_id_to_var(int(matcher.group('id')) - 1)
+            var = lcn_defs.Var.thrs_id_to_var(int(matcher.group('id')) - 1)
             value = lcn_defs.VarValue.from_native(int(matcher.group('value')))
             return [ModStatusVar(addr, var, value)]
 
@@ -349,7 +350,7 @@ class ModStatusVar(ModInput):
         if matcher:
             addr = LcnAddrMod(int(matcher.group('seg_id')),
                               int(matcher.group('mod_id')))
-            var = lcn_defs.var.s0_id_to_var(int(matcher.group('id')) - 1)
+            var = lcn_defs.Var.s0_id_to_var(int(matcher.group('id')) - 1)
             value = lcn_defs.VarValue.from_native(int(matcher.group('value')))
             return [ModStatusVar(addr, var, value)]
 
@@ -357,7 +358,7 @@ class ModStatusVar(ModInput):
         if matcher:
             addr = LcnAddrMod(int(matcher.group('seg_id')),
                               int(matcher.group('mod_id')))
-            var = lcn_defs.var.UNKNOWN
+            var = lcn_defs.Var.UNKNOWN
             value = lcn_defs.VarValue.from_native(int(matcher.group('value')))
             return [ModStatusVar(addr, var, value)]
 
@@ -367,10 +368,128 @@ class ModStatusVar(ModInput):
             addr = LcnAddrMod(int(matcher.group('seg_id')),
                               int(matcher.group('mod_id')))
             for thrs_id in range(5):
-                var = lcn_defs.var.var_id_to_var(int(matcher.group('id')) - 1)
+                var = lcn_defs.Var.var_id_to_var(int(matcher.group('id')) - 1)
                 value = lcn_defs.VarValue.from_native(int(matcher.group('value{:d}'.format(thrs_id + 1))))
                 ret.append(ModStatusVar(addr, var, value))
             return ret
+
+    def process(self, conn):
+        super().process(conn)   # Will replace source segment 0 with the local segment id
+        module_conn = conn.get_module_conn(self.logical_source_addr)
+        if self.orig_var == lcn_defs.Var.UNKNOWN:
+            self.var = module_conn.get_last_requested_var_without_type_in_response()
+        else:
+            self.var = self.orig_var
+        
+        if self.var != lcn_defs.Var.UNKNOWN:
+            if module_conn.get_last_requested_var_without_type_in_response() == self.var:
+                module_conn.set_last_requested_var_without_type_in_response(lcn_defs.Var.UNKNOWN)   # Reset
+#             if self.var in module_conn.request_status_vars:
+#                 module_conn.request_status_vars[self.var].cancel()
+        module_conn.new_input(self)        
+
+
+class ModStatusLedsAndLogicOps(ModInput):
+    """
+    Status of LEDs and logic-operations received from an LCN module.
+    """
+    def __init__(self, physical_source_addr, states_led, states_logic_ops):
+        """
+        Constructor.
+        
+        @param physicalSourceAddr the source address
+        @param statesLeds the 12 LED states
+        @param statesLogicOps the 4 logic-operation states
+        """
+        super().__init__(physical_source_addr)
+        self.states_led = states_led    # 12x LED status.
+        self.states_logic_ops = states_logic_ops    # 4x logic-operation status.
+        
+    def get_led_state(self, led_id):
+        """
+        Gets the status of a single LED.
+
+        @param ledId 0..11
+        @return the LED's status        
+        """
+        return self.states_led[led_id]
+        
+    def get_logic_op_state(self, logic_op_id):
+        """
+        Gets the status of a single logic operation.
+
+        @param logicOpId 0..3
+        @return the logic-operation's status        
+        """
+        return self.states_logic_ops[logic_op_id]
+    
+    @staticmethod
+    def try_parse(input):
+        matcher = PckParser.PATTERN_STATUS_LEDSANDLOGICOPS.match(input)
+        if matcher:
+            addr = LcnAddrMod(int(matcher.group('seg_id')),
+                              int(matcher.group('mod_id')))
+        
+            led_states = matcher.group('led_states').upper()
+            states_leds = [lcn_defs.LedStatus(led_state) for led_state in led_states]
+            
+            logic_op_states = matcher.group('logic_op_states').upper()
+            states_logic_ops = [lcn_defs.LogicOpStatus(logic_op_state) for logic_op_state in logic_op_states]
+            
+            return [ModStatusLedsAndLogicOps(addr, states_leds, states_logic_ops)]
+                
+    def process(self, conn):
+        super().process(conn)   # Will replace source segment 0 with the local segment id
+        module_conn = conn.get_module_conn(self.logical_source_addr)
+        # module_conn.request_status_leds_and_logic_ops.cancel()
+        module_conn.new_input(self)        
+
+
+class ModStatusKeyLocks(ModInput):
+    """
+    Status of locked keys received from an LCN module.
+    """
+    def __init__(self, physical_source_id, states):
+        """
+        Constructor.
+
+        @param physicalSourceAddr the source address
+        @param states the 4x8 key-lock states        
+        """
+        super().__init__(physical_source_id)
+        self.states = states
+
+    def get_state(self, table_id, key_id):
+        """
+        Gets the lock-state of a single key.
+
+        @param tableId 0(A)..3(D)
+        @param keyId 0..7
+        @return the key's lock-state
+        """
+        return self.states[table_id][key_id]
+    
+    @staticmethod
+    def try_parse_input(input):
+        matcher = PckParser.PATTERN_STATUS_KEYLOCKS.match(input)
+        states = []
+        if matcher:
+            addr = LcnAddrMod(int(matcher.group('seg_id')),
+                              int(matcher.group('mod_id')))
+            for i in range(4):
+                s = matcher.group('table{:d}'.format(i))
+                if s is not None:
+                    states.append(PckParser.get_boolean_value(int(s)))
+#                else:
+#                     states.append([])
+        return [ModStatusKeyLocks(addr, states)]
+
+    def process(self, conn):
+        super().process(conn)   # Will replace source segment 0 with the local segment id
+        module_conn = conn.get_module_conn(self.logical_source_addr)
+        # module_conn.request_status_key_locks.cancel()
+        module_conn.new_input(self)          
+
 
 ### Other inputs
            
@@ -397,9 +516,9 @@ class Unknown(Input):
  
            
 class InputParser(object):
-    parsers = [AuthOk,
+    parsers = [AuthUsername,
                AuthPassword,
-               AuthUsername,
+               AuthOk,
                LcnConnState,
                ModAck,
                ModSk,
@@ -407,6 +526,9 @@ class InputParser(object):
                ModStatusOutput,
                ModStatusRelays,
                ModStatusBinSensors,
+               ModStatusVar,
+               ModStatusLedsAndLogicOps,
+               ModStatusKeyLocks,
                Unknown]
     
     @staticmethod

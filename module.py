@@ -56,7 +56,7 @@ class ModuleConnection(LcnAddrMod):
         self.request_curr_pck_command_with_ack = TimeoutRetryHandler(self.loop, conn.settings['NUM_TRIES'])
         self.request_curr_pck_command_with_ack.set_timeout_callback(self.request_curr_pck_command_with_ack_timeout)
         
-        self.last_requested_var_without_type_in_response = lcn_defs.var.UNKNOWN
+        self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
 
         # List of queued PCK commands to be acknowledged by the LCN module.
         # Commands are always without address header.
@@ -99,8 +99,8 @@ class ModuleConnection(LcnAddrMod):
         if self.sw_age != -1:   # Firmware version is required
             # Initialize if not done yet (we had to wait for the firmware version)
             if len(self.request_status_vars) == 0:
-                for var in lcn_defs.var.values():
-                    if var != lcn_defs.var.UNKNOWN:
+                for var in lcn_defs.Var:
+                    if var != lcn_defs.Var.UNKNOWN:
                         if self.sw_age >= 0x170206:
                             timeout_msec = self.conn.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC']
                         else:
@@ -230,15 +230,15 @@ class ModuleConnection(LcnAddrMod):
     def request_status_vars_timeout(self, failed, var):
         # Use the chance to remove a failed "typeless variable" request
         if self.last_requested_var_without_type_in_response == var:
-            self.last_requested_var_without_type_in_response = lcn_defs.var.UNKNOWN
+            self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
 
-        for key, value in self.request_status_vars:     # key = enum name; value = enum value
+        for var in self.request_status_vars:     # key = enum name; value = enum value
             # Detect if we can send immediately or if we have to wait for a "typeless" request first
-            has_type_in_response = lcn_defs.var.has_type_in_response(key, self.sw_age)
-            if has_type_in_response or (self.last_requested_var_without_type_in_response == lcn_defs.var.UNKNOWN):
-                self.send_command(False, PckGenerator.request_var_status(key, self.sw_age))
+            has_type_in_response = lcn_defs.Var.has_type_in_response(var, self.sw_age)
+            if has_type_in_response or (self.last_requested_var_without_type_in_response == lcn_defs.Var.UNKNOWN):
+                self.send_command(False, PckGenerator.request_var_status(var, self.sw_age))
                 if not has_type_in_response:
-                    self.last_requested_var_without_type_in_response = key
+                    self.last_requested_var_without_type_in_response = var
         
             
     def request_status_leds_and_logic_ops_timeout(self, failed):

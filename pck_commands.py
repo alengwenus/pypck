@@ -89,11 +89,10 @@ class PckGenerator(object):
     
     LCN-PCK is the command-syntax used by LCN-PCHK to send and receive LCN commands.
     """
-    def __init__(self):
-        pass
-    
     # Terminates a PCK command
     TERMINATION = '\n'
+
+    TABLE_NAMES = ['A', 'B', 'C', 'D']
     
     @staticmethod
     def ping(counter):
@@ -260,17 +259,9 @@ class PckGenerator(object):
         if states.length != 8:
             raise ValueError('Invalid states length.')
         ret = 'R8'
-        for i in range(8):
-            if states[i] == lcn_defs.RelayStateModifier.ON:
-                ret += '1'
-            elif states[i] == lcn_defs.RelayStateModifier.OFF:
-                ret += '0'
-            elif states[i] == lcn_defs.RelayStateModifier.TOGGLE:
-                ret += 'U'
-            elif states[i] == lcn_defs.RelayStateModifier.NOCHANGE:
-                ret += '-'
-            else:
-                raise ValueError('Invalid state.')
+        for state in states:
+            ret += state.value
+        
         return ret
 
     @staticmethod   
@@ -283,6 +274,126 @@ class PckGenerator(object):
         return 'SMB'
     
     @staticmethod
+    def var_abs(var, value):
+        """
+        Generates a command that sets a variable absolute.
+
+        @param var the target variable to set
+        @param value the absolute value to set
+        @return the PCK command (without address header) as text        
+        """
+        id = lcn_defs.Var.to_set_point_id(var)
+        if id != -1:
+            # Set absolute (not in PCK yet)
+            b1 = id << 6    # 01000000
+            b1 |= 0x20      # xx10xxxx (set absolute)
+            value -= 1000   # Offset
+            b1 |= (value >> 8) & 0x0f   # xxxx1111
+            b2 = value & 0xff
+            return 'X2{:03d}{:03d}{:03d}'.format(30, b1, b2)
+
+        # Setting variables and thresholds absolute not implemented in LCN firmware yet
+        raise ValueError('Wrong variable type.')
+    
+    @staticmethod
+    def update_status_var(var, value):
+        """
+        Generates a command that send variable status updates.
+        PCHK provides this variables by itself on selected segments
+        is only possible with group 4
+
+        @param var the target variable to set
+        @param value the absolute value to set
+        @return the PCK command (without address header) as text
+        """
+        id = lcn_defs.Var.to_var_id(var)
+        if id != -1:
+            # define variable to set, offset 0x01000000
+            x2cmd = id | 0x40
+            b1 = (value >> 8) & 0xff
+            b2 = value & 0xff
+            return 'X2{:03d}{:03d}{:03d}'.format(x2cmd, b1, b2)
+
+        # Setting variables and thresholds absolute not implemented in LCN firmware yet
+        raise ValueError('Wrong variable type.')
+
+    @staticmethod
+    def var_reset(var, is2013):
+        """
+        Generates a command that resets a variable to 0.
+
+        @param var the target variable to set 0
+        @param is2013 the target module's firmware version is 170101 or newer
+        @return the PCK command (without address header) as text        
+        """
+        id = lcn_defs.Var.to_var_id(var)
+        if id != -1:
+            if is2013:
+                return 'Z-{:03d}{:04d}'.format(id + 1, 4090)
+            else:
+                if id == 0:
+                    return 'ZS30000'
+                else:
+                    raise ValueError('Wrong variable type.')
+        
+        id = lcn_defs.Var.to_set_point_id(var)
+        if id != -1:
+            # Set absolute = 0 (not in PCK yet)
+            b1 = id << 6    # 01000000
+            b1 |= 0x20      # xx10xxxx 9set absolute)
+            b2 = 0
+            return 'X2{:03d}{:03d}{:03d}'.format(30, b1, b2)
+
+        # Reset for threshold not implemented in LCN firmware yet
+        raise ValueError('Wrong variable type.')
+            
+    @staticmethod
+    def var_rel(var, type, value, is2013):
+        """
+        Generates a command to change the value of a variable.
+
+        @param var the target variable to change
+        @param type the reference-point
+        @param value the native LCN value to add/subtract (can be negative)
+        @param is2013 the target module's firmware version is 170101 or newer
+        @return the PCK command (without address header) as text        
+        """
+        id = lcn_defs.Var.to_var_id(var)
+        if id != -1:
+            if id == 0: # Old command for variable 1 / T-var (compatible with all modules)
+                return 'Z{:s}{:d}'.format('A' if value >= 0 else 'S', abs(value))
+            else:   # New command for variable 1-12 (compatible with all modules, since LCN-PCHK 2.8)
+                return 'Z{:s}{:03d}{:d}'.format('+' if value >= 0 else '-', id + 1, abs(value))
+                
+        id = lcn_defs.Var.to_set_point_id(var)
+        if id != -1:
+            return 'RE{:s}S{:s}{:s}{:d}'.format('A' if id == 0 else 'B',
+                                                'A' if type == lcn_defs.RelVarRef.CURRENT else 'P',
+                                                '+' if value >= 0 else '-',
+                                                abs(value))
+        
+        register_id = lcn_defs.Var.to_thrs_register_id(var)
+        id = lcn_defs.Var.to_thrs_id(var)
+        if (register_id != -1) and (id != -1):
+            if is2013:      # New command for registers 1-4 (since 170206, LCN-PCHK 2.8)
+                return 'SS{:s}{:04d}{:s}R{;d}{:d}'.format('R' if type == lcn_defs.RelVarRef.CURRENT else 'E',
+                                                          abs(value),
+                                                          'A' if value >= 0 else 'S',
+                                                          register_id + 1,
+                                                          id + 1)
+            elif register_id == 0:      # Old command for register 1 (before 170206)
+                return 'SS{:s}{:4d}{:s}{:s}{:s}{:s}{:s}{:s}'.format('R' if type == lcn_defs.RelVarRef.CURRENT else 'E',
+                                                                    abs(value),
+                                                                    'A' if value >= 0 else 'S',
+                                                                    '1' if id == 0 else '0',
+                                                                    '1' if id == 1 else '0',
+                                                                    '1' if id == 2 else '0',
+                                                                    '1' if id == 3 else '0',
+                                                                    '1' if id == 4 else '0')
+        
+        raise ValueError('Wrong variable type.')
+    
+    @staticmethod
     def request_var_status(var, sw_age):
         """
         Generates a variable value request.
@@ -292,33 +403,231 @@ class PckGenerator(object):
         @return the PCK command (without address header) as text
         """        
         if sw_age >= 0x170206:
-            id = lcn_defs.var.to_var_id(var)
+            id = lcn_defs.Var.to_var_id(var)
             if id != -1:
                 return 'MWT{:03d}'.format(id + 1)
             
-            id = lcn_defs.var.to_set_point_id(var)
+            id = lcn_defs.Var.to_set_point_id(var)
             if id != -1:
                 return 'MWS{:03d}'.format(id + 1)
             
-            id = lcn_defs.var.to_thrs_register_id(var)
+            id = lcn_defs.Var.to_thrs_register_id(var)
             if id != -1:
                 return 'SE{:03d}'.format(id + 1)    # Whole register
             
-            id = lcn_defs.var.to_s0_id(var)
+            id = lcn_defs.Var.to_s0_id(var)
             if id != -1:
                 return 'MWC{:03d}'.format(id + 1)
         else:
-            if var == lcn_defs.var.VAR1ORTVAR:
+            if var == lcn_defs.Var.VAR1ORTVAR:
                 return 'MWV'
-            elif var == lcn_defs.var.VAE2ORR1VAR:
+            elif var == lcn_defs.Var.VAR2ORR1VAR:
                 return 'MWTA'
-            elif var == lcn_defs.var.VAR3ORR2VAR:
+            elif var == lcn_defs.Var.VAR3ORR2VAR:
                 return 'MWTB'
-            elif var == lcn_defs.var.R1VARSETPOINT:
+            elif var == lcn_defs.Var.R1VARSETPOINT:
                 return 'MWSA'
-            elif var == lcn_defs.var.R2VARSETPOINT:
+            elif var == lcn_defs.Var.R2VARSETPOINT:
                 return 'MWSB'
-            elif var in [lcn_defs.var.THRS1, lcn_defs.var.THRS2, lcn_defs.var.THRS3, lcn_defs.var.THRS4, lcn_defs.var.THRS5]:
+            elif var in [lcn_defs.Var.THRS1, lcn_defs.Var.THRS2, lcn_defs.Var.THRS3, lcn_defs.Var.THRS4, lcn_defs.Var.THRS5]:
                 return 'SL1'    # Whole register
-            
-            
+        
+        raise ValueError('Wrong vraible type.')
+    
+    @staticmethod
+    def request_leds_and_logic_ops():
+        """
+        Generates a request for LED and logic-operations states.
+
+        @return the PCK command (without address header) as text
+        """
+        return 'SMT'
+    
+    @staticmethod
+    def control_led(led_id, state):
+        """
+        Generates a command to the set the state of a single LED.
+
+        @param ledId 0..11
+        @param state the state to set
+        @return the PCK command (without address header) as text        
+        """
+        d = {lcn_defs.LedStatus.OFF: 'A',
+             lcn_defs.LedStatus.ON: 'E',
+             lcn_defs.LedStatus.BLINK: 'B',
+             lcn_defs.LedStatus.FLICKER: 'F'}
+        
+        if (led_id < 0) or (led_id > 11):
+            raise ValueError('Bad led_id.')
+        return 'LA{:03d}{:2}'.format(led_id + 1, d[state])
+    
+    @staticmethod
+    def send_keys(cmds, keys):
+        """
+        Generates a command to send LCN keys.
+
+        @param cmds the 4 concrete commands to send for the tables (A-D)
+        @param keys the tables' 8 key-states (true means "send")
+        @return the PCK command (without address header) as text        
+        """
+        if (len(cmds) != 4) or (len(keys) != 8):
+            raise ValueError('Wrong cmds length or wrong keys length.')
+        ret = 'TS'
+        for i, cmd in enumerate(cmds):
+            if (cmd == lcn_defs.SendKeyCommand.DONTSEND) and (i == 3):
+                # By skipping table D (if it is not used), we use the old command
+                # for table A-C which is compatible with older LCN modules
+                pass
+            else:
+                ret += cmd.value
+                 
+                if i < 3:
+                    ret += '-'
+        
+        for key in keys:
+            ret += '1' if key else '0'
+        
+        return ret
+    
+    @staticmethod
+    def send_keys_hit_defered(table_id, time, time_unit, keys):
+        """
+        Generates a command to send LCN keys deferred / delayed.
+        @param tableId 0(A)..3(D)
+        @param time the delay time
+        @param timeUnit the time unit
+        @param keys the key-states (true means "send")
+        @return the PCK command (without address header) as text        
+        """
+        if (table_id < 0) or (table_id > 3) or (len(keys) != 8):
+            raise ValueError('Bad table_id or keys.')
+        ret = 'TV'
+        try:
+            ret += PckGenerator.TABLE_NAMES[table_id]
+        except IndexError:
+            raise ValueError('Wrong table_id.')
+        
+        ret += '{:03d}'.format(time)
+        if time_unit == lcn_defs.TimeUnit.SECONDS:
+            if (time < 1) or (time > 60):
+                raise ValueError('Wrong time.')
+            ret += 'S'
+        elif time_unit == lcn_defs.TimeUnit.MINUTES:
+            if (time < 1) or (time > 90):
+                raise ValueError('Wrong time.')
+            ret += 'M'
+        elif time_unit == lcn_defs.TimeUnit.HOURS:
+            if (time < 1) or (time > 50):
+                raise ValueError('Wrong time.')
+            ret += 'H'
+        elif time_unit == lcn_defs.TimeUnit.DAYS:
+            if (time < 1) or (time > 45):
+                raise ValueError('Wrong time.')
+            ret += 'D'
+        else:
+            raise ValueError('Wrong time_unit.')
+        
+        for key in keys:
+            ret += '1' if key else '0'
+        
+        return ret
+    
+    @staticmethod
+    def request_key_lock_status():
+        """
+        Generates a request for key-lock states.
+        Always requests table A-D. Supported since LCN-PCHK 2.8.
+
+        @return the PCK command (without address header) as text        
+        """
+        return 'STX'
+
+    @staticmethod
+    def lock_keys(table_id, states):
+        """
+        Generates a command to lock keys.
+
+        @param tableId 0(A)..3(D)
+        @param states the 8 key-lock modifiers
+        @return the PCK command (without address header) as text 
+        """
+        if (table_id < 0) or (table_id > 3) or (len(states) != 8):
+            raise ValueError('Bad table_id or states.') 
+        try:
+            ret = 'TX{:s}'.format(PckGenerator.TABLE_NAMES[table_id])
+        except IndexError:
+            raise ValueError('Wrong table_id.')
+        
+        for state in states:
+            ret += state.value
+        
+        return ret
+    
+    @staticmethod
+    def lock_key_tab_a_temporary(time, time_unit, keys):
+        """
+        Generates a command to lock keys for table A temporary.
+        There is no hardware-support for locking tables B-D.
+
+        @param time the lock time
+        @param timeUnit the time unit
+        @param keys the 8 key-lock states (true means lock)
+        @return the PCK command (without address header) as text       
+        """
+        if len(keys) != 8:
+            raise ValueError('Wrong keys lenght.')
+        ret = 'TXZA{:03d}'.format(time)
+        
+        if time_unit == lcn_defs.TimeUnit.SECONDS:
+            if (time < 1) or (time > 60):
+                raise ValueError('Wrong time.')
+            ret += 'S'
+        elif time_unit == lcn_defs.TimeUnit.MINUTES:
+            if (time < 1) or (time > 90):
+                raise ValueError('Wrong time.')
+            ret += 'M'
+        elif time_unit == lcn_defs.TimeUnit.HOURS:
+            if (time < 1) or (time > 50):
+                raise ValueError('Wrong time.')
+            ret += 'H'
+        elif time_unit == lcn_defs.TimeUnit.DAYS:
+            if (time < 1) or (time > 45):
+                raise ValueError('Wrong time.')
+            ret += 'D'
+        else:
+            raise ValueError('Wrong time_unit.')
+        
+        for key in keys:
+            ret += '1' if key else '0'
+        
+        return ret
+    
+    @staticmethod
+    def dyn_text_header(row, part):
+        """
+        Generates the command header / start for sending dynamic texts.
+        Used by LCN-GTxD periphery (supports 4 text rows).
+        To complete the command, the text to send must be appended (UTF-8 encoding).
+        Texts are split up into up to 5 parts with 12 "UTF-8 bytes" each.
+
+        @param row 0..3
+        @param part 0..4
+        @return the PCK command (without address header) as text       
+        """
+        if (row < 0) or (row > 3) or (part < 0) or (part > 4):
+            raise ValueError('Wrong row or part.')
+        return 'GTDT{:d}{:d}'.format(row + 1, part + 1)
+    
+    @staticmethod
+    def lock_regulator(reg_id, state):
+        """
+        Generates a command to lock a regulator.
+
+        @param regId 0..1
+        @param state the lock state
+        @return the PCK command (without address header) as text
+        """
+        if (reg_id < 0) or (reg_id > 1):
+            raise ValueError('Wrong reg_id.')
+        return 'RE{:s}X{:s}'.format('A' if reg_id == 0 else 'B',
+                                    'S' if state else 'A')
