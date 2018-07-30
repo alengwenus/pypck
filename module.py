@@ -8,10 +8,9 @@ from pypck.timeout_retry import TimeoutRetryHandler
 
 
 class ModuleConnection(LcnAddrMod):
-    '''
-    Organizes communication with a specific module.
+    """Organizes communication with a specific module.
     Sends status requests to the connection and handles status responses.
-    '''
+    """
     def __init__(self, loop, conn, seg_id, mod_id, has_s0_enabled = False):
         self.loop = loop
         self.conn = conn
@@ -263,10 +262,14 @@ class ModuleConnection(LcnAddrMod):
         
             
     def request_status_leds_and_logic_ops_timeout(self, failed):
-        pass
+        if not failed:
+            cmd = PckGenerator.request_status_leds_and_logic_ops()
+            self.send_command(not self.is_group(), cmd)
     
     def request_status_locked_keys_timeout(self, failed):
-        pass
+        if not failed:
+            cmd = PckGenerator.request_status_locked_keys()
+            self.send_command(not self.is_group(), cmd)
 
 
     ###

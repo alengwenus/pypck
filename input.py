@@ -10,6 +10,15 @@ from pypck import lcn_defs
 class Input(object):
     """
     Parent class for all input data read from LCN-PCHK.
+    
+    An implementation of :class:`~pypck.input.Input` has to provide easy accessible attributes
+    and/or methods to expose the PCK command properties to the user.
+    Each Input object provides an implementation of :func:`~pypck.input.Input.try_parse`
+    static method, to parse the given plain text PCK command. If the command can be parsed by
+    the Input object, a list of instances of :class:`~pypck.input.Input` is returned. 
+    If parsing is successful, the :func:`~pypck.input.Input.process` method can be called
+    to trigger further actions.
+    
     """
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -20,18 +29,26 @@ class Input(object):
         Tries to parse the given input text.
         Will return a list of parsed Inputs. The list might be empty (but not null).
        
-        @param input the input data received from LCN-PCHK
-        @return the parsed Inputs (never null)
+        :param ~pypck.input.Input input:     the input data received from LCN-PCHK
+        :return:                             The parsed Inputs (never null)
+        :rtype:                              List with instances of :class:`~pypck.input.Input`
         """
         raise NotImplementedError
  
     def process(self, conn):
+        """
+        Processes the :class:`~pypck.input.Input` instance and triggers further actions.
+        
+        :param ~pypck.connection.PchkConnectionManager conn: Connection manager object 
+        """
         raise NotImplementedError
  
  
 class ModInput(Input):
     """
     Parent class of all inputs having an LCN module as its source.
+    
+    The class in inherited from :class:`~pypck.input.Input`
     """
     def __init__(self, physical_source_addr):
         super().__init__()
@@ -42,6 +59,8 @@ class ModInput(Input):
         return self.logical_source_addr
    
     def process(self, conn):
+        """
+        """
         if conn.is_ready(): # Skip if we don't have all necessary bus info yet
             self.logical_source_addr = conn.physical_to_logical(self.physical_source_addr)
  

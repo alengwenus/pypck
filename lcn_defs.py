@@ -1,5 +1,6 @@
 from enum import Enum, auto
 import math
+import re
 
 
 default_connection_settings = {'NUM_TRIES': 3,  # Total number of request to sent before going into failed-state.
@@ -10,12 +11,72 @@ default_connection_settings = {'NUM_TRIES': 3,  # Total number of request to sen
                                }
 
 
+PATTERN_SPLIT_PORT_PIN = re.compile(r'(?P<port>[a-zA-Z]+)(?P<pin>\d+)')
 
 
-   
-class OutputPortDimMode(Enum):
+def split_port_pin(s):
+    """Splits the port and the pin from the given input string.
+     
+    :param    str    s:    Input string
     """
-    LCN dimming mode.
+    res = PATTERN_SPLIT_PORT_PIN.findall(s)
+    return res[0][0], int(res[0][1])
+
+
+class OutputPort(Enum):
+    """Output port of LCN module.
+    """
+    OUTPUT1 = 0
+    OUTPUT2 = 1
+    OUTPUT3 = 2
+    OUTPUT4 = 3
+
+
+class RelayPort(Enum):
+    """Relay port of LCN module.
+    """
+    RELAY1 = 0
+    RELAY2 = 1
+    RELAY3 = 2
+    RELAY4 = 3
+    RELAY5 = 4
+    RELAY6 = 5
+    RELAY7 = 6
+    RELAY8 = 7
+
+
+class LedPort(Enum):
+    """LED port of LCN module.
+    """
+    LED1 = 0
+    LED2 = 1
+    LED3 = 2
+    LED4 = 3
+    LED5 = 4
+    LED6 = 5
+    LED7 = 6
+    LED8 = 7
+    LED9 = 8
+    LED10 = 9
+    LED11 = 10
+    LED12 = 11
+
+
+class BinSensorPort(Enum):
+    """Binary sensor port of LCN module.
+    """
+    BINSENSOR1 = 0
+    BINSENSOR2 = 1
+    BINSENSOR3 = 2
+    BINSENSOR4 = 3
+    BINSENSOR5 = 4
+    BINSENSOR6 = 5
+    BINSENSOR7 = 6
+    BINSENSOR8 = 7
+
+
+class OutputPortDimMode(Enum):
+    """LCN dimming mode.
     If solely modules with firmware 170206 or newer are present, LCN-PRO automatically programs STEPS200.
     Otherwise the default is STEPS50.
     Since LCN-PCHK doesn't know the current mode, it must explicitly be set.
@@ -39,8 +100,10 @@ def time_to_ramp_value(time_msec):
     """
     Converts the given time into an LCN ramp value.
     
-    @param timeMSec the time in milliseconds
-    @return the (LCN-internal) ramp value (0..250)
+    :param    int    timeMSec:    The time in milliseconds.
+    
+    :returns: The (LCN-internal) ramp value (0..250).
+    :rtype: int
     """
     if time_msec < 250:
         ret = 0
@@ -66,26 +129,32 @@ def time_to_ramp_value(time_msec):
         ret = (time_msec / 1000 - 6) / 2 + 10
         if ret >= 250:
             ret = 250
-    return ret 
+    return int(ret) 
 
 
 class Var(Enum):
     """
     LCN variable types.
     """
-    UNKNOWN = auto()         # Used if the real type is not known (yet)
-    VAR1ORTVAR = auto()
-    VAR2ORR1VAR = auto()
-    VAR3ORR2VAR = auto()
-    VAR4 = auto()
-    VAR5 = auto()
-    VAR6 = auto()
-    VAR7 = auto()
-    VAR8 = auto()
-    VAR9 = auto()
-    VAR10 = auto()
-    VAR11 = auto()
-    VAR12 = auto()          # Since 170206
+    UNKNOWN = -1    # Used if the real type is not known (yet)
+    VAR1ORTVAR = 0
+    TVAR = 0
+    VAR1 = 0
+    VAR2ORR1VAR = 1
+    R1VAR = 1
+    VAR2 = 1
+    VAR3ORR2VAR = 2
+    R2VAR = 2
+    VAR3 = 2
+    VAR4 = 3
+    VAR5 = 4
+    VAR6 = 5
+    VAR7 = 6
+    VAR8 = 7
+    VAR9 = 8
+    VAR10 = 9
+    VAR11 = 10
+    VAR12 = 11          # Since 170206
     R1VARSETPOINT = auto()
     R2VARSETPOINT = auto()  # Set-points for regulators
     THRS1 = auto()

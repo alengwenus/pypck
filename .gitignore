@@ -1,5 +1,32 @@
+# Packages
+*.egg
+*.egg-info
+dist
+build
+eggs
+.eggsparts
+bin
+var
+sdist
+develop-ags
+.installed.cfg
+lib
+lib64
+
+# Python specific
 *.pyc
 /__pycache__
+
+# Development
 .settings
 .project
 .pydevproject
+
+# Build docs
+docs/build
+
+# Windows Explorer
+desktop.ini
+
+# Patches
+*.patch

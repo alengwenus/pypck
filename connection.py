@@ -10,13 +10,29 @@ from pypck.timeout_retry import TimeoutRetryHandler
 
 
 class PchkConnection(asyncio.Protocol):
-    def __init__(self, loop, server_addr, port, username, password):
+    """Provides a socket connection to LCN-PCHK server.
+    
+    :param           loop:        Asyncio event loop
+    :param    str    server_addr: Server IP address formatted as xxx.xxx.xxx.xxx
+    :param    int    port:        Server port
+    
+    :Note:
+    
+    :class:`PchkConnection` does only open a port to the
+    PCHK server and allows to send and receive plain text. Use
+    :func:`~PchkConnection.send_command` and :func:`~PchkConnection.process_input`
+    callback to send and receive text messages. 
+    
+    For login logic or communication with modules use
+    :class:`PchkConnectionManager`.
+    """
+    def __init__(self, loop, server_addr, port):
+        '''Constructor.
+        '''
         self.logger = logging.getLogger(self.__class__.__name__)
         self.loop = loop
         self.server_addr = server_addr
         self.port = port
-        self.username = username
-        self.password = password
         self.transport = None
  
         self.buffer = b''
@@ -44,33 +60,64 @@ class PchkConnection(asyncio.Protocol):
    
     def data_received(self, data):
         self.buffer += data
-        inputs = self.buffer.split(b'\n')
+        inputs = self.buffer.split(PckGenerator.TERMINATION.encode())
         self.buffer = inputs.pop()
  
         for input in inputs:
             self.process_input(input.decode())
    
     def send_command(self, pck):
+        """Sends a PCK command to the PCHK server.
+        
+        :param    str    pck:    PCK command
+        """
         self.logger.info('to PCHK: {}'.format(pck))
         self.transport.write((pck + PckGenerator.TERMINATION).encode())
    
     def process_input(self, input):
+        """
+        Is called if a new text message is received from the PCHK server.
+        
+        :param    str    input:    Input text message
+        """
         pass
  
  
  
 class PchkConnectionManager(PchkConnection):
-    """
-    Has the following tasks:
+    """Has the following tasks:
     - Initiates login procedure.
     - Ping PCHK.
     - Parse incoming commands and create input objects.
     - Calls input object's process method.
     - Updates seg_id of ModuleConnections if segment scan finishes. 
+    
+    :param           loop:        Asyncio event loop
+    :param    str    server_addr: Server IP address formatted as xxx.xxx.xxx.xxx
+    :param    int    port:        Server port
+    :param    str    username:    usernam for login.
+    :param    str    password:    Password for login.
+    
+    An example how to setup a proper connection to PCHK including login and
+    (automatic) segment coupler scan is shown below.
+    
+    :Example:
+    
+    >>> import asyncio
+    >>> loop = asyncio.get_event_loop()
+    >>> connection = PchkConnectionManager(loop, '10.1.2.3', 4114, 'lcn', 'lcn')
+    >>> connection.connect()
+    >>> loop.run_forever()
+    >>> loop.close()
     """
     def __init__(self, loop, server_addr, port, username, password, settings = {}):
+        """Constructor.
+        """
         super().__init__(loop, server_addr, port, username, password)
        
+        self.username = username
+        self.password = password
+
         self.settings = lcn_defs.default_connection_settings
         self.settings.update(settings)
        
@@ -101,7 +148,6 @@ class PchkConnectionManager(PchkConnection):
        
     def on_successful_login(self):
         self.ping.activate()
-        #self.ping_task = self.loop.create_task(self.send_ping())
  
     def on_auth_ok(self):
         self.logger.info('Authorization successful!')
@@ -123,8 +169,9 @@ class PchkConnectionManager(PchkConnection):
             self.module_conns.clear()
 
     def set_local_seg_id(self, local_seg_id):
-        """
-        Sets the local segment id.
+        """Sets the local segment id.
+        
+        :param    int    local_seg_id:    The local segment_id.
         """
         old_local_seg_id = self.local_seg_id
 
@@ -142,19 +189,22 @@ class PchkConnectionManager(PchkConnection):
         return LcnAddrMod(self.local_seg_id if addr.get_seg_id() == 0 else addr.get_seg_id(), addr.get_mod_id())
 
     def is_ready(self):
-        """
-        Retrieves the completion state.
+        """Retrieves the completion state.
         Nothing should be sent before this is signaled.
 
-        @return true if everything is set-up        
+        :returns: True if everything is set-up
+        :rtype: bool
         """
         return self.is_socket_connected and self.is_lcn_connected and (self.local_seg_id != -1)
  
     def get_module_conn(self, addr):
-        """
-        Creates and/or returns cached data for the given LCN module.
-        @param addr the module's address
-        @return the data (never null)       
+        """Creates and/or returns cached data for the given LCN module.
+        
+        :param addr:    The module's address
+        :type addr: :class:`LcnAddrMod`
+        
+        :returns: The module connection object (never null)
+        :rtype: ModuleConnection
         """
         module_conn = self.module_conns.get(addr, None)
         if module_conn is None:
@@ -169,9 +219,7 @@ class PchkConnectionManager(PchkConnection):
         return module_conn
     
     def segment_scan_timeout(self, failed):
-        """
-        Gets called if no response from segment coupler was received.
-        """
+        """Gets called if no response from segment coupler was received."""
         if failed:
             self.logger.info('No segment coupler found.')
             self.set_local_seg_id(0)
@@ -186,15 +234,6 @@ class PchkConnectionManager(PchkConnection):
         # (default is every 10 minutes)
         self.send_command('^ping{:d}'.format(self.ping_counter))
         self.ping_counter += 1
- 
-#     def send_module_command(self, addr, wants_ack, pck):
-#         """
-#         Sends a command to the specified module or group.
-#         """
-#         if (not addr.is_group()) and wants_ack:
-#             self.get_module_conn(addr).schedule_command_with_ack(pck)
-#         else:
-#             self.send_command(PckGenerator.generate_address_header(addr, self.local_seg_id, wants_ack) + pck)
  
     def process_input(self, input):
         self.logger.info('from PCHK: {}'.format(input))
