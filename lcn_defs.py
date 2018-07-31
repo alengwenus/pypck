@@ -1,4 +1,5 @@
 from enum import Enum, auto
+from itertools import product
 import math
 import re
 
@@ -60,6 +61,12 @@ class LedPort(Enum):
     LED10 = 9
     LED11 = 10
     LED12 = 11
+    
+    LOGICOP1 = 12
+    LOGICOP2 = 13
+    LOGICOP3 = 14
+    LOGICOP4 = 15
+    
 
 
 class BinSensorPort(Enum):
@@ -73,6 +80,10 @@ class BinSensorPort(Enum):
     BINSENSOR6 = 5
     BINSENSOR7 = 6
     BINSENSOR8 = 7
+
+
+# Keys
+Key = Enum('Key', ' '.join(['{:s}{:d}'.format(t[0], t[1]) for t in product(['A', 'B', 'C', 'D'], range(1,9))]), module=__name__)
 
 
 class OutputPortDimMode(Enum):

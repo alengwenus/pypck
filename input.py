@@ -207,7 +207,7 @@ class ModSn(ModInput):
         #print(conn.module_conns)
         module_conn.set_sw_age(self.sw_age)
         module_conn.request_sw_age.cancel()
-        module_conn.initialize_variables()
+        #module_conn.initialize_variables()
 
 
 

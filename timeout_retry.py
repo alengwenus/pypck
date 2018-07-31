@@ -25,12 +25,15 @@ class TimeoutRetryHandler(object):
         self._timeout_handle = None
        
         self.reset()
-       
+    
     def is_active(self):
         """
         Checks whether the request logic is active.
         """
         return self._timeout_handle is not None
+    
+    def set_timeout_msec(self, timeout_msec):
+        self._timeout_msec = timeout_msec
        
     def set_timeout_callback(self, func):
         """
@@ -62,6 +65,8 @@ class TimeoutRetryHandler(object):
         """
         Schedules the next request.
         """
+        if self.is_active():
+            return
         self.reset()
         self._num_tries_left = self.num_tries
         if timeout_callback is not None:

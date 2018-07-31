@@ -113,7 +113,7 @@ class PchkConnectionManager(PchkConnection):
     def __init__(self, loop, server_addr, port, username, password, settings = {}):
         """Constructor.
         """
-        super().__init__(loop, server_addr, port, username, password)
+        super().__init__(loop, server_addr, port)
        
         self.username = username
         self.password = password
