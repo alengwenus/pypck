@@ -1,3 +1,5 @@
+import asyncio
+
 from collections import deque
 
 from pypck.lcn_addr import LcnAddrMod
@@ -43,15 +45,18 @@ class StatusRequestHandler(object):
         self.request_status_locked_keys = TimeoutRetryHandler(self.loop, -1, self.settings['MAX_STATUS_POLLED_VALUEAGE_MSEC'])
         #self.request_status_locked_keys.set_timeout_callback(self.request_status_locked_keys_timeout)    
 
+        self.sw_age_known = asyncio.Future()
+
     def get_sw_age(self):
         return self.sw_age
 
     def set_sw_age(self, sw_age):
         self.sw_age = sw_age
-        for item in self.activate_backlog:
-            self.activate(item)
-            
-        self.activate_backlog = []
+        self.sw_age_known.set_result(True)
+#         for item in self.activate_backlog:
+#             self.loop.create_task(self.activate(item))
+#             
+#         self.activate_backlog = []
         
     def set_output_timeout_callback(self, output_port, callback):
         self.request_status_outputs[output_port.value].set_timeout_callback(callback)
@@ -72,18 +77,19 @@ class StatusRequestHandler(object):
     def set_locked_keys_callback(self, callback):
         self.request_status_locked_keys.set_timeout_callback(callback)
     
-    def activate(self, item):
+    async def activate(self, item):
         if (item in lcn_defs.Var) and (item != lcn_defs.Var.UNKNOWN):   # handle variables independently
-            if self.sw_age == -1:    # we don't know the software version, yet
-                self.activate_backlog.append(item)
-                return
+            await self.sw_age_known
+#             if self.sw_age == -1:    # we don't know the software version, yet
+#                 self.activate_backlog.append(item)
+#                 return
+#            else:
+            if self.sw_age >= 0x170206:
+                timeout_msec = self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC']
             else:
-                if self.sw_age >= 0x170206:
-                    timeout_msec = self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC']
-                else:
-                    timeout_msec = self.settings['MAX_STATUS_POLLED_VALUEAGE_MSEC']
-                self.request_status_vars[item].set_timeout_msec(timeout_msec)
-                self.request_status_vars[item].activate()
+                timeout_msec = self.settings['MAX_STATUS_POLLED_VALUEAGE_MSEC']
+            self.request_status_vars[item].set_timeout_msec(timeout_msec)
+            self.request_status_vars[item].activate()
         elif item in lcn_defs.OutputPort:
             self.request_status_outputs[item.value].activate()
         elif item in lcn_defs.RelayPort:
@@ -116,7 +122,7 @@ class StatusRequestHandler(object):
                 continue
             if (not s0) and (item in lcn_defs.Var._s0_id_to_var):
                 continue
-            self.activate(item)
+            self.loop.create_task(self.activate(item))
     
     def cancel_all(self):
         for item in lcn_defs.OutputPort + lcn_defs.RelayPort + lcn_defs.BinSensorPort + lcn_defs.LedPort + lcn_defs.Key + lcn_defs.Var:
@@ -167,12 +173,22 @@ class ModuleConnection(LcnAddrMod):
         # Commands are always without address header.
         # Note that the first one might currently be "in progress".
         self.pck_commands_with_ack = deque()
+        
+        loop.create_task(self.get_module_sw())
+        
+        #TODO: do not automatically activate all StatusRequest handlers
+        loop.create_task(self.activate_status_request_handlers())
 
-    def activate_status_request_handlers(self):
+    async def get_module_sw(self):
+        await self.conn.segment_scan_completed
+        self.request_sw_age.activate()
+
+    async def activate_status_request_handlers(self):
         """
         Activates all TimeoutRetryHandlers for firmware request and status requests.
         """
-        self.request_sw_age.activate()
+        #self.request_sw_age.activate()
+        await self.conn.segment_scan_completed
         self.status_requests.activate_all(s0 = self.has_s0_enabled)
 
     def cancel_timeout_retries(self):
