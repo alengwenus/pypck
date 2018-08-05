@@ -24,11 +24,9 @@ class StatusRequestHandler(object):
             
         # Relay request status (all 8)
         self.request_status_relays = TimeoutRetryHandler(self.loop, -1, self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC'])
-        #self.request_status_relays.set_timeout_callback(self.request_status_relays_timeout)
         
         # Binary-sensors request status (all 8)
         self.request_status_bin_sensors = TimeoutRetryHandler(self.loop, -1, self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC'])
-        #self.request_status_bin_sensors.set_timeout_callback(self.request_status_bin_sensors_timeout)
         
         # Variables request status.
         # Lazy initialization: Will be filled once the firmware version is known.
@@ -39,11 +37,9 @@ class StatusRequestHandler(object):
 
         # LEDs and logic-operations request status (all 12+4).
         self.request_status_leds_and_logic_ops = TimeoutRetryHandler(self.loop, -1, self.settings['MAX_STATUS_POLLED_VALUEAGE_MSEC'])
-        #self.request_status_leds_and_logic_ops.set_timeout_callback(self.request_status_leds_and_logic_ops_timeout)
      
         # Key lock-states request status (all tables, A-D).
         self.request_status_locked_keys = TimeoutRetryHandler(self.loop, -1, self.settings['MAX_STATUS_POLLED_VALUEAGE_MSEC'])
-        #self.request_status_locked_keys.set_timeout_callback(self.request_status_locked_keys_timeout)    
 
         self.sw_age_known = asyncio.Future()
 
@@ -53,10 +49,6 @@ class StatusRequestHandler(object):
     def set_sw_age(self, sw_age):
         self.sw_age = sw_age
         self.sw_age_known.set_result(True)
-#         for item in self.activate_backlog:
-#             self.loop.create_task(self.activate(item))
-#             
-#         self.activate_backlog = []
         
     def set_output_timeout_callback(self, output_port, callback):
         self.request_status_outputs[output_port.value].set_timeout_callback(callback)
@@ -79,11 +71,7 @@ class StatusRequestHandler(object):
     
     async def activate(self, item):
         if (item in lcn_defs.Var) and (item != lcn_defs.Var.UNKNOWN):   # handle variables independently
-            await self.sw_age_known
-#             if self.sw_age == -1:    # we don't know the software version, yet
-#                 self.activate_backlog.append(item)
-#                 return
-#            else:
+            await self.sw_age_known     # wait until we know the software version
             if self.sw_age >= 0x170206:
                 timeout_msec = self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC']
             else:
@@ -137,7 +125,7 @@ class ModuleConnection(LcnAddrMod):
     """Organizes communication with a specific module.
     Sends status requests to the connection and handles status responses.
     """
-    def __init__(self, loop, conn, seg_id, mod_id, has_s0_enabled = False):
+    def __init__(self, loop, conn, seg_id, mod_id, activate_status_requests = False, has_s0_enabled = False):
         self.loop = loop
         self.conn = conn
         super().__init__(seg_id = seg_id, mod_id = mod_id)
@@ -176,16 +164,21 @@ class ModuleConnection(LcnAddrMod):
         
         loop.create_task(self.get_module_sw())
         
-        #TODO: do not automatically activate all StatusRequest handlers
-        loop.create_task(self.activate_status_request_handlers())
+        if activate_status_requests:
+            loop.create_task(self.activate_status_request_handlers())
 
     async def get_module_sw(self):
         await self.conn.segment_scan_completed
         self.request_sw_age.activate()
 
+    async def activate_status_request_handler(self, item):
+        '''Activates a specific TimeoutRetryHandler for status requests.
+        '''
+        await self.conn.segment_scan_completed
+        self.loop.create_task(self.status_requests.activate(item))
+
     async def activate_status_request_handlers(self):
-        """
-        Activates all TimeoutRetryHandlers for firmware request and status requests.
+        """Activates all TimeoutRetryHandlers for status requests.
         """
         #self.request_sw_age.activate()
         await self.conn.segment_scan_completed
@@ -252,7 +245,6 @@ class ModuleConnection(LcnAddrMod):
         @param code the LCN internal code. -1 means "positive" acknowledge
         @param timeoutMSec the time to wait for a response before retrying a request
         """
-        #print('Ack received!')
         if self.request_curr_pck_command_with_ack.is_active(): # Check if we wait for an ack.
             if len(self.pck_commands_with_ack) > 0:
                 self.pck_commands_with_ack.popleft()
@@ -273,10 +265,8 @@ class ModuleConnection(LcnAddrMod):
     
     def request_curr_pck_command_with_ack_timeout(self, failed):
         # Use the chance to remove a failed command first
-        #print('AckTimeout', failed)
         if failed:
             self.pck_commands_with_ack.popleft()
-            # self.request_curr_pck_command_with_ack.reset()
             self.try_process_next_command_with_ack()
         else:
             pck = self.pck_commands_with_ack[0]
@@ -301,7 +291,6 @@ class ModuleConnection(LcnAddrMod):
         Usually gets called by input object's process method.
         Method to handle incoming commands for this specific module (status, toggle_output, switch_relays, ...)
         """
-        #print(input_obj)
         for input_callback in self.input_callbacks:
             input_callback(input_obj)
     

@@ -201,13 +201,9 @@ class ModSn(ModInput):
  
     def process(self, conn):
         super().process(conn)   # Will replace source segment 0 with the local segment id
-        #print(self.logical_source_addr)
         module_conn = conn.get_module_conn(self.logical_source_addr)
-        #print(module_conn.seg_id, module_conn.mod_id)
-        #print(conn.module_conns)
         module_conn.set_sw_age(self.sw_age)
         module_conn.request_sw_age.cancel()
-        #module_conn.initialize_variables()
 
 
 
@@ -552,7 +548,6 @@ class InputParser(object):
     def parse(input):
         for parser in InputParser.parsers:
             ret = parser.try_parse(input)
-            # print(input, parser, ret)
             if ret is not None:
                 return ret
             

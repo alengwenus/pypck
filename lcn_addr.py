@@ -53,8 +53,6 @@ class LcnAddr(object):
             return -1
     
     def __eq__(self, obj):
-#         if not isinstance(obj, self.__class__):
-#             return False
         return (self.is_group() == obj.is_group()) & (self.get_seg_id() == obj.get_seg_id()) & (self.get_id() == obj.get_id())
 
 
@@ -100,7 +98,6 @@ class LcnAddrMod(LcnAddr):
     
     def __repr__(self):
         return str(self.__hash__())
-        #return 'Address: S{:03d}.M{:03d}'.format(self.seg_id, self.mod_id)
     
 
 class LcnAddrGrp(LcnAddr):

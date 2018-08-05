@@ -52,7 +52,6 @@ class TimeoutRetryHandler(object):
             return
         elif self._num_tries_left > 0 :
             self._num_tries_left -= 1
-        #print('Init next handle')
         self._timeout_handle = self.loop.call_later(self._timeout_msec/1000, self.on_timeout)
  
     def reset(self):
