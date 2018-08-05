@@ -82,6 +82,9 @@ class PchkConnection(asyncio.Protocol):
         """
         pass
  
+    def close(self):
+        if self.transport != None:
+            self.transport.close()
  
  
 class PchkConnectionManager(PchkConnection):
@@ -183,7 +186,9 @@ class PchkConnectionManager(PchkConnection):
 
     async def connect(self):
         super().connect_pchk()
-        await asyncio.wait([self.socket_connected, self.lcn_connected, self.segment_scan_completed], timeout = 30)
+        done, pending = await asyncio.wait([self.socket_connected, self.lcn_connected, self.segment_scan_completed], timeout = 30)
+        if len(pending) > 0:
+            raise TimeoutError('No server listening. Aborting.')
         
 
     def set_local_seg_id(self, local_seg_id):
@@ -253,6 +258,13 @@ class PchkConnectionManager(PchkConnection):
     
  
 if __name__ == '__main__':
+    async def test(module_conn):
+        await asyncio.sleep(15)
+        loop.create_task(module_conn.activate_status_request_handler(lcn_defs.OutputPort.OUTPUT1))  # activate specific status request
+        loop.create_task(module_conn.activate_status_request_handler(lcn_defs.OutputPort.OUTPUT2))  # activate specific status request
+        loop.create_task(module_conn.activate_status_request_handler(lcn_defs.RelayPort.RELAY1))    # activate specific status request
+    
+    
     logging.basicConfig(level=logging.INFO)
  
     loop = asyncio.get_event_loop()
@@ -261,11 +273,11 @@ if __name__ == '__main__':
 
     loop.create_task(connection.connect())
 
+    loop.create_task(test(module_conn))
+
 #    loop.create_task(module_conn.activate_status_request_handlers())    # activate all status requests
-    loop.create_task(module_conn.activate_status_request_handler(lcn_defs.OutputPort.OUTPUT1))  # activate specific status request
-    loop.create_task(module_conn.activate_status_request_handler(lcn_defs.OutputPort.OUTPUT2))  # activate specific status request
-    loop.create_task(module_conn.activate_status_request_handler(lcn_defs.RelayPort.RELAY1))    # activate specific status request
     
+
     loop.run_forever()
     loop.close()
     

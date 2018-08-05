@@ -64,8 +64,8 @@ class TimeoutRetryHandler(object):
         """
         Schedules the next request.
         """
-        if self.is_active():
-            return
+#         if self.is_active():
+#             return
         self.reset()
         self._num_tries_left = self.num_tries
         if timeout_callback is not None:
