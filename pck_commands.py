@@ -257,7 +257,7 @@ class PckGenerator(object):
         @param states the 8 modifiers for the relay states as a list
         @return the PCK command (without address header) as text
         """
-        if states.length != 8:
+        if len(states) != 8:
             raise ValueError('Invalid states length.')
         ret = 'R8'
         for state in states:

@@ -67,6 +67,9 @@ class PchkConnection(asyncio.Protocol):
             self.process_input(input.decode())
    
     def send_command(self, pck):
+        self.loop.create_task(self.send_command_async(pck))
+   
+    async def send_command_async(self, pck):
         """Sends a PCK command to the PCHK server.
         
         :param    str    pck:    PCK command
@@ -142,7 +145,7 @@ class PchkConnectionManager(PchkConnection):
         # All ModuleConnection objects are stored in this dictionary.
         self.module_conns = {}
         
-        self.status_segment_scan = TimeoutRetryHandler(loop, 3)
+        self.status_segment_scan = TimeoutRetryHandler(loop, self.settings['SK_NUM_TRIES'])
         self.ping = TimeoutRetryHandler(loop, -1, self.settings['PING_TIMEOUT'])
         self.ping.set_timeout_callback(self.ping_timeout)
 
@@ -159,11 +162,12 @@ class PchkConnectionManager(PchkConnection):
             module_conn.cancel_timeout_retries()
        
     def on_successful_login(self):
+        self.logger.info('PCHK login successful.')
+        self.set_lcn_connected(True)
         self.ping.activate()
  
     def on_auth_ok(self):
         self.logger.info('Authorization successful!')
-        self.set_lcn_connected(True)
  
     def get_lcn_connected(self):
         return self.lcn_connected.done()
@@ -174,8 +178,8 @@ class PchkConnectionManager(PchkConnection):
         """
         #self._is_lcn_connected = is_lcn_connected
         if is_lcn_connected:
-            self.status_segment_scan.activate(self.segment_scan_timeout)
             self.lcn_connected.set_result(True)
+            self.status_segment_scan.activate(self.segment_scan_timeout)
         else:
             # Repeat segment scan on next connect
             self.local_seg_id = -1
@@ -259,16 +263,19 @@ class PchkConnectionManager(PchkConnection):
  
 if __name__ == '__main__':
     async def test(module_conn):
-        await asyncio.sleep(15)
+        #await asyncio.sleep(15)
         loop.create_task(module_conn.activate_status_request_handler(lcn_defs.OutputPort.OUTPUT1))  # activate specific status request
         loop.create_task(module_conn.activate_status_request_handler(lcn_defs.OutputPort.OUTPUT2))  # activate specific status request
         loop.create_task(module_conn.activate_status_request_handler(lcn_defs.RelayPort.RELAY1))    # activate specific status request
-    
+
     
     logging.basicConfig(level=logging.INFO)
  
     loop = asyncio.get_event_loop()
-    connection = PchkConnectionManager(loop, '10.1.2.3', 4114, 'lcn', 'lcn')
+
+    settings = {'SK_NUM_TRIES': 0}
+    
+    connection = PchkConnectionManager(loop, '10.1.2.3', 4114, 'lcn', 'lcn', settings)
     module_conn = connection.get_module_conn(LcnAddrMod(0, 7))
 
     loop.create_task(connection.connect())

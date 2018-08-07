@@ -175,6 +175,7 @@ class ModuleConnection(LcnAddrMod):
         '''Activates a specific TimeoutRetryHandler for status requests.
         '''
         await self.conn.segment_scan_completed
+        #await self.conn.lcn_connected
         self.loop.create_task(self.status_requests.activate(item))
 
     async def activate_status_request_handlers(self):
@@ -182,6 +183,7 @@ class ModuleConnection(LcnAddrMod):
         """
         #self.request_sw_age.activate()
         await self.conn.segment_scan_completed
+        # await self.conn.lcn_connected
         self.status_requests.activate_all(s0 = self.has_s0_enabled)
 
     def cancel_timeout_retries(self):

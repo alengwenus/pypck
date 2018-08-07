@@ -5,6 +5,7 @@ import re
 
 
 default_connection_settings = {'NUM_TRIES': 3,  # Total number of request to sent before going into failed-state.
+                               'SK_NUM_TRIES': 3, # Total number of segment coupler scan tries
                                'PING_TIMEOUT': 600000,  # The default timeout for pings sent to PCHK.
                                'MAX_STATUS_EVENTBASED_VALUEAGE_MSEC': 600000,   # Poll interval for status values that automatically send their values on change.
                                'MAX_STATUS_POLLED_VALUEAGE_MSEC': 30000,    # Poll interval for status values that do not send their values on change (always polled).
