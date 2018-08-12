@@ -46,6 +46,25 @@ class RelayPort(Enum):
     RELAY7 = 6
     RELAY8 = 7
 
+    MOTORONOFF1 = 0
+    MOTORUPDOWN1 = 1
+    MOTORONOFF2 = 2
+    MOTORUPDOWN2 = 3
+    MOTORONOFF3 = 4
+    MOTORUPDOWN3 = 5
+    MOTORONOFF4 = 6
+    MOTORUPDOWN4 = 7
+
+
+class MotorPort(Enum):
+    """Motor ports of LCN module.
+    """
+    MOTOR1 = 0
+    MOTOR2 = 1
+    MOTOR3 = 2
+    MOTOR4 = 3
+
+
 
 class LedPort(Enum):
     """LED port of LCN module.
@@ -225,7 +244,7 @@ class Var(Enum):
         @return the translated var Var
         """
         if (register_id < 0) or (register_id >= len(Var._thrs_id_to_var)) or (thrs_id < 0) or (thrs_id >= (5 if (register_id == 0) else 4)):
-            print(register_id, thrs_id)
+            #print(register_id, thrs_id)
             raise ValueError('Bad register_id and/or thrs_id.')
         return Var._thrs_id_to_var[register_id][thrs_id]
     
@@ -936,8 +955,7 @@ class TimeUnit(Enum):
         
 
 class RelayStateModifier(Enum):
-    """
-    Relay-state modifiers used in LCN commands.
+    """Relay-state modifiers used in LCN commands.
     """
     ON = '1'
     OFF = '0'
@@ -945,17 +963,28 @@ class RelayStateModifier(Enum):
     NOCHANGE = '-'
     
 
-class RelVarRef(Enum):
+class MotorStateModifier(Enum):
+    """Motor-state modifiers used in LCN commands.
+    LCN module has to be configured for motors connected to relays.
     """
-    Value-reference for relative LCN variable commands.
+    UP = 'U'
+    DOWN = 'D'
+    STOP = 'S'
+    TOGGLEONOFF = 'T'   # toggle on/off
+    TOGGLEDIR = 'D'     # toggle direction
+    CYCLE = 'C'         # up, stop, down, stop, ...
+    NOCHANGE = '-' 
+    
+
+class RelVarRef(Enum):
+    """Value-reference for relative LCN variable commands.
     """
     CURRENT = auto()
     PROG = auto()       # Programmed value (LCN-PRO). Relevant for set-points and thresholds.
     
 
 class SendKeyCommand(Enum):
-    """
-    Command types used when sending LCN keys.
+    """Command types used when sending LCN keys.
     """
     HIT = 'K'
     MAKE = 'L'
@@ -964,8 +993,7 @@ class SendKeyCommand(Enum):
     
     
 class KeyLockStateModifier(Enum):
-    """
-    Key-lock modifiers used in LCN commands.
+    """Key-lock modifiers used in LCN commands.
     """
     ON = '1'
     OFF = '0'

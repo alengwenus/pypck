@@ -82,6 +82,8 @@ class StatusRequestHandler(object):
             self.request_status_outputs[item.value].activate()
         elif item in lcn_defs.RelayPort:
             self.request_status_relays.activate()
+        elif item in lcn_defs.MotorPort:
+            self.request_status_relays.activate()
         elif item in lcn_defs.BinSensorPort:
             self.request_status_bin_sensors.activate()
         elif item in lcn_defs.LedPort:
@@ -410,5 +412,13 @@ class ModuleConnection(LcnAddrMod):
         """
         cmd = PckGenerator.control_relays(states)
         self.send_command(not self.is_group(), cmd)
-        
     
+    def control_motors(self, states):
+        """
+        Sends a command to control motors via relays.
+        
+        @param states the 4 modifiers for the cover states as a list
+        """
+        cmd = PckGenerator.control_motors(states)
+        self.send_command(not self.is_group(), cmd)
+        

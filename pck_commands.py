@@ -265,6 +265,42 @@ class PckGenerator(object):
         
         return ret
 
+    @staticmethod
+    def control_motors(states):
+        """
+        Generates a command to control motors via relays.
+        
+        @param states the 4 modifiers for the motor states as a list
+        @return the PCK command (without address header) as text
+        """
+        if len(states) != 4:
+            raise ValueError('Invalid states length.')
+        ret = 'R8'
+        for state in states:
+            if state == lcn_defs.MotorStateModifier.UP:
+                ret += lcn_defs.RelayStateModifier.ON.value 
+                ret += lcn_defs.RelayStateModifier.OFF.value
+            elif state == lcn_defs.MotorStateModifier.DOWN:
+                ret += lcn_defs.RelayStateModifier.ON.value 
+                ret += lcn_defs.RelayStateModifier.ON.value
+            elif state == lcn_defs.MotorStateModifier.STOP:
+                ret += lcn_defs.RelayStateModifier.OFF.value 
+                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
+            elif state == lcn_defs.MotorStateModifier.TOGGLEONOFF:
+                ret += lcn_defs.RelayStateModifier.TOGGLE.value 
+                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
+            elif state == lcn_defs.MotorStateModifier.TOGGLEDIR:
+                ret += lcn_defs.RelayStateModifier.NOCHANGE.value 
+                ret += lcn_defs.RelayStateModifier.TOGGLE.value
+            elif state == lcn_defs.MotorStateModifier.CYCLE:
+                ret += lcn_defs.RelayStateModifier.TOGGLE.value 
+                ret += lcn_defs.RelayStateModifier.TOGGLE.value
+            elif state == lcn_defs.MotorStateModifier.NOCHANGE:
+                ret += lcn_defs.RelayStateModifier.NOCHANGE.value 
+                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
+        
+        return ret
+
     @staticmethod   
     def request_bin_sensors_status():
         """
