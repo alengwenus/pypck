@@ -487,18 +487,18 @@ class VarUnit(Enum):
     """
     Measurement units used with LCN variables.
     """
-    NATIVE = auto()         # LCN internal representation (0 = -100�C for absolute values)
-    CELSIUS = auto()
-    KELVIN = auto()
-    FAHRENHEIT = auto()
-    LUX_T = auto()
-    LUX_I = auto()
-    METERPERSECOND = auto() # Used for LCN-WIH wind speed
-    PERCENT = auto()        # Used for humidity
-    PPM = auto()            # Used by CO2 sensor
-    VOLT = auto()
-    AMPERE = auto()
-    DEGREE = auto()         #Used for angles,
+    NATIVE = ''             # LCN internal representation (0 = -100�C for absolute values)
+    CELSIUS = '\u00b0C'
+    KELVIN = '\u00b0K'
+    FAHRENHEIT = '\u00b0F'
+    LUX_T = 'Lux_T'
+    LUX_I = 'Lux_I'
+    METERPERSECOND = 'm/s'  # Used for LCN-WIH wind speed
+    PERCENT = '%'           # Used for humidity
+    PPM = 'ppm'             # Used by CO2 sensor
+    VOLT = 'V'
+    AMPERE = 'A'
+    DEGREE = '\u00b0'       #Used for angles,
 
     @staticmethod
     def parse(input):
@@ -727,7 +727,7 @@ class VarValue(object):
         n = int(round(d * 10))
         return VarValue(n + 1000 if abs else n)
     
-    def to_var_unit(self, unit, is_lockable_regulator_source):
+    def to_var_unit(self, unit, is_lockable_regulator_source = False):
         v = VarValue(self.native_value & 0x7fff if is_lockable_regulator_source else self.native_value)
     
         if unit == VarUnit.NATIVE:
@@ -855,7 +855,7 @@ class VarValue(object):
         """
         return (self.native_value - 1000) / 10.
     
-    def to_var_unit_string(self, unit, is_lockable_regulator_source, use_lcn_special_values):
+    def to_var_unit_string(self, unit, is_lockable_regulator_source = False, use_lcn_special_values = False):
         if use_lcn_special_values and (self.native_value == 0xffff):    # No value
             ret = '---'
         elif use_lcn_special_values and ((self.native_value & 0xff00) == 0x8100):   # Undefined
