@@ -503,7 +503,7 @@ class VarUnit(Enum):
     @staticmethod
     def parse(input):
         input = input.upper()
-        if input == 'LCN':
+        if input in ['', 'NATIVE', 'LCN']:
             return VarUnit.NATIVE
         elif input in ['CELSIUS', '\u00b0CELSIUS', '\u00b0C']:
             return VarUnit.CELSIUS
