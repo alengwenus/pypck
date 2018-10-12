@@ -1,10 +1,10 @@
 import logging
 import re
- 
-from pypck.pck_commands import PckParser, PckGenerator
-from pypck.lcn_addr import LcnAddrMod
-from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC
+
 from pypck import lcn_defs
+from pypck.lcn_addr import LcnAddrMod
+from pypck.pck_commands import PckParser, PckGenerator
+from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC
 
 
 class Input(object):
@@ -18,7 +18,6 @@ class Input(object):
     the Input object, a list of instances of :class:`~pypck.input.Input` is returned. 
     If parsing is successful, the :func:`~pypck.input.Input.process` method can be called
     to trigger further actions.
-    
     """
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -29,9 +28,10 @@ class Input(object):
         Tries to parse the given input text.
         Will return a list of parsed Inputs. The list might be empty (but not null).
        
-        :param ~pypck.input.Input input:     the input data received from LCN-PCHK
-        :return:                             The parsed Inputs (never null)
-        :rtype:                              List with instances of :class:`~pypck.input.Input`
+        :param    input:     the input data received from LCN-PCHK
+        :type     input:     :class:`~pypck.input.Input`
+        :return:             The parsed Inputs (never null)
+        :rtype:              List with instances of :class:`~pypck.input.Input`
         """
         raise NotImplementedError
  
@@ -153,8 +153,7 @@ class ModAck(ModInput):
  
  
 class ModSk(ModInput):
-    """
-    Segment information received from an LCN segment coupler.
+    """Segment information received from an LCN segment coupler.
     """
     def __init__(self, physical_source_addr, reported_seg_id):
         super().__init__(physical_source_addr)
@@ -181,8 +180,7 @@ class ModSk(ModInput):
 
 
 class ModSn(ModInput):
-    """
-    Serial number and firmware version received from an LCN module.
+    """Serial number and firmware version received from an LCN module.
     """
     def __init__(self, physical_source_addr, sw_age):
         super().__init__(physical_source_addr)
@@ -208,8 +206,7 @@ class ModSn(ModInput):
 
 
 class ModStatusOutput(ModInput):
-    """
-    Status of an output-port received from an LCN module.
+    """Status of an output-port received from an LCN module.
     """
     def __init__(self, physical_source_addr, output_id, percent):
         super().__init__(physical_source_addr)
@@ -244,8 +241,7 @@ class ModStatusOutput(ModInput):
 
 
 class ModStatusRelays(ModInput):
-    """
-    Status of 8 relays received from an LCN module.
+    """Status of 8 relays received from an LCN module.
     """
     def __init__(self, physical_source_addr, states):
         super().__init__(physical_source_addr)
@@ -255,8 +251,10 @@ class ModStatusRelays(ModInput):
         """
         Gets the state of a single relay.
         
-        @param relay_id 0..7
-        @return the relay's state
+        :param    int    relay_id:    Relay id (0..7)
+        
+        :return:                      The relay's state
+        :rtype:   bool
         """
         return self.states[relay_id]
     
@@ -276,8 +274,7 @@ class ModStatusRelays(ModInput):
 
 
 class ModStatusBinSensors(ModInput):
-    """
-    Status of 8 binary sensors received from an LCN module.
+    """Status of 8 binary sensors received from an LCN module.
     """
     def __init__(self, physical_source_addr, states):
         super().__init__(physical_source_addr)
@@ -287,8 +284,10 @@ class ModStatusBinSensors(ModInput):
         """
         Gets the state of a single binary-sensor.
         
-        @param bin_sensor_id 0..7
-        @return the binary-sensor's state
+        :param    int    bin_sensor_id:    Binary sensor id (0..7)
+        
+        :return:                           The binary-sensor's state
+        :rtype:   bool
         """
         return self.states[bin_sensor_id]
     
@@ -321,7 +320,8 @@ class ModStatusVar(ModInput):
         """
         Gets the variable's real type.
         
-        @return the real type
+        :return:        The real type
+        :rtype:        :class:`~pypck.lcn_defs.Var`
         """
         return self.var
     
@@ -329,7 +329,8 @@ class ModStatusVar(ModInput):
         """
         Gets the variable's value.
 
-        @return the value        
+        :return:    The value of the variable.
+        :rtype:     int
         """
         return self.value
     
@@ -403,36 +404,35 @@ class ModStatusVar(ModInput):
 
 
 class ModStatusLedsAndLogicOps(ModInput):
-    """
-    Status of LEDs and logic-operations received from an LCN module.
+    """Status of LEDs and logic-operations received from an LCN module.
+
+    :param    int      physicalSourceAddr:   The physical source address
+    :param    states_led:                    The 12 LED states
+    :type     states_led:                    list(:class:`~pypck.lcn_defs.LedStatus`)
+    :param    states_logic_ops:              The 4 logic-operation states
+    :type     states_logic_ops:              list(:class:`~pypck.lcn_defs.LogicOpStatus`)         
     """
     def __init__(self, physical_source_addr, states_led, states_logic_ops):
-        """
-        Constructor.
-        
-        @param physicalSourceAddr the source address
-        @param statesLeds the 12 LED states
-        @param statesLogicOps the 4 logic-operation states
-        """
+        """Constructor."""
         super().__init__(physical_source_addr)
         self.states_led = states_led    # 12x LED status.
         self.states_logic_ops = states_logic_ops    # 4x logic-operation status.
         
     def get_led_state(self, led_id):
-        """
-        Gets the status of a single LED.
+        """Gets the status of a single LED.
 
-        @param ledId 0..11
-        @return the LED's status        
+        :param    int    led_id:   LED id (0..11)
+        :return:                   The LED's status
+        :rtype:   list(:class:`~pypck.lcn_defs.LedStatus`)
         """
         return self.states_led[led_id]
         
     def get_logic_op_state(self, logic_op_id):
-        """
-        Gets the status of a single logic operation.
+        """Gets the status of a single logic operation.
 
-        @param logicOpId 0..3
-        @return the logic-operation's status        
+        :param    int    logic_op_id:    Logic operation id (0..3)
+        :return:    The logic-operation's status
+        :rtype:     list(:class:`~pypck.lcn_defs.LogicOpStatus`)
         """
         return self.states_logic_ops[logic_op_id]
     
@@ -461,24 +461,23 @@ class ModStatusLedsAndLogicOps(ModInput):
 class ModStatusKeyLocks(ModInput):
     """
     Status of locked keys received from an LCN module.
+    
+    :param    int                physicalSourceAddr:    The source address
+    :param    list(list(bool))   states:                The 4x8 key-lock states        
     """
     def __init__(self, physical_source_id, states):
-        """
-        Constructor.
-
-        @param physicalSourceAddr the source address
-        @param states the 4x8 key-lock states        
+        """Constructor.
         """
         super().__init__(physical_source_id)
         self.states = states
 
     def get_state(self, table_id, key_id):
-        """
-        Gets the lock-state of a single key.
+        """Gets the lock-state of a single key.
 
-        @param tableId 0(A)..3(D)
-        @param keyId 0..7
-        @return the key's lock-state
+        :param    int    tableId:    Table id: (0..3  =>  A..D)
+        :param    int    keyId:      Key id (0..7)
+        :return:  The key's lock-state
+        :rtype:   bool
         """
         return self.states[table_id][key_id]
     
@@ -523,11 +522,6 @@ class Unknown(Input):
         pass
  
 
-
-
-
- 
-           
 class InputParser(object):
     parsers = [AuthUsername,
                AuthPassword,

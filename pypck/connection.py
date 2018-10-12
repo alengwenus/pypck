@@ -24,7 +24,7 @@ class PchkConnection(asyncio.Protocol):
     callback to send and receive text messages. 
     
     For login logic or communication with modules use
-    :class:`PchkConnectionManager`.
+    :class:`~PchkConnectionManager`.
     """
     def __init__(self, loop, server_addr, port):
         '''Constructor.
@@ -37,7 +37,9 @@ class PchkConnection(asyncio.Protocol):
  
         self.buffer = b''
    
-    def connect_pchk(self):
+    def connect(self):
+        """Establish a connection to PCHK at the given socket.
+        """
         coro = self.loop.create_connection(lambda: self, self.server_addr, self.port)
         self.client = self.loop.create_task(coro)
        
@@ -56,6 +58,11 @@ class PchkConnection(asyncio.Protocol):
    
     @property
     def is_socket_connected(self):
+        """Connection status to PCHK.
+        
+        :return:       Connection status to PCHK.
+        :rtype:        bool
+        """
         return self.transport != None
    
     def data_received(self, data):
@@ -67,25 +74,32 @@ class PchkConnection(asyncio.Protocol):
             self.process_input(input.decode())
    
     def send_command(self, pck):
+        """Sends a PCK command to the PCHK server.
+        
+        :param    str    pck:    PCK command
+        """        
         self.loop.create_task(self.send_command_async(pck))
    
     async def send_command_async(self, pck):
-        """Sends a PCK command to the PCHK server.
+        """Coroutine: Sends a PCK command to the PCHK server.
         
         :param    str    pck:    PCK command
         """
         self.logger.info('to PCHK: {}'.format(pck))
         self.transport.write((pck + PckGenerator.TERMINATION).encode())
    
-    def process_input(self, input):
-        """
-        Is called if a new text message is received from the PCHK server.
+    def process_input(self, input_text):
+        """Is called if a new text message is received from the PCHK server.
+        Thias class should be reimplemented in any subclass which evaluates recieved
+        messages.
         
         :param    str    input:    Input text message
         """
         pass
  
     def close(self):
+        """Closes the active connection.
+        """
         if self.transport != None:
             self.transport.close()
  
@@ -170,11 +184,18 @@ class PchkConnectionManager(PchkConnection):
         self.logger.info('Authorization successful!')
  
     def get_lcn_connected(self):
+        """Connection status to the LCN bus.
+        
+        :return:       Connection status to LCN bus.
+        :rtype:        bool
+        """
         return self.lcn_connected.done()
  
     def set_lcn_connected(self, is_lcn_connected):
         """
-        Sets the current connection state.
+        Sets the current connection state to the LCN bus.
+        
+        :param    bool    is_lcn_connected: Current connection status
         """
         #self._is_lcn_connected = is_lcn_connected
         if is_lcn_connected:
@@ -188,13 +209,17 @@ class PchkConnectionManager(PchkConnection):
             # Clearing our runtime data will give us a fresh start.
             self.module_conns.clear()
 
-    async def connect(self):
-        super().connect_pchk()
-        done, pending = await asyncio.wait([self.socket_connected, self.lcn_connected, self.segment_scan_completed], timeout = 30)
+    async def connect(self, timeout = 30):
+        """Establishes a connection to PCHK at the given socket, ensures that the LCN bus is present and authorizes at PCHK.
+        Raises a :class:`TimeoutError`, if connection could not be established within the given timeout. 
+        
+        :param    int    timeout:    Timeout in seconds
+        """
+        super().connect()
+        done, pending = await asyncio.wait([self.socket_connected, self.lcn_connected, self.segment_scan_completed], timeout = timeout)
         if len(pending) > 0:
             raise TimeoutError('No server listening. Aborting.')
         
-
     def set_local_seg_id(self, local_seg_id):
         """Sets the local segment id.
         
@@ -216,22 +241,23 @@ class PchkConnectionManager(PchkConnection):
         return LcnAddrMod(self.local_seg_id if addr.get_seg_id() == 0 else addr.get_seg_id(), addr.get_mod_id())
 
     def is_ready(self):
-        """Retrieves the completion state.
+        """Retrieves the overall connection state.
         Nothing should be sent before this is signaled.
 
-        :returns: True if everything is set-up
-        :rtype: bool
+        :returns:    True if everything is set-up, False otherwise
+        :rtype:      bool
         """
         return self.socket_connected.done() and self.lcn_connected.done() and self.segment_scan_completed.done()
  
     def get_module_conn(self, addr):
         """Creates and/or returns cached data for the given LCN module.
+        The LCN module object is used for further communication with the module (e.g. sending commands). 
         
-        :param addr:    The module's address
-        :type addr: :class:`LcnAddrMod`
+        :param    addr:    The module's address
+        :type     addr:    :class:`~LcnAddrMod`
         
         :returns: The module connection object (never null)
-        :rtype: ModuleConnection
+        :rtype: `~ModuleConnection`
         """
         module_conn = self.module_conns.get(addr, None)
         if module_conn is None:
@@ -241,7 +267,10 @@ class PchkConnectionManager(PchkConnection):
         return module_conn
     
     def segment_scan_timeout(self, failed):
-        """Gets called if no response from segment coupler was received."""
+        """Gets called if no response from segment coupler was received.
+        
+        :param    bool    failed:    True if caller failed to fulfill request otherwise False
+        """
         if failed:
             self.logger.info('No segment coupler found.')
             self.set_local_seg_id(0)
@@ -249,8 +278,8 @@ class PchkConnectionManager(PchkConnection):
             self.send_command(PckGenerator.generate_address_header(LcnAddrGrp(3, 3), self.local_seg_id, False) + PckGenerator.segment_coupler_scan())
  
     def ping_timeout(self, failed):
-        # Send a ping command to keep the connection to LCN-PCHK alive.
-        # (default is every 10 minutes)
+        """Send a ping command to keep the connection to LCN-PCHK alive.
+        (default is every 10 minutes)"""
         self.send_command('^ping{:d}'.format(self.ping_counter))
         self.ping_counter += 1
  
@@ -259,32 +288,3 @@ class PchkConnectionManager(PchkConnection):
         commands = InputParser.parse(input)
         for command in commands:
             command.process(self)
-    
- 
-if __name__ == '__main__':
-    async def test(module_conn):
-        #await asyncio.sleep(15)
-        loop.create_task(module_conn.activate_status_request_handler(lcn_defs.OutputPort.OUTPUT1))  # activate specific status request
-        loop.create_task(module_conn.activate_status_request_handler(lcn_defs.OutputPort.OUTPUT2))  # activate specific status request
-        loop.create_task(module_conn.activate_status_request_handler(lcn_defs.RelayPort.RELAY1))    # activate specific status request
-
-    
-    logging.basicConfig(level=logging.INFO)
- 
-    loop = asyncio.get_event_loop()
-
-    settings = {'SK_NUM_TRIES': 0}
-    
-    connection = PchkConnectionManager(loop, '10.1.2.3', 4114, 'lcn', 'lcn', settings)
-    module_conn = connection.get_module_conn(LcnAddrMod(0, 7))
-
-    loop.create_task(connection.connect())
-
-    loop.create_task(test(module_conn))
-
-#    loop.create_task(module_conn.activate_status_request_handlers())    # activate all status requests
-    
-
-    loop.run_forever()
-    loop.close()
-    
