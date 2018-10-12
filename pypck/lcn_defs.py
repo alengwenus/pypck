@@ -163,9 +163,26 @@ def time_to_ramp_value(time_msec):
     return int(ret) 
 
 
-class Var(Enum):
+def ramp_value_to_time(ramp_value):
+    """Converts the given LCN ramp value into a time.
+    
+    :param    int    ramp_value:    The LCN ramp value (0..250).
+    
+    :returns: The ramp time in milliseconds.
+    :rtype: int
     """
-    LCN variable types.
+    if not 0 <= ramp_value <= 250:
+        raise ValueError('Ramp value has to be in range 0..250.')
+    
+    if ramp_value < 10:
+        return [250, 500, 660, 1000, 1400, 2000, 3000, 4000, 5000, 6000][ramp_value]
+    else:
+        ret = ((ramp_value -10) * 2 + 6) * 1000
+        return int(ret)
+
+
+class Var(Enum):
+    """LCN variable types.
     """
     UNKNOWN = -1    # Used if the real type is not known (yet)
     VAR1ORTVAR = 0
@@ -215,8 +232,10 @@ class Var(Enum):
         """
         Translates a given id into a variable type.
 
-        @param varId 0..11
-        @return the translated var
+        :param    int    varId:    The variable id (0..11)
+        
+        :returns: The translated variable enum.
+        :rtype: Var
         """
         if (var_id < 0) or (var_id >= len(Var._var_id_to_var)):
             raise ValueError('Bad var_id.')
