@@ -225,7 +225,7 @@ class Var(Enum):
     S0INPUT1 = auto()
     S0INPUT2 = auto()
     S0INPUT3 = auto()
-    S0INPUT4 = auto()       # LCN-BU4L
+    S0INPUT4 = auto()       # LCN-BU4LJVarValue
 
     @staticmethod
     def var_id_to_var(var_id):

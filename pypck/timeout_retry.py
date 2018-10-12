@@ -1,15 +1,13 @@
-import asyncio
 import logging
  
 
- # The default timeout to use for requests. Worst case: Requesting threshold 4-4 takes at least 1.8s
+# The default timeout to use for requests. Worst case: Requesting threshold 4-4 takes at least 1.8s
 DEFAULT_TIMEOUT_MSEC = 3500 
  
  
 class TimeoutRetryHandler(object):
-    """
-    Manages timeout and retry logic for an LCN request.
-    """
+    """Manages timeout and retry logic for an LCN request."""
+    
     def __init__(self, loop, num_tries = 3, timeout_msec = DEFAULT_TIMEOUT_MSEC):
         """
         Constructor.
@@ -36,10 +34,9 @@ class TimeoutRetryHandler(object):
         self._timeout_msec = timeout_msec
        
     def set_timeout_callback(self, func):
-        """
-        timeout_callback function is called, if timeout expires.
+        """timeout_callback function is called, if timeout expires.
         Function has to take one argument:
-            returns failed state (True if failed)
+        returns failed state (True if failed)
         """
         self._timeout_callback = func
  
@@ -77,19 +74,3 @@ class TimeoutRetryHandler(object):
         Must be called when a response (requested or not) has been received.
         """
         self.reset()
-       
- 
- 
-if __name__ == '__main__':
-   
-    def timeout_callback(num_retry):
-        print('Execute... {:d}'.format(num_retry))
-   
-    loop = asyncio.get_event_loop()
-    trh = TimeoutRetryHandler(loop, timeout_msec = 1000)
-    trh.activate(timeout_callback)
-    loop.call_later(0.5, lambda: print('Is active:', trh._is_active()))
-    loop.call_later(1.5, trh.cancel)
-    loop.call_later(2.0, lambda: print('Is active:', trh._is_active()))
-   
-    loop.run_forever()
