@@ -536,7 +536,7 @@ class VarUnit(Enum):
             return VarUnit.LUX_I
         elif input == 'M/S':
             return VarUnit.METERPERSECOND
-        elif input == '%':
+        elif input in ['%', 'PERCENT']:
             return VarUnit.PERCENT
         elif input == 'PPM':
             return VarUnit.PPM

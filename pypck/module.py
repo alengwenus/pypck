@@ -308,23 +308,19 @@ class ModuleConnection(LcnAddrMod):
     
     def request_sw_age_timeout(self, failed):
         if not failed:
-            cmd = PckGenerator.request_sn()
-            self.send_command(False, cmd)
+            self.send_command(False, PckGenerator.request_sn())
     
     def request_status_outputs_timeout(self, failed, output_port):
         if not failed:
-            cmd = PckGenerator.request_output_status(output_port.value)
-            self.send_command(False, cmd)
+            self.send_command(False, PckGenerator.request_output_status(output_port.value))
 
     def request_status_relays_timeout(self, failed):
         if not failed:
-            cmd = PckGenerator.request_relays_status()
-            self.send_command(False, cmd)
+            self.send_command(False, PckGenerator.request_relays_status())
         
     def request_status_bin_sensors_timeout(self, failed):
         if not failed:
-            cmd = PckGenerator.request_bin_sensors_status()
-            self.send_command(False, cmd)
+            self.send_command(False, PckGenerator.request_bin_sensors_status())
 
     def request_status_var_timeout(self, failed, var):
         # Use the chance to remove a failed "typeless variable" request
@@ -340,13 +336,11 @@ class ModuleConnection(LcnAddrMod):
         
     def request_status_leds_and_logic_ops_timeout(self, failed):
         if not failed:
-            cmd = PckGenerator.request_leds_and_logic_ops()
-            self.send_command(False, cmd)
+            self.send_command(False, PckGenerator.request_leds_and_logic_ops())
     
     def request_status_locked_keys_timeout(self, failed):
         if not failed:
-            cmd = PckGenerator.request_key_lock_status()
-            self.send_command(False, cmd)
+            self.send_command(False, PckGenerator.request_key_lock_status())
 
 
     ###
@@ -361,8 +355,8 @@ class ModuleConnection(LcnAddrMod):
         @param percent 0..100
         @param ramp use {@link LcnDefs#timeToRampValue(int)}
         """
-        cmd = PckGenerator.dim_ouput(output_id, percent, ramp)       
-        self.send_command(not self.is_group(), cmd)
+        self.send_command(not self.is_group(),
+                          PckGenerator.dim_ouput(output_id, percent, ramp))
     
     def dim_all_outputs(self, percent, ramp, is1805=False):
         """
@@ -372,8 +366,8 @@ class ModuleConnection(LcnAddrMod):
         @param ramp use {@link LcnDefs#timeToRampValue(int)} (might be ignored in some cases)
         @param is1805 true if the target module's firmware is 180501 or newer
         """
-        cmd = PckGenerator.dim_all_outputs(percent, ramp, is1805)
-        self.send_command(not self.is_group(), cmd)
+        self.send_command(not self.is_group(),
+                          PckGenerator.dim_all_outputs(percent, ramp, is1805))
         
     def rel_output(self, output_id, percent):
         """
@@ -382,8 +376,8 @@ class ModuleConnection(LcnAddrMod):
         @param outputId 0..3
         @param percent -100..100
         """
-        cmd = PckGenerator.rel_output(output_id, percent)
-        self.send_command(not self.is_group(), cmd)
+        self.send_command(not self.is_group(),
+                          PckGenerator.rel_output(output_id, percent))
         
     def toggle_output(self, output_id, ramp):
         """
@@ -392,8 +386,8 @@ class ModuleConnection(LcnAddrMod):
         @param outputId 0..3
         @param ramp see {@link LcnDefs#timeToRampValue(int)}
         """
-        cmd = PckGenerator.toggle_output(output_id, ramp)
-        self.send_command(not self.is_group(), cmd)
+        self.send_command(not self.is_group(),
+                          PckGenerator.toggle_output(output_id, ramp))
         
     def toggle_all_outputs(self, ramp):
         """
@@ -401,8 +395,8 @@ class ModuleConnection(LcnAddrMod):
 
         @param ramp see {@link LcnDefs#timeToRampValue(int)}
         """
-        cmd = PckGenerator.toggle_all_outputs(ramp)
-        self.send_command(not self.is_group(), cmd)
+        self.send_command(not self.is_group(),
+                          PckGenerator.toggle_all_outputs(ramp))
         
     def control_relays(self, states):
         """
@@ -410,8 +404,8 @@ class ModuleConnection(LcnAddrMod):
 
         @param states the 8 modifiers for the relay states as a list
         """
-        cmd = PckGenerator.control_relays(states)
-        self.send_command(not self.is_group(), cmd)
+        self.send_command(not self.is_group(),
+                          PckGenerator.control_relays(states))
     
     def control_motors(self, states):
         """
@@ -419,6 +413,35 @@ class ModuleConnection(LcnAddrMod):
         
         @param states the 4 modifiers for the cover states as a list
         """
-        cmd = PckGenerator.control_motors(states)
-        self.send_command(not self.is_group(), cmd)
+        self.send_command(not self.is_group(),
+                          PckGenerator.control_motors(states))
+
+    def var_abs(self, var, value, unit = lcn_defs.VarUnit.NATIVE):
+        '''
+        Sends a command to set the absolute value to a variable.
         
+        @oaram var lcn_defs.Var instance
+        @param value int or float
+        @param unit lcn_defs.VarUnit instance
+        '''
+        if value != None and not isinstance(value, lcn_defs.VarValue):
+            value = lcn_defs.VarValue.from_var_unit(value, unit, True)
+        
+        is2013 = self.get_sw_age() >= 0x170206
+        if lcn_defs.Var.to_var_id(var) != -1:
+            # Absolute commands for variables 1-12 are not supported
+            if self.get_id() == 4 and self.is_group():
+                # group 4 are status messages
+                self.send_command(not self.is_group(),
+                                  PckGenerator.update_status_var(var, value.to_native()))
+            else:
+                # We fake the missing command by using reset and relative commands.
+                self.send_command(not self.is_group(),
+                                  PckGenerator.var_reset(var, is2013))
+                self.send_command(not self.is_group(),
+                                  PckGenerator.var_rel(var, lcn_defs.RelVarRef.CURRENT, value.to_native(), is2013))
+        else:
+            self.send_command(not self.is_group(),
+                              PckGenerator.var_abs(var, value.to_native()))
+        
+      

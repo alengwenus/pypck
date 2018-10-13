@@ -259,6 +259,8 @@ class PchkConnectionManager(PchkConnection):
         :returns: The module connection object (never null)
         :rtype: `~ModuleConnection`
         """
+        if addr.is_group():
+            raise ValueError('Address has to be a module.')
         module_conn = self.module_conns.get(addr, None)
         if module_conn is None:
             module_conn = ModuleConnection(self.loop, self, addr.seg_id, addr.mod_id)
