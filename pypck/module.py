@@ -257,7 +257,7 @@ class AbstractConnection(LcnAddr):
         self.send_command(not self.is_group(),
                           PckGenerator.control_motors(states))
 
-    def var_abs(self, var, value, unit = lcn_defs.VarUnit.NATIVE):
+    def var_abs(self, var, value, unit = lcn_defs.VarUnit.NATIVE, is2013 = None):
         '''
         Sends a command to set the absolute value to a variable.
         
@@ -268,7 +268,8 @@ class AbstractConnection(LcnAddr):
         if value != None and not isinstance(value, lcn_defs.VarValue):
             value = lcn_defs.VarValue.from_var_unit(value, unit, True)
         
-        is2013 = self.get_sw_age() >= 0x170206
+        if is2013 is None:
+            is2013 = self.get_sw_age() >= 0x170206
         if lcn_defs.Var.to_var_id(var) != -1:
             # Absolute commands for variables 1-12 are not supported
             if self.get_id() == 4 and self.is_group():
@@ -294,11 +295,22 @@ class GroupConnection(AbstractConnection):
     def __init__(self, loop, conn, seg_id, grp_id):
         super().__init__(loop, conn, seg_id, grp_id, True)
   
-    def get_sw_age(self):
-        """
-        Gets the LCN module's firmware date.
-        """
-        return 0x170206
+#     def get_sw_age(self):
+#         """
+#         Gets the LCN module's firmware date.
+#         """
+#         return 0x170206
+
+    def var_abs(self, var, value, unit = lcn_defs.VarUnit.NATIVE):
+        # for new modules (>=0x170206)
+        super().var_abs(var, value, unit, is2013 = True)
+        
+        # for old modules (<0x170206)
+        if var in [lcn_defs.Var.TVAR,
+                   lcn_defs.Var.R1VARSETPOINT,
+                   lcn_defs.Var.R2VARSETPOINT]:
+            super().var_abs(var, value, unit, is2013 = False)
+        
 
 
 class ModuleConnection(AbstractConnection):
