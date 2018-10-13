@@ -2,7 +2,7 @@ import asyncio
 
 from collections import deque
 
-from pypck.lcn_addr import LcnAddrMod
+from pypck.lcn_addr import LcnAddr
 from pypck import lcn_defs
 from pypck.pck_commands import PckGenerator
 from pypck.timeout_retry import TimeoutRetryHandler
@@ -123,18 +123,193 @@ class StatusRequestHandler(object):
         
 
 
-class ModuleConnection(LcnAddrMod):
+class AbstractConnection(LcnAddr):
     """Organizes communication with a specific module.
     Sends status requests to the connection and handles status responses.
     """
-    def __init__(self, loop, conn, seg_id, mod_id, activate_status_requests = False, has_s0_enabled = False):
+    def __init__(self, loop, conn, seg_id, id, is_group):
         self.loop = loop
         self.conn = conn
-        super().__init__(seg_id = seg_id, mod_id = mod_id)
+        super().__init__(seg_id = seg_id, id = id, is_group = is_group)
     
-        self.input_callbacks = []
+        self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
     
+    def send_command(self, wants_ack, pck):
+        """
+        Sends a command to the module represented by this class.
+        """
+        if (not self.is_group()) and wants_ack:
+            self.schedule_command_with_ack(pck)
+        else:
+            self.conn.send_command(PckGenerator.generate_address_header(self, self.conn.local_seg_id, wants_ack) + pck)
+
+    ###
+    ### Status requests timeout methods
+    ###
+    
+    def request_sw_age_timeout(self, failed=False):
+        if not failed:
+            self.send_command(False, PckGenerator.request_sn())
+    
+    def request_status_outputs_timeout(self, failed=False, output_port=0):
+        if not failed:
+            self.send_command(False, PckGenerator.request_output_status(output_port.value))
+
+    def request_status_relays_timeout(self, failed=False):
+        if not failed:
+            self.send_command(False, PckGenerator.request_relays_status())
+        
+    def request_status_bin_sensors_timeout(self, failed=False):
+        if not failed:
+            self.send_command(False, PckGenerator.request_bin_sensors_status())
+
+    def request_status_var_timeout(self, failed=False, var=None):
+        # Use the chance to remove a failed "typeless variable" request
+        if self.last_requested_var_without_type_in_response == var:
+            self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
+
+        # Detect if we can send immediately or if we have to wait for a "typeless" request first
+        has_type_in_response = lcn_defs.Var.has_type_in_response(var, self.get_sw_age())
+        if has_type_in_response or (self.last_requested_var_without_type_in_response == lcn_defs.Var.UNKNOWN):
+            self.send_command(False, PckGenerator.request_var_status(var, self.get_sw_age()))
+            if not has_type_in_response:
+                self.last_requested_var_without_type_in_response = var
+        
+    def request_status_leds_and_logic_ops_timeout(self, failed=False):
+        if not failed:
+            self.send_command(False, PckGenerator.request_leds_and_logic_ops())
+    
+    def request_status_locked_keys_timeout(self, failed=False):
+        if not failed:
+            self.send_command(False, PckGenerator.request_key_lock_status())
+
+
+    ###
+    ### Methods for sending PCK commands
+    ###
+    
+    def dim_output(self, output_id, percent, ramp):
+        """
+        Creates a dim command for a single output-port and sends it to the connection.
+
+        @param outputId 0..3
+        @param percent 0..100
+        @param ramp use {@link LcnDefs#timeToRampValue(int)}
+        """
+        self.send_command(not self.is_group(),
+                          PckGenerator.dim_ouput(output_id, percent, ramp))
+    
+    def dim_all_outputs(self, percent, ramp, is1805=False):
+        """
+        Sends a dim command for all output-ports.
+
+        @param percent 0..100
+        @param ramp use {@link LcnDefs#timeToRampValue(int)} (might be ignored in some cases)
+        @param is1805 true if the target module's firmware is 180501 or newer
+        """
+        self.send_command(not self.is_group(),
+                          PckGenerator.dim_all_outputs(percent, ramp, is1805))
+        
+    def rel_output(self, output_id, percent):
+        """
+        Sends a command to change the value of an output-port.
+
+        @param outputId 0..3
+        @param percent -100..100
+        """
+        self.send_command(not self.is_group(),
+                          PckGenerator.rel_output(output_id, percent))
+        
+    def toggle_output(self, output_id, ramp):
+        """
+        Sends a command that toggles a single output-port (on->off, off->on).
+
+        @param outputId 0..3
+        @param ramp see {@link LcnDefs#timeToRampValue(int)}
+        """
+        self.send_command(not self.is_group(),
+                          PckGenerator.toggle_output(output_id, ramp))
+        
+    def toggle_all_outputs(self, ramp):
+        """
+        Generates a command that toggles all output-ports (on->off, off->on).
+
+        @param ramp see {@link LcnDefs#timeToRampValue(int)}
+        """
+        self.send_command(not self.is_group(),
+                          PckGenerator.toggle_all_outputs(ramp))
+        
+    def control_relays(self, states):
+        """
+        Sends a command to control relays.
+
+        @param states the 8 modifiers for the relay states as a list
+        """
+        self.send_command(not self.is_group(),
+                          PckGenerator.control_relays(states))
+    
+    def control_motors(self, states):
+        """
+        Sends a command to control motors via relays.
+        
+        @param states the 4 modifiers for the cover states as a list
+        """
+        self.send_command(not self.is_group(),
+                          PckGenerator.control_motors(states))
+
+    def var_abs(self, var, value, unit = lcn_defs.VarUnit.NATIVE):
+        '''
+        Sends a command to set the absolute value to a variable.
+        
+        @oaram var lcn_defs.Var instance
+        @param value int or float
+        @param unit lcn_defs.VarUnit instance
+        '''
+        if value != None and not isinstance(value, lcn_defs.VarValue):
+            value = lcn_defs.VarValue.from_var_unit(value, unit, True)
+        
+        is2013 = self.get_sw_age() >= 0x170206
+        if lcn_defs.Var.to_var_id(var) != -1:
+            # Absolute commands for variables 1-12 are not supported
+            if self.get_id() == 4 and self.is_group():
+                # group 4 are status messages
+                self.send_command(not self.is_group(),
+                                  PckGenerator.update_status_var(var, value.to_native()))
+            else:
+                # We fake the missing command by using reset and relative commands.
+                self.send_command(not self.is_group(),
+                                  PckGenerator.var_reset(var, is2013))
+                self.send_command(not self.is_group(),
+                                  PckGenerator.var_rel(var, lcn_defs.RelVarRef.CURRENT, value.to_native(), is2013))
+        else:
+            self.send_command(not self.is_group(),
+                              PckGenerator.var_abs(var, value.to_native()))
+        
+
+
+class GroupConnection(AbstractConnection):
+    """Organizes communication with a specific group.
+    It is assumed that all modules within this group are newer than FW170206
+    """
+    def __init__(self, loop, conn, seg_id, grp_id):
+        super().__init__(loop, conn, seg_id, grp_id, True)
+  
+    def get_sw_age(self):
+        """
+        Gets the LCN module's firmware date.
+        """
+        return 0x170206
+
+
+class ModuleConnection(AbstractConnection):
+    """Organizes communication with a specific module or group.
+    """
+    def __init__(self, loop, conn, seg_id, mod_id, activate_status_requests = False, has_s0_enabled = False):
+        super().__init__(loop, conn, seg_id, mod_id, False)
+
         self.has_s0_enabled = has_s0_enabled
+
+        self.input_callbacks = []
 
         # Firmware version request status
         self.request_sw_age = TimeoutRetryHandler(self.loop, conn.settings['NUM_TRIES'])
@@ -156,8 +331,6 @@ class ModuleConnection(LcnAddrMod):
         
         self.status_requests.set_leds_and_logic_opts_timeout_callback(self.request_status_leds_and_logic_ops_timeout)
         self.status_requests.set_locked_keys_callback(self.request_status_locked_keys_timeout)
-        
-        self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
 
         # List of queued PCK commands to be acknowledged by the LCN module.
         # Commands are always without address header.
@@ -280,16 +453,6 @@ class ModuleConnection(LcnAddrMod):
     ### End of acknowledge retry logic
     ###
     
-    
-    def send_command(self, wants_ack, pck):
-        """
-        Sends a command to the module represented by this class.
-        """
-        if (not self.is_group()) and wants_ack:
-            self.schedule_command_with_ack(pck)
-        else:
-            self.conn.send_command(PckGenerator.generate_address_header(self, self.conn.local_seg_id, wants_ack) + pck)
-    
     def new_input(self, input_obj):
         """
         Usually gets called by input object's process method.
@@ -300,148 +463,6 @@ class ModuleConnection(LcnAddrMod):
     
     def register_for_module_inputs(self, callback):
         self.input_callbacks.append(callback)
-    
-
-    ###
-    ### Status requests timeout methods
-    ###
-    
-    def request_sw_age_timeout(self, failed):
-        if not failed:
-            self.send_command(False, PckGenerator.request_sn())
-    
-    def request_status_outputs_timeout(self, failed, output_port):
-        if not failed:
-            self.send_command(False, PckGenerator.request_output_status(output_port.value))
-
-    def request_status_relays_timeout(self, failed):
-        if not failed:
-            self.send_command(False, PckGenerator.request_relays_status())
-        
-    def request_status_bin_sensors_timeout(self, failed):
-        if not failed:
-            self.send_command(False, PckGenerator.request_bin_sensors_status())
-
-    def request_status_var_timeout(self, failed, var):
-        # Use the chance to remove a failed "typeless variable" request
-        if self.last_requested_var_without_type_in_response == var:
-            self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
-
-        # Detect if we can send immediately or if we have to wait for a "typeless" request first
-        has_type_in_response = lcn_defs.Var.has_type_in_response(var, self.get_sw_age())
-        if has_type_in_response or (self.last_requested_var_without_type_in_response == lcn_defs.Var.UNKNOWN):
-            self.send_command(False, PckGenerator.request_var_status(var, self.get_sw_age()))
-            if not has_type_in_response:
-                self.last_requested_var_without_type_in_response = var
-        
-    def request_status_leds_and_logic_ops_timeout(self, failed):
-        if not failed:
-            self.send_command(False, PckGenerator.request_leds_and_logic_ops())
-    
-    def request_status_locked_keys_timeout(self, failed):
-        if not failed:
-            self.send_command(False, PckGenerator.request_key_lock_status())
 
 
-    ###
-    ### Methods for sending PCK commands
-    ###
-    
-    def dim_output(self, output_id, percent, ramp):
-        """
-        Creates a dim command for a single output-port and sends it to the connection.
-
-        @param outputId 0..3
-        @param percent 0..100
-        @param ramp use {@link LcnDefs#timeToRampValue(int)}
-        """
-        self.send_command(not self.is_group(),
-                          PckGenerator.dim_ouput(output_id, percent, ramp))
-    
-    def dim_all_outputs(self, percent, ramp, is1805=False):
-        """
-        Sends a dim command for all output-ports.
-
-        @param percent 0..100
-        @param ramp use {@link LcnDefs#timeToRampValue(int)} (might be ignored in some cases)
-        @param is1805 true if the target module's firmware is 180501 or newer
-        """
-        self.send_command(not self.is_group(),
-                          PckGenerator.dim_all_outputs(percent, ramp, is1805))
-        
-    def rel_output(self, output_id, percent):
-        """
-        Sends a command to change the value of an output-port.
-
-        @param outputId 0..3
-        @param percent -100..100
-        """
-        self.send_command(not self.is_group(),
-                          PckGenerator.rel_output(output_id, percent))
-        
-    def toggle_output(self, output_id, ramp):
-        """
-        Sends a command that toggles a single output-port (on->off, off->on).
-
-        @param outputId 0..3
-        @param ramp see {@link LcnDefs#timeToRampValue(int)}
-        """
-        self.send_command(not self.is_group(),
-                          PckGenerator.toggle_output(output_id, ramp))
-        
-    def toggle_all_outputs(self, ramp):
-        """
-        Generates a command that toggles all output-ports (on->off, off->on).
-
-        @param ramp see {@link LcnDefs#timeToRampValue(int)}
-        """
-        self.send_command(not self.is_group(),
-                          PckGenerator.toggle_all_outputs(ramp))
-        
-    def control_relays(self, states):
-        """
-        Sends a command to control relays.
-
-        @param states the 8 modifiers for the relay states as a list
-        """
-        self.send_command(not self.is_group(),
-                          PckGenerator.control_relays(states))
-    
-    def control_motors(self, states):
-        """
-        Sends a command to control motors via relays.
-        
-        @param states the 4 modifiers for the cover states as a list
-        """
-        self.send_command(not self.is_group(),
-                          PckGenerator.control_motors(states))
-
-    def var_abs(self, var, value, unit = lcn_defs.VarUnit.NATIVE):
-        '''
-        Sends a command to set the absolute value to a variable.
-        
-        @oaram var lcn_defs.Var instance
-        @param value int or float
-        @param unit lcn_defs.VarUnit instance
-        '''
-        if value != None and not isinstance(value, lcn_defs.VarValue):
-            value = lcn_defs.VarValue.from_var_unit(value, unit, True)
-        
-        is2013 = self.get_sw_age() >= 0x170206
-        if lcn_defs.Var.to_var_id(var) != -1:
-            # Absolute commands for variables 1-12 are not supported
-            if self.get_id() == 4 and self.is_group():
-                # group 4 are status messages
-                self.send_command(not self.is_group(),
-                                  PckGenerator.update_status_var(var, value.to_native()))
-            else:
-                # We fake the missing command by using reset and relative commands.
-                self.send_command(not self.is_group(),
-                                  PckGenerator.var_reset(var, is2013))
-                self.send_command(not self.is_group(),
-                                  PckGenerator.var_rel(var, lcn_defs.RelVarRef.CURRENT, value.to_native(), is2013))
-        else:
-            self.send_command(not self.is_group(),
-                              PckGenerator.var_abs(var, value.to_native()))
-        
-      
+  

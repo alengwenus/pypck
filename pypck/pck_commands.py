@@ -355,7 +355,7 @@ class PckGenerator(object):
         raise ValueError('Wrong variable type.')
 
     @staticmethod
-    def var_reset(var, is2013):
+    def var_reset(var, is2013 = True):
         """
         Generates a command that resets a variable to 0.
 
@@ -385,7 +385,7 @@ class PckGenerator(object):
         raise ValueError('Wrong variable type.')
             
     @staticmethod
-    def var_rel(var, type, value, is2013):
+    def var_rel(var, type, value, is2013 = True):
         """
         Generates a command to change the value of a variable.
 
@@ -431,7 +431,7 @@ class PckGenerator(object):
         raise ValueError('Wrong variable type.')
     
     @staticmethod
-    def request_var_status(var, sw_age):
+    def request_var_status(var, sw_age = 0x170206):
         """
         Generates a variable value request.
     

@@ -4,8 +4,8 @@ import logging
 from pypck.pck_commands import PckGenerator
 from pypck import lcn_defs
 from pypck.input import InputParser
-from pypck.lcn_addr import LcnAddrMod, LcnAddrGrp
-from pypck.module import ModuleConnection
+from pypck.lcn_addr import LcnAddr
+from pypck.module import ModuleConnection, GroupConnection
 from pypck.timeout_retry import TimeoutRetryHandler
 
 
@@ -155,9 +155,10 @@ class PchkConnectionManager(PchkConnection):
         self.lcn_connected = asyncio.Future()
         self.segment_scan_completed = asyncio.Future()
 
-        # All modules from or to a communication occurs are represented by a unique ModuleConnection object.
-        # All ModuleConnection objects are stored in this dictionary.
-        self.module_conns = {}
+        # All modules/groups from or to a communication occurs are represented by a unique
+        # ModuleConnection or GroupConnection object.
+        # All ModuleConnection and GroupConnection objects are stored in this dictionary.
+        self.address_conns = {}
         
         self.status_segment_scan = TimeoutRetryHandler(loop, self.settings['SK_NUM_TRIES'])
         self.ping = TimeoutRetryHandler(loop, -1, self.settings['PING_TIMEOUT'])
@@ -172,7 +173,7 @@ class PchkConnectionManager(PchkConnection):
         
         self.status_segment_scan.cancel()
         self.ping.cancel()
-        for module_conn in self.module_conns.values():
+        for module_conn in self.address_conns.values():
             module_conn.cancel_timeout_retries()
        
     def on_successful_login(self):
@@ -207,7 +208,7 @@ class PchkConnectionManager(PchkConnection):
             self.status_segment_scan.reset()
             # While we are disconnected we will miss all status messages.
             # Clearing our runtime data will give us a fresh start.
-            self.module_conns.clear()
+            self.address_conns.clear()
 
     async def connect(self, timeout = 30):
         """Establishes a connection to PCHK at the given socket, ensures that the LCN bus is present and authorizes at PCHK.
@@ -228,17 +229,17 @@ class PchkConnectionManager(PchkConnection):
         old_local_seg_id = self.local_seg_id
 
         self.local_seg_id = local_seg_id
-        # replace all module_conns with current local_seg_id with new local_seg_id
-        for addr in self.module_conns:
+        # replace all address_conns with current local_seg_id with new local_seg_id
+        for addr in self.address_conns:
             if addr.seg_id == old_local_seg_id:
-                module_conn = self.module_conns.pop(addr)
-                module_conn.seg_id = self.local_seg_id
-                self.module_conns[LcnAddrMod(self.local_seg_id, addr.mod_id)] = module_conn
+                address_conn = self.address_conns.pop(addr)
+                address_conn.seg_id = self.local_seg_id
+                self.address_conns[LcnAddr(self.local_seg_id, addr.mod_id, addr.is_group())] = address_conn
 
         self.segment_scan_completed.set_result(True)                
  
     def physical_to_logical(self, addr):
-        return LcnAddrMod(self.local_seg_id if addr.get_seg_id() == 0 else addr.get_seg_id(), addr.get_mod_id())
+        return LcnAddr(self.local_seg_id if addr.get_seg_id() == 0 else addr.get_seg_id(), addr.get_id(), addr.is_group())
 
     def is_ready(self):
         """Retrieves the overall connection state.
@@ -249,24 +250,26 @@ class PchkConnectionManager(PchkConnection):
         """
         return self.socket_connected.done() and self.lcn_connected.done() and self.segment_scan_completed.done()
  
-    def get_module_conn(self, addr):
-        """Creates and/or returns cached data for the given LCN module.
-        The LCN module object is used for further communication with the module (e.g. sending commands). 
+    def get_address_conn(self, addr):
+        """Creates and/or returns cached data for the given LCN module or group.
+        The LCN module/group object is used for further communication with the module/group (e.g. sending commands). 
         
-        :param    addr:    The module's address
-        :type     addr:    :class:`~LcnAddrMod`
+        :param    addr:    The module's/group's address
+        :type     addr:    :class:`~LcnAddrMod` or :class:`~LcnAddrGrp`
         
-        :returns: The module connection object (never null)
-        :rtype: `~ModuleConnection`
+        :returns: The address connection object (never null)
+        :rtype: `~ModuleConnection` or `~GroupConnection`
         """
-        if addr.is_group():
-            raise ValueError('Address has to be a module.')
-        module_conn = self.module_conns.get(addr, None)
-        if module_conn is None:
-            module_conn = ModuleConnection(self.loop, self, addr.seg_id, addr.mod_id)
-            self.module_conns[addr] = module_conn
+        address_conn = self.address_conns.get(addr, None)
+        if address_conn is None:
+            if addr.is_group():
+                address_conn = GroupConnection(self.loop, self, addr.seg_id, addr.id)
+            else:
+                address_conn = ModuleConnection(self.loop, self, addr.seg_id, addr.id)
+        
+            self.address_conns[addr] = address_conn
             
-        return module_conn
+        return address_conn
     
     def segment_scan_timeout(self, failed):
         """Gets called if no response from segment coupler was received.
@@ -277,7 +280,7 @@ class PchkConnectionManager(PchkConnection):
             self.logger.info('No segment coupler found.')
             self.set_local_seg_id(0)
         else:
-            self.send_command(PckGenerator.generate_address_header(LcnAddrGrp(3, 3), self.local_seg_id, False) + PckGenerator.segment_coupler_scan())
+            self.send_command(PckGenerator.generate_address_header(LcnAddr(3, 3, True), self.local_seg_id, False) + PckGenerator.segment_coupler_scan())
  
     def ping_timeout(self, failed):
         """Send a ping command to keep the connection to LCN-PCHK alive.
