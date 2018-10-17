@@ -286,7 +286,21 @@ class AbstractConnection(LcnAddr):
             self.send_command(not self.is_group(),
                               PckGenerator.var_abs(var, value.to_native()))
         
+    def var_reset(self, var, is2013 = None):
+        if is2013 is None:
+            is2013 = self.get_sw_age() >= 0x170206
 
+        self.send_command(not self.is_group(), PckGenerator.var_reset(var, is2013))
+
+    def var_rel(self, var, value, unit = lcn_defs.VarUnit.NATIVE, value_ref = lcn_defs.RelVarRef.CURRENT, is2013 = None):
+        if value != None and not isinstance(value, lcn_defs.VarValue):
+            value = lcn_defs.VarValue.from_var_unit(value, unit, True)
+        
+        if is2013 is None:
+            is2013 = self.get_sw_age() >= 0x170206
+        self.send_command(not self.is_group(), PckGenerator.var_rel(var, value_ref, value.to_native(), is2013))
+        
+        
 
 class GroupConnection(AbstractConnection):
     """Organizes communication with a specific group.
@@ -306,12 +320,24 @@ class GroupConnection(AbstractConnection):
         super().var_abs(var, value, unit, is2013 = True)
         
         # for old modules (<0x170206)
-        if var in [lcn_defs.Var.TVAR,
-                   lcn_defs.Var.R1VARSETPOINT,
-                   lcn_defs.Var.R2VARSETPOINT]:
+        if var in [lcn_defs.Var.TVAR, lcn_defs.Var.R1VAR, lcn_defs.Var.R2VAR,
+                   lcn_defs.Var.R1VARSETPOINT, lcn_defs.Var.R2VARSETPOINT]:
             super().var_abs(var, value, unit, is2013 = False)
         
+    def var_reset(self, var):
+        super().var_reset(var, is2013 = True)
+        if var in [lcn_defs.Var.TVAR, lcn_defs.Var.R1VAR, lcn_defs.Var.R2VAR,
+                   lcn_defs.Var.R1VARSETPOINT, lcn_defs.Var.R2VARSETPOINT]:
+            super().var_reset(var, is2013 = False)
 
+    def var_rel(self, var):
+        super().var_reset(var, is2013 = True)
+        if var in [lcn_defs.Var.TVAR, lcn_defs.Var.R1VAR, lcn_defs.Var.R2VAR,
+                   lcn_defs.Var.R1VARSETPOINT, lcn_defs.Var.R2VARSETPOINT,
+                   lcn_defs.Var.THRS1, lcn_defs.Var.THRS2, lcn_defs.Var.THRS3, lcn_defs.Var.THRS4, lcn_defs.Var.THRS5]:
+            super().var_reset(var, is2013 = False)
+        
+        
 
 class ModuleConnection(AbstractConnection):
     """Organizes communication with a specific module or group.

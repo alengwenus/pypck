@@ -413,7 +413,7 @@ class PckGenerator(object):
         id = lcn_defs.Var.to_thrs_id(var)
         if (register_id != -1) and (id != -1):
             if is2013:      # New command for registers 1-4 (since 170206, LCN-PCHK 2.8)
-                return 'SS{:s}{:04d}{:s}R{;d}{:d}'.format('R' if type == lcn_defs.RelVarRef.CURRENT else 'E',
+                return 'SS{:s}{:04d}{:s}R{:d}{:d}'.format('R' if type == lcn_defs.RelVarRef.CURRENT else 'E',
                                                           abs(value),
                                                           'A' if value >= 0 else 'S',
                                                           register_id + 1,

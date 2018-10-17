@@ -567,7 +567,7 @@ class VarValue(object):
         """
         self.native_value = native_value
 
-    def is_lock_regulator(self):
+    def is_locked_regulator(self):
         return (self.native_value & 0x8000) != 0
 
     @staticmethod
@@ -917,7 +917,7 @@ class VarValue(object):
                 raise ValueError('Wrong unit.')
 
         # handle locked regulators
-        if is_lockable_regulator_source and self.is_lock_regulator():
+        if is_lockable_regulator_source and self.is_locked_regulator():
             ret = '({:s})'.format(ret)
 
         return ret

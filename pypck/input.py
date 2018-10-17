@@ -289,7 +289,7 @@ class ModStatusBinSensors(ModInput):
         :return:                           The binary-sensor's state
         :rtype:   bool
         """
-        return self.states[bin_sensor_id]
+        return not self.states[bin_sensor_id]
     
     @staticmethod
     def try_parse(input):
@@ -297,7 +297,7 @@ class ModStatusBinSensors(ModInput):
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
                            int(matcher.group('mod_id')))
-            return [ModStatusRelays(addr, PckParser.get_boolean_value(int(matcher.group('byte_value'))))]
+            return [ModStatusBinSensors(addr, PckParser.get_boolean_value(int(matcher.group('byte_value'))))]
 
     def process(self, conn):
         super().process(conn)   # Will replace source segment 0 with the local segment id
