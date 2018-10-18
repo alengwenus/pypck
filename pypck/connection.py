@@ -144,7 +144,8 @@ class PchkConnectionManager(PchkConnection):
         self.ping_interval = 60 * 10     # seconds
         self.ping_counter = 0
        
-        self.dim_mode = lcn_defs.OutputPortDimMode.STEPS50
+        #self.dim_mode = lcn_defs.OutputPortDimMode.STEPS50
+        self.dim_mode = self.settings['DIM_MODE']
         self.status_mode = lcn_defs.OutputPortStatusMode.PERCENT
  
         self._is_lcn_connected = False

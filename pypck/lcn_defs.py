@@ -4,13 +4,6 @@ import math
 import re
 
 
-default_connection_settings = {'NUM_TRIES': 3,  # Total number of request to sent before going into failed-state.
-                               'SK_NUM_TRIES': 3, # Total number of segment coupler scan tries
-                               'PING_TIMEOUT': 600000,  # The default timeout for pings sent to PCHK.
-                               'MAX_STATUS_EVENTBASED_VALUEAGE_MSEC': 600000,   # Poll interval for status values that automatically send their values on change.
-                               'MAX_STATUS_POLLED_VALUEAGE_MSEC': 30000,    # Poll interval for status values that do not send their values on change (always polled).
-                               'STATUS_REQUEST_DELAY_AFTER_COMMAND_MSEC': 2000  # Status request delay after a command has been send which potentially changed that status.
-                               }
 
 
 PATTERN_SPLIT_PORT_PIN = re.compile(r'(?P<port>[a-zA-Z]+)(?P<pin>\d+)')
@@ -177,7 +170,7 @@ def ramp_value_to_time(ramp_value):
     if ramp_value < 10:
         return [250, 500, 660, 1000, 1400, 2000, 3000, 4000, 5000, 6000][ramp_value]
     else:
-        ret = ((ramp_value -10) * 2 + 6) * 1000
+        ret = ((ramp_value - 10) * 2 + 6) * 1000
         return int(ret)
 
 
@@ -1018,3 +1011,14 @@ class KeyLockStateModifier(Enum):
     OFF = '0'
     TOGGLE = 'U'
     NOCHANGE = '-'
+
+
+
+default_connection_settings = {'NUM_TRIES': 3,  # Total number of request to sent before going into failed-state.
+                               'SK_NUM_TRIES': 3, # Total number of segment coupler scan tries
+                               'DIM_MODE': OutputPortDimMode.STEPS50,
+                               'PING_TIMEOUT': 600000,  # The default timeout for pings sent to PCHK.
+                               'MAX_STATUS_EVENTBASED_VALUEAGE_MSEC': 600000,   # Poll interval for status values that automatically send their values on change.
+                               'MAX_STATUS_POLLED_VALUEAGE_MSEC': 30000,    # Poll interval for status values that do not send their values on change (always polled).
+                               'STATUS_REQUEST_DELAY_AFTER_COMMAND_MSEC': 2000  # Status request delay after a command has been send which potentially changed that status.
+                               }

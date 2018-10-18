@@ -300,7 +300,11 @@ class AbstractConnection(LcnAddr):
             is2013 = self.get_sw_age() >= 0x170206
         self.send_command(not self.is_group(), PckGenerator.var_rel(var, value_ref, value.to_native(), is2013))
         
-        
+    def lock_regulator(self, reg_id, state):
+        if reg_id != -1:
+            self.send_command(not self.is_group(), PckGenerator.lock_regulator(reg_id, state))
+
+
 
 class GroupConnection(AbstractConnection):
     """Organizes communication with a specific group.
