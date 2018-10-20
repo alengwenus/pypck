@@ -509,12 +509,9 @@ class PckGenerator(object):
             if (cmd == lcn_defs.SendKeyCommand.DONTSEND) and (i == 3):
                 # By skipping table D (if it is not used), we use the old command
                 # for table A-C which is compatible with older LCN modules
-                pass
+                break
             else:
                 ret += cmd.value
-                 
-                if i < 3:
-                    ret += '-'
         
         for key in keys:
             ret += '1' if key else '0'
