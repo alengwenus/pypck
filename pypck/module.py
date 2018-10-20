@@ -304,6 +304,8 @@ class AbstractConnection(LcnAddr):
         if reg_id != -1:
             self.send_command(not self.is_group(), PckGenerator.lock_regulator(reg_id, state))
 
+    def control_led(self, led, state):
+        self.send_command(not self.is_group(), PckGenerator.control_led(led.value, state))
 
 
 class GroupConnection(AbstractConnection):

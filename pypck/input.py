@@ -448,7 +448,6 @@ class ModStatusLedsAndLogicOps(ModInput):
             
             logic_op_states = matcher.group('logic_op_states').upper()
             states_logic_ops = [lcn_defs.LogicOpStatus(logic_op_state) for logic_op_state in logic_op_states]
-            
             return [ModStatusLedsAndLogicOps(addr, states_leds, states_logic_ops)]
                 
     def process(self, conn):

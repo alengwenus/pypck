@@ -213,7 +213,7 @@ class PckGenerator(object):
         
         n = round(percent * 2)
         if n % 2 == 0:  # Use the percent command (supported by all LCN-PCHK versions)
-            return 'A{:d}{:s}{:03d}'.format(output_id + 1, 'AD' if percent >= 0 else 'SB', abs(n / 2))
+            return 'A{:d}{:s}{:03d}'.format(output_id + 1, 'AD' if percent >= 0 else 'SB', abs(n // 2))
         else:   # We have a ".5" value. Use the native command (supported since LCN-PCHK 2.3)
             return 'O{:d}{:s}{:03d}'.format(output_id + 1, 'AD' if percent >= 0 else 'SB', abs(n))
     
@@ -228,7 +228,7 @@ class PckGenerator(object):
         """
         if (output_id < 0) or (output_id > 3):
             raise ValueError('Invalid output_id.')
-        return 'A{:d}TA{:03d}'.format(output_id, ramp)
+        return 'A{:d}TA{:03d}'.format(output_id + 1, ramp)
     
     @staticmethod
     def toggle_all_outputs(ramp):
@@ -489,14 +489,9 @@ class PckGenerator(object):
         @param state the state to set
         @return the PCK command (without address header) as text        
         """
-        d = {lcn_defs.LedStatus.OFF: 'A',
-             lcn_defs.LedStatus.ON: 'E',
-             lcn_defs.LedStatus.BLINK: 'B',
-             lcn_defs.LedStatus.FLICKER: 'F'}
-        
         if (led_id < 0) or (led_id > 11):
             raise ValueError('Bad led_id.')
-        return 'LA{:03d}{:2}'.format(led_id + 1, d[state])
+        return 'LA{:03d}{:2}'.format(led_id + 1, state.value)
     
     @staticmethod
     def send_keys(cmds, keys):

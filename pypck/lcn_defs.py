@@ -75,10 +75,14 @@ class LedPort(Enum):
     LED11 = 10
     LED12 = 11
     
-    LOGICOP1 = 12
-    LOGICOP2 = 13
-    LOGICOP3 = 14
-    LOGICOP4 = 15
+    
+class LogicOpPort(Enum):
+    """Logic Operation port of LCN module
+    """
+    LOGICOP1 = 0
+    LOGICOP2 = 1
+    LOGICOP3 = 2
+    LOGICOP4 = 3
     
 
 
