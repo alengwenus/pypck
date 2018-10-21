@@ -327,7 +327,20 @@ class AbstractConnection(LcnAddr):
         for table_id, key_states in enumerate(keys):
             if True in key_states:
                 self.send_command(not self.is_group(), PckGenerator.send_keys_hit_deferred(table_id, delay_time, delay_unit, key_states))
-       
+     
+    def lock_keys(self, table_id, states):
+        """
+        Sends a command to lock keys.
+
+        @param Table id: 0..3
+        @param states the 8 modifiers for the key lock states as a list
+        """
+        self.send_command(not self.is_group(),
+                          PckGenerator.lock_keys(table_id, states))
+
+    def lock_keys_tab_a_temporary(self, delay_time, delay_unit, states):
+        self.send_command(not self.is_group(), PckGenerator.lock_keys_tab_a_temporary(delay_time, delay_unit, states))
+
 
 class GroupConnection(AbstractConnection):
     """Organizes communication with a specific group.

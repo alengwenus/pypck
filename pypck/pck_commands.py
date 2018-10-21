@@ -593,7 +593,7 @@ class PckGenerator(object):
         return ret
     
     @staticmethod
-    def lock_key_tab_a_temporary(time, time_unit, keys):
+    def lock_keys_tab_a_temporary(time, time_unit, keys):
         """
         Generates a command to lock keys for table A temporary.
         There is no hardware-support for locking tables B-D.
