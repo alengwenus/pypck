@@ -519,7 +519,7 @@ class PckGenerator(object):
         return ret
     
     @staticmethod
-    def send_keys_hit_defered(table_id, time, time_unit, keys):
+    def send_keys_hit_deferred(table_id, time, time_unit, keys):
         """
         Generates a command to send LCN keys deferred / delayed.
         @param tableId 0(A)..3(D)

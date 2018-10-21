@@ -312,14 +312,22 @@ class AbstractConnection(LcnAddr):
         @param keys    list(bool)[4][8]    2d-list with [table_id][key_id] bool values, if command should be sent to specific key
         @oaram cmd     lcn_defs.SendKeyCommand    command to send for each table
         """
-        print(keys)
-        print(cmd)
         for table_id, key_states in enumerate(keys):
             if True in key_states:
                 cmds = [lcn_defs.SendKeyCommand.DONTSEND] * 4
                 cmds[table_id] = cmd
                 self.send_command(not self.is_group(), PckGenerator.send_keys(cmds, key_states))
 
+    def send_keys_hit_deferred(self, keys, delay_time, delay_unit):
+        """
+        @param keys        list(bool)[4][8]    2d-list with [table_id][key_id] bool values, if command should be sent to specific key
+        @param delay_time  int                 Delay time
+        @param delay_unit  lcn_defs.TimeUnit   Unit of time
+        """
+        for table_id, key_states in enumerate(keys):
+            if True in key_states:
+                self.send_command(not self.is_group(), PckGenerator.send_keys_hit_deferred(table_id, delay_time, delay_unit, key_states))
+       
 
 class GroupConnection(AbstractConnection):
     """Organizes communication with a specific group.
