@@ -632,20 +632,21 @@ class PckGenerator(object):
         return ret
     
     @staticmethod
-    def dyn_text_header(row, part):
+    def dyn_text_part(row_id, part_id, part):
         """
         Generates the command header / start for sending dynamic texts.
         Used by LCN-GTxD periphery (supports 4 text rows).
         To complete the command, the text to send must be appended (UTF-8 encoding).
         Texts are split up into up to 5 parts with 12 "UTF-8 bytes" each.
 
-        @param row 0..3
-        @param part 0..4
+        @param row_id 0..3
+        @param part_id 0..4
+        @param part Text part (up to 12 bytes), encoded as lcn_defs.LCN_ENCODING
         @return the PCK command (without address header) as text       
         """
-        if (row < 0) or (row > 3) or (part < 0) or (part > 4):
-            raise ValueError('Wrong row or part.')
-        return 'GTDT{:d}{:d}'.format(row + 1, part + 1)
+        if (row_id < 0) or (row_id > 3) or (part_id < 0) or (part_id > 4) or (len(part) > 12):
+            raise ValueError('Wrong row_id, part_id or part length.')
+        return 'GTDT{:d}{:d}{:s}'.format(row_id + 1, part_id + 1, part.decode(lcn_defs.LCN_ENCODING))
     
     @staticmethod
     def lock_regulator(reg_id, state):

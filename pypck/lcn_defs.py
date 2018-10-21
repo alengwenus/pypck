@@ -3,9 +3,7 @@ from itertools import product
 import math
 import re
 
-
-
-
+LCN_ENCODING = 'utf-8'
 PATTERN_SPLIT_PORT_PIN = re.compile(r'(?P<port>[a-zA-Z]+)(?P<pin>\d+)')
 
 

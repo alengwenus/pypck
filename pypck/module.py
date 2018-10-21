@@ -341,6 +341,17 @@ class AbstractConnection(LcnAddr):
     def lock_keys_tab_a_temporary(self, delay_time, delay_unit, states):
         self.send_command(not self.is_group(), PckGenerator.lock_keys_tab_a_temporary(delay_time, delay_unit, states))
 
+    def dyn_text(self, row_id, text):
+        encoded_text = text.encode(lcn_defs.LCN_ENCODING)
+        
+        parts = [encoded_text[12*p:12*p+12] for p in range(5)]
+        for part_id, part in enumerate(parts):
+            if part:
+                self.send_command(not self.is_group(), PckGenerator.dyn_text_part(row_id, part_id, part))
+        
+    def pck(self, pck):
+        self.send_command(not self.is_group(), pck)
+
 
 class GroupConnection(AbstractConnection):
     """Organizes communication with a specific group.
