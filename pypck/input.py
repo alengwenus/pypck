@@ -59,8 +59,6 @@ class ModInput(Input):
         return self.logical_source_addr
    
     def process(self, conn):
-        """
-        """
         if conn.is_ready(): # Skip if we don't have all necessary bus info yet
             self.logical_source_addr = conn.physical_to_logical(self.physical_source_addr)
  
@@ -474,7 +472,7 @@ class ModStatusKeyLocks(ModInput):
         """Gets the lock-state of a single key.
 
         :param    int    tableId:    Table id: (0..3  =>  A..D)
-        :param    int    keyId:      Key id (0..7)
+        :param    int    keyId:      Key id (0..7  =>  1..8)
         :return:  The key's lock-state
         :rtype:   bool
         """

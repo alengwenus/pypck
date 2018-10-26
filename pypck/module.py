@@ -135,8 +135,10 @@ class AbstractConnection(LcnAddr):
         self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
     
     def send_command(self, wants_ack, pck):
-        """
-        Sends a command to the module represented by this class.
+        """Sends a command to the module represented by this class.
+        
+        :param    bool    wants_ack:    Also send a request for acknowledge.
+        :param    str     pck:          PCK command (without header).
         """
         if (not self.is_group()) and wants_ack:
             self.schedule_command_with_ack(pck)
@@ -189,82 +191,76 @@ class AbstractConnection(LcnAddr):
     ###
     
     def dim_output(self, output_id, percent, ramp):
-        """
-        Creates a dim command for a single output-port and sends it to the connection.
+        """Creates a dim command for a single output-port and sends it to the connection.
 
-        @param outputId 0..3
-        @param percent 0..100
-        @param ramp use {@link LcnDefs#timeToRampValue(int)}
+        :param    int    output_id:    Output id 0..3
+        :param    int    percent:      Brightness in percent 0..100
+        :param    int    ramp:         Ramp time in milliseconds
         """
         self.send_command(not self.is_group(),
                           PckGenerator.dim_ouput(output_id, percent, ramp))
     
     def dim_all_outputs(self, percent, ramp, is1805=False):
-        """
-        Sends a dim command for all output-ports.
+        """Sends a dim command for all output-ports.
 
-        @param percent 0..100
-        @param ramp use {@link LcnDefs#timeToRampValue(int)} (might be ignored in some cases)
-        @param is1805 true if the target module's firmware is 180501 or newer
+        :param    int    percent:    Brightness in percent 0..100
+        :param    int    ramp:       Ramp time in milliseconds.
+        :param    bool   is1805:     True if the target module's firmware is 180501 or newer, otherwise False
         """
         self.send_command(not self.is_group(),
                           PckGenerator.dim_all_outputs(percent, ramp, is1805))
         
     def rel_output(self, output_id, percent):
-        """
-        Sends a command to change the value of an output-port.
+        """Sends a command to change the value of an output-port.
 
-        @param outputId 0..3
-        @param percent -100..100
+        :param     int    output_id:    Output id 0..3
+        :param     int    percent:      Relative brightness in percent -100..100
         """
         self.send_command(not self.is_group(),
                           PckGenerator.rel_output(output_id, percent))
         
     def toggle_output(self, output_id, ramp):
-        """
-        Sends a command that toggles a single output-port (on->off, off->on).
+        """Sends a command that toggles a single output-port (on->off, off->on).
 
-        @param outputId 0..3
-        @param ramp see {@link LcnDefs#timeToRampValue(int)}
+        :param    int    output_id:    Output id 0..3
+        :param    int    ramp:         Ramp time in milliseconds
         """
         self.send_command(not self.is_group(),
                           PckGenerator.toggle_output(output_id, ramp))
         
     def toggle_all_outputs(self, ramp):
-        """
-        Generates a command that toggles all output-ports (on->off, off->on).
+        """Generates a command that toggles all output-ports (on->off, off->on).
 
-        @param ramp see {@link LcnDefs#timeToRampValue(int)}
+        :param    int    ramp:        Ramp time in milliseconds
         """
         self.send_command(not self.is_group(),
                           PckGenerator.toggle_all_outputs(ramp))
         
     def control_relays(self, states):
-        """
-        Sends a command to control relays.
+        """Sends a command to control relays.
 
-        @param states the 8 modifiers for the relay states as a list
+        :param    states:        The 8 modifiers for the relay states as a list
+        :type     states:       list(:class:`~pypck.lcn_defs.RelayStateModifier`)
         """
         self.send_command(not self.is_group(),
                           PckGenerator.control_relays(states))
     
     def control_motors(self, states):
-        """
-        Sends a command to control motors via relays.
+        """Sends a command to control motors via relays.
         
-        @param states the 4 modifiers for the cover states as a list
+        :param    states:        The 4 modifiers for the cover states as a list
+        :type     states:        list(:class: `~pypck.cln-defs.MotorStateModifier`)
         """
         self.send_command(not self.is_group(),
                           PckGenerator.control_motors(states))
 
     def var_abs(self, var, value, unit = lcn_defs.VarUnit.NATIVE, is2013 = None):
-        '''
-        Sends a command to set the absolute value to a variable.
+        """Sends a command to set the absolute value to a variable.
         
-        @oaram var lcn_defs.Var instance
-        @param value int or float
-        @param unit lcn_defs.VarUnit instance
-        '''
+        :param     Var        var:      Variable
+        :param     float      value:    Absolute value to set
+        :param     VarUnit    unit:     Unit of variable
+        """
         if value != None and not isinstance(value, lcn_defs.VarValue):
             value = lcn_defs.VarValue.from_var_unit(value, unit, True)
         
@@ -287,12 +283,22 @@ class AbstractConnection(LcnAddr):
                               PckGenerator.var_abs(var, value.to_native()))
         
     def var_reset(self, var, is2013 = None):
+        """Sends a command to reset the variable value.
+        
+        :param    Var    var:    Variable
+        """
         if is2013 is None:
             is2013 = self.get_sw_age() >= 0x170206
 
         self.send_command(not self.is_group(), PckGenerator.var_reset(var, is2013))
 
     def var_rel(self, var, value, unit = lcn_defs.VarUnit.NATIVE, value_ref = lcn_defs.RelVarRef.CURRENT, is2013 = None):
+        """Sends a command to change the value of a variable.
+        
+        :param     Var        var:      Variable
+        :param     float      value:    Relative value to add (may also be negative)
+        :param     VarUnit    unit:     Unit of variable
+        """
         if value != None and not isinstance(value, lcn_defs.VarValue):
             value = lcn_defs.VarValue.from_var_unit(value, unit, True)
         
@@ -301,16 +307,27 @@ class AbstractConnection(LcnAddr):
         self.send_command(not self.is_group(), PckGenerator.var_rel(var, value_ref, value.to_native(), is2013))
         
     def lock_regulator(self, reg_id, state):
+        """Sends a command to lock a regulator.
+        
+        :param    int        reg_id:        Regulator id
+        :param    bool       state:         Lock state (locked=True, unlocked=False)
+        """
         if reg_id != -1:
             self.send_command(not self.is_group(), PckGenerator.lock_regulator(reg_id, state))
 
     def control_led(self, led, state):
+        """Sends a command to control a led.
+        
+        :param    LedPort      led:        Led port
+        :param    LedStatus    state:      Led status
+        """
         self.send_command(not self.is_group(), PckGenerator.control_led(led.value, state))
 
     def send_keys(self, keys, cmd):
-        """
-        @param keys    list(bool)[4][8]    2d-list with [table_id][key_id] bool values, if command should be sent to specific key
-        @oaram cmd     lcn_defs.SendKeyCommand    command to send for each table
+        """Sends a command to send keys.
+        
+        :param    list(bool)[4][8]    keys:    2d-list with [table_id][key_id] bool values, if command should be sent to specific key
+        :param    SendKeyCommand      cmd:     command to send for each table
         """
         for table_id, key_states in enumerate(keys):
             if True in key_states:
@@ -319,29 +336,40 @@ class AbstractConnection(LcnAddr):
                 self.send_command(not self.is_group(), PckGenerator.send_keys(cmds, key_states))
 
     def send_keys_hit_deferred(self, keys, delay_time, delay_unit):
-        """
-        @param keys        list(bool)[4][8]    2d-list with [table_id][key_id] bool values, if command should be sent to specific key
-        @param delay_time  int                 Delay time
-        @param delay_unit  lcn_defs.TimeUnit   Unit of time
+        """Sends a command to send keys deferred.
+        
+        :param    list(bool)[4][8]    keys:          2d-list with [table_id][key_id] bool values, if command should be sent to specific key
+        :param    int                 delay_time:    Delay time
+        :param    TimeUnit            delay_unit:    Unit of time
         """
         for table_id, key_states in enumerate(keys):
             if True in key_states:
                 self.send_command(not self.is_group(), PckGenerator.send_keys_hit_deferred(table_id, delay_time, delay_unit, key_states))
      
     def lock_keys(self, table_id, states):
-        """
-        Sends a command to lock keys.
+        """Sends a command to lock keys.
 
-        @param Table id: 0..3
-        @param states the 8 modifiers for the key lock states as a list
+        :param    int                     table_id:  Table id: 0..3
+        :param    keyLockStateModifier    states:    The 8 modifiers for the key lock states as a list
         """
         self.send_command(not self.is_group(),
                           PckGenerator.lock_keys(table_id, states))
 
     def lock_keys_tab_a_temporary(self, delay_time, delay_unit, states):
+        """Sends a command to lock keys in table A temporary.
+        
+        :param    int        delay_time:    Time to lock keys
+        :param    TimeUnit   delay_unit:    Unit of time
+        :param    list(bool) states:        The 8 lock states of the keys as list (locked=True, unlocked=False)
+        """
         self.send_command(not self.is_group(), PckGenerator.lock_keys_tab_a_temporary(delay_time, delay_unit, states))
 
     def dyn_text(self, row_id, text):
+        """Send dynamic text to a module.
+        
+        :param    int    row_id:    Row id 0..3
+        :param    str    text:      Text to send (up to 60 bytes)
+        """
         encoded_text = text.encode(lcn_defs.LCN_ENCODING)
         
         parts = [encoded_text[12*p:12*p+12] for p in range(5)]
@@ -462,8 +490,7 @@ class ModuleConnection(AbstractConnection):
     def set_s0_enabled(self, s0_enabled):
         """
         Sets the activation status for S0 variables.
-        @param s0_enabled if True, a BU4L has to be connected to the hardware module and S0 mode
-        has to be activated in LCN-PRO. 
+        :param     bool    s0_enabled:   If True, a BU4L has to be connected to the hardware module and S0 mode has to be activated in LCN-PRO. 
         """
         self.has_s0_enabled = s0_enabled
     
@@ -474,16 +501,14 @@ class ModuleConnection(AbstractConnection):
         return self.has_s0_enabled
     
     def get_sw_age(self):
-        """
-        Gets the LCN module's firmware date.
+        """Gets the LCN module's firmware date.
         """
         return self.status_requests.get_sw_age()
 
     def set_sw_age(self, sw_age):
-        """
-        Sets the LCN module's firmware date.
+        """Sets the LCN module's firmware date.
         
-        @param swAge the date
+        :param     int    swAge:    The firmware date
         """
         self.status_requests.set_sw_age(sw_age)
 
@@ -505,11 +530,10 @@ class ModuleConnection(AbstractConnection):
         self.try_process_next_command_with_ack()
 
     def on_ack(self, code, timeout_msec):
-        """
-        Called whenever an acknowledge is received from the LCN module.
+        """Called whenever an acknowledge is received from the LCN module.
     
-        @param code the LCN internal code. -1 means "positive" acknowledge
-        @param timeoutMSec the time to wait for a response before retrying a request
+        :param     int    code:           The LCN internal code. -1 means "positive" acknowledge
+        :param     intt   imeout_mSec:    The time to wait for a response before retrying a request
         """
         if self.request_curr_pck_command_with_ack.is_active(): # Check if we wait for an ack.
             if len(self.pck_commands_with_ack) > 0:
@@ -519,12 +543,7 @@ class ModuleConnection(AbstractConnection):
             self.try_process_next_command_with_ack()
     
     def try_process_next_command_with_ack(self):
-        """
-        Sends the next acknowledged command from the queue.
-
-        @param conn the {@link Connection} belonging to this {@link ModInfo}
-        @param timeoutMSec the time to wait for a response before retrying a request
-        @return true if a new command was sent
+        """Sends the next acknowledged command from the queue.
         """
         if (len(self.pck_commands_with_ack) > 0) and (not self.request_curr_pck_command_with_ack.is_active()):
             self.request_curr_pck_command_with_ack.activate()
@@ -543,8 +562,7 @@ class ModuleConnection(AbstractConnection):
     ###
     
     def new_input(self, input_obj):
-        """
-        Usually gets called by input object's process method.
+        """Usually gets called by input object's process method.
         Method to handle incoming commands for this specific module (status, toggle_output, switch_relays, ...)
         """
         for input_callback in self.input_callbacks:

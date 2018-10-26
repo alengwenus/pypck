@@ -6,13 +6,15 @@ DEFAULT_TIMEOUT_MSEC = 3500
  
  
 class TimeoutRetryHandler(object):
-    """Manages timeout and retry logic for an LCN request."""
+    """Manages timeout and retry logic for an LCN request.
     
+    :param           loop:           The asyncio event loop
+    :param    int    num_tries:      The maximum number of tries until the request is marked as failed (-1 means forever)
+    :param    int    timeout_msec:   Default timeout in milliseconds
+    
+    """
     def __init__(self, loop, num_tries = 3, timeout_msec = DEFAULT_TIMEOUT_MSEC):
-        """
-        Constructor.
-       
-        @param numTries the maximum number of tries until the request is marked as failed (-1 means forever)
+        """Constructor.
         """
         self.logger = logging.getLogger(self.__class__.__name__)
  
@@ -25,8 +27,7 @@ class TimeoutRetryHandler(object):
         self.reset()
     
     def is_active(self):
-        """
-        Checks whether the request logic is active.
+        """Checks whether the request logic is active.
         """
         return self._timeout_handle is not None
     
@@ -34,9 +35,9 @@ class TimeoutRetryHandler(object):
         self._timeout_msec = timeout_msec
        
     def set_timeout_callback(self, func):
-        """timeout_callback function is called, if timeout expires.
+        """Timeout_callback function is called, if timeout expires.
         Function has to take one argument:
-        returns failed state (True if failed)
+        Returns failed state (True if failed)
         """
         self._timeout_callback = func
  
@@ -58,8 +59,7 @@ class TimeoutRetryHandler(object):
         self._num_tries_left = 0
        
     def activate(self, timeout_callback = None):
-        """
-        Schedules the next request.
+        """Schedules the next request.
         """
 #         if self.is_active():
 #             return
@@ -70,7 +70,6 @@ class TimeoutRetryHandler(object):
         self._timeout_handle = self.loop.call_soon(self.on_timeout)
    
     def cancel(self):
-        """
-        Must be called when a response (requested or not) has been received.
+        """Must be called when a response (requested or not) has been received.
         """
         self.reset()

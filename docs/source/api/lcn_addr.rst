@@ -2,4 +2,6 @@
 ---------------------
 
 .. automodule:: pypck.lcn_addr
+
+.. autoclass:: LcnAddr
 	:members:

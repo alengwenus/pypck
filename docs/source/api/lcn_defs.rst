@@ -3,3 +3,5 @@
 
 .. automodule:: pypck.lcn_defs
 	:members:
+	:inherited-members:
+

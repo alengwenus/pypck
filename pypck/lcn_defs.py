@@ -126,7 +126,7 @@ def time_to_ramp_value(time_msec):
     """
     Converts the given time into an LCN ramp value.
     
-    :param    int    timeMSec:    The time in milliseconds.
+    :param    int    time_msec:    The time in milliseconds.
     
     :returns: The (LCN-internal) ramp value (0..250).
     :rtype: int
@@ -241,8 +241,10 @@ class Var(Enum):
         """
         Translates a given id into a LCN set-point variable type.
 
-        @param setPointId 0..1
-        @return the translated var     
+        :param     int    set_point_id:    Set-point id 0..1
+        
+        :return: The translated var
+        :rtype:  Var     
         """    
         if (set_point_id < 0) or (set_point_id >= len(Var._set_point_id_to_var)):
             raise ValueError('Bad set_point_id.')
@@ -253,9 +255,11 @@ class Var(Enum):
         """
         Translates given ids into a LCN threshold variable type.
         
-        @param registerId 0..3
-        @param thrsId 0..4 for register 0, 0..3 for registers 1..3
-        @return the translated var Var
+        :param    int    register_id:    Register id 0..3
+        :param    int    thrs_id:        Threshold id 0..4 for register 0, 0..3 for registers 1..3
+        
+        :return: The translated var
+        :rtype:    Var
         """
         if (register_id < 0) or (register_id >= len(Var._thrs_id_to_var)) or (thrs_id < 0) or (thrs_id >= (5 if (register_id == 0) else 4)):
             #print(register_id, thrs_id)
@@ -267,8 +271,10 @@ class Var(Enum):
         """
         Translates a given id into a LCN S0-input variable type.
 
-        @param s0Id 0..3
-        @return the translated var
+        :param     int    s0_id:     S0 id 0..3
+        
+        :return:    The translated var
+        :rtype:     Var
         """
         if (s0_id < 0) or (s0_id >= len(Var._s0_id_to_var)):
             raise ValueError('Bad s0_id.')
@@ -279,8 +285,10 @@ class Var(Enum):
         """
         Translates a given variable type into a variable id.
         
-        @param var the variable type to translate
-        @return 0..11 or -1 if wrong type
+        :param     Var    var:    The variable type to translate
+        
+        :return:     Variable id 0..11 or -1 if wrong type
+        :rtype:    int
         """        
         if var == Var.VAR1ORTVAR:
             return 0
@@ -314,8 +322,10 @@ class Var(Enum):
         """
         Translates a given variable type into a set-point id.
         
-        @param var the variable type to translate
-        @return 0..1 or -1 if wrong type        
+        :param     Var    var:     The variable type to translate
+        
+        :return:    Variable id 0..1 or -1 if wrong type
+        :rtype:    int
         """
         if var == Var.R1VARSETPOINT:
             return 0
@@ -329,8 +339,10 @@ class Var(Enum):
         """
         Translates a given variable type into a threshold register id.
 
-        @param var the variable type to translate
-        @return 0..3 or -1 if wrong type        
+        :param    Var    var:    The variable type to translate
+        
+        :return:    Register id 0..3 or -1 if wrong type
+        :rtype:    int
         """
         if var in [Var.THRS1, Var.THRS2, Var.THRS3, Var.THRS4, Var.THRS5]:
             return 0
@@ -348,8 +360,10 @@ class Var(Enum):
         """
         Translates a given variable type into a threshold id.
 
-        @param var the variable type to translate
-        @return 0..4 or -1 if wrong type        
+        :param    Var    var:    The variable type to translate
+        
+        :return:    Threshold id 0..4 or -1 if wrong type
+        :rtype:    int
         """
         if var in [Var.THRS1, Var.THRS2_1, Var.THRS3_1, Var.THRS4_1]:
             return 0
@@ -369,8 +383,10 @@ class Var(Enum):
         """
         Translates a given variable type into an S0-input id.
 
-        @param var the variable type to translate
-        @return 0..3 or -1 if wrong type
+        :param    Var    var:    The variable type to translate
+        
+        :return:    S0 id 0..3 or -1 if wrong type
+        :rtype:    int
         """
         if var == Var.S0INPUT1:
             return 0
@@ -388,8 +404,10 @@ class Var(Enum):
         """
         Checks if the the given variable type is lockable.
 
-        @param var the variable type to check
-        @return true if lockable
+        :param    Var    var:    The variable type to check
+        
+        :return:    True if lockable, otherwise False
+        :rtype:    bool
         """
         return var in [Var.R1VARSETPOINT, Var.R2VARSETPOINT]
     
@@ -397,10 +415,12 @@ class Var(Enum):
     def use_lcn_special_values(var):
         """
         Checks if the given variable type uses special values.
-        Examples for special values: "No value yet", "sensor defective" etc.
+        Examples for special values: 'No value yet', 'sensor defective' etc.
 
-        @param var the variable type to check
-        @return true if special values are in use    
+        :param    Var    var:    The variable type to check
+        
+        :return:    True if special values are in use, otherwise False
+        :rtype:    bool
         """
         return var not in [Var.S0INPU1, Var.S0INPUT2, Var.S0INPUT3, Var.S0INPUT4] 
     
@@ -411,9 +431,11 @@ class Var(Enum):
         Checks if the given variable type would receive a typed response if
         its status was requested.
 
-        @param var the variable type to check
-        @param swAge the target LCN-modules firmware version
-        @return true if a response would contain the variable's type
+        :param    Var    var:    The variable type to check
+        :param    int    swAge:  The target LCN-modules firmware version
+        
+        :return:    True if a response would contain the variable's type, otherwise False
+        :rtype:    bool
         """
         if sw_age < 0x170206:
             if var in [Var.VAR1ORTVAR, Var.VAR2ORR1VAR, Var.VAR3ORR2VAR, Var.R1VARSETPOINT, Var.R2VARSETPOINT]:
@@ -427,9 +449,11 @@ class Var(Enum):
         Checks if the given variable type automatically sends status-updates on
         value-change. It must be polled otherwise.
 
-        @param var the variable type to check
-        @param swAge the target LCN-module's firmware version
-        @return true if the LCN module supports automatic status-messages for this var        
+        :param    Var    var:    The variable type to check
+        :param    int    swAge:  The target LCN-module's firmware version
+        
+        :return:    True if the LCN module supports automatic status-messages for this var, otherwise False
+        :rtype:    bool
         """
         if (Var.to_set_point_id(var) != -1) or (Var.to_s0_id(var) != -1):
             return True
@@ -442,9 +466,11 @@ class Var(Enum):
         Checks if the target LCN module would automatically send status-updates if
         the given variable type was changed by command.
 
-        @param var the variable type to check
-        @param is2013 the target module's-generation
-        @return true if a poll is required to get the new status-value       
+        :param    Var    var:    The variable type to check
+        :param    bool   is2013: The target module's-generation
+        
+        :return:    True if a poll is required to get the new status-value, otherwise False
+        :rtype:    bool
         """
         # Regulator set-points will send status-messages on every change (all firmware versions)
         if Var.to_set_point_id(var) != -1:
@@ -469,9 +495,11 @@ class Var(Enum):
         Checks if the target LCN module would automatically send status-updates if
         the given regulator's lock-state was changed by command.
 
-        @param swAge the target LCN-module's firmware version
-        @param lockState the lock-state sent via command
-        @return true if a poll is required to get the new status-value        
+        :param    int       swAge: The target LCN-module's firmware version
+        :param    int   lockState: The lock-state sent via command
+        
+        :return:    True if a poll is required to get the new status-value, otherwise False
+        :rtype:    bool
         """
         # LCN modules before 170206 will send an automatic status-message for "lock", but not for "unlock"
         return (lock_state == False) and (sw_age < 0x170206)
@@ -498,8 +526,7 @@ Var._s0_id_to_var = [Var.S0INPUT1, Var.S0INPUT2, Var.S0INPUT3, Var.S0INPUT4]
 
 
 class VarUnit(Enum):
-    """
-    Measurement units used with LCN variables.
+    """Measurement units used with LCN variables.
     """
     NATIVE = ''             # LCN internal representation (0 = -100�C for absolute values)
     CELSIUS = '\u00b0C'
@@ -546,19 +573,17 @@ class VarUnit(Enum):
         
 
 class VarValue(object):
-    """
-    A value of an LCN variable.
+    """A value of an LCN variable.
 
     It internally stores the native LCN value and allows to convert from/into other units.
     Some conversions allow to specify whether the source value is absolute or relative.
     Relative values are used to create varvalues that can be added/subtracted from
     other (absolute) varvalues.    
+    
+    :param    int    native_value:    The native value       
     """
     def __init__(self, native_value):
-        """
-        Constructor with native LCN value.
-
-        @param nativeValue the native value       
+        """Constructor with native LCN value.
         """
         self.native_value = native_value
 
@@ -567,13 +592,14 @@ class VarValue(object):
 
     @staticmethod
     def from_var_unit(v, unit, abs):
-        """
-        Creates a variable value from any input.
+        """Creates a variable value from any input.
 
-        @param v the input value
-        @param unit the input value's unit
-        @param abs true for absolute values (relative values are used to add/subtract from other VarValues)
-        @return the variable value (never null)        
+        :param    float    v:       The input value
+        :param    VarUnit  unit:    The input value's unit
+        :param    bool     abs:     True for absolute values (relative values are used to add/subtract from other VarValues), otherwise False
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         if unit == VarUnit.NATIVE:
             return VarValue.from_native(int(v))
@@ -604,34 +630,37 @@ class VarValue(object):
 
     @staticmethod
     def from_native(n):
-        """
-        Creates a variable value from native input.
+        """Creates a variable value from native input.
 
-        @param n the input value
-        @return the variable value (never null)
+        :param    int    n:    The input value
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         return VarValue(n)
 
     @staticmethod
     def from_celsius(c, abs = True):
-        """
-        Creates a variable value from \u00b0C input.
+        """Creates a variable value from \u00b0C input.
 
-        @param c the input value
-        @param abs true for absolute values (relative values are used to add/subtract from other VarValues)
-        @return the variable value (never null)        
+        :param    float    c:    The input value
+        :param    bool     abs:  True for absolute values (relative values are used to add/subtract from other VarValues), otherwise False
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         n = int(round(c * 10))
         return VarValue(n + 1000 if abs else n)
     
     @staticmethod
     def from_kelvin(k, abs = True):
-        """
-        Creates a variable value from \u00b0K input.
+        """Creates a variable value from \u00b0K input.
 
-        @param k the input value
-        @param abs true for absolute values (relative values are used to add/subtract from other VarValues)
-        @return the variable value (never null)        
+        :param    float    k:    The input value
+        :param    bool     abs:  True for absolute values (relative values are used to add/subtract from other VarValues), otherwise False
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         if abs:
             k -= 273.15
@@ -641,12 +670,13 @@ class VarValue(object):
 
     @staticmethod
     def from_fahrenheit(f, abs = True):
-        """
-        Creates a variable value from \u00b0F input.
+        """Creates a variable value from \u00b0F input.
 
-        @param f the input value
-        @param abs true for absolute values (relative values are used to add/subtract from other VarValues)
-        @return the variable value (never null)
+        :param    float    f:    The input value
+        :param    bool     abs:  True for absolute values (relative values are used to add/subtract from other VarValues), otherwise False
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         if abs:
             f -= 32
@@ -657,86 +687,94 @@ class VarValue(object):
     
     @staticmethod
     def from_lux_t(l):
-        """
-        Creates a variable value from lx input.
+        """Creates a variable value from lx input.
         Target must be connected to T-port.
 
-        @param l the input value
-        @return the variable value (never null)
+        :param    float    l:    The input value
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         return VarValue(int(round(math.log(l) - 1.689646994) / 0.010380664))
     
     @staticmethod
     def from_lux_i(l):
-        """
-        Creates a variable value from lx input.
+        """Creates a variable value from lx input.
         Target must be connected to I-port.
 
-        @param l the input value
-        @return the variable value (never null)
+        :param    float    l:    The input value
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         return VarValue(int(round(math.log(l) * 100)))
     
     @staticmethod
     def from_percent(p):
-        """
-        Creates a variable value from % input.
+        """Creates a variable value from % input.
 
-        @param p the input value
-        @return the variable value (never null)        
+        :param    float    p:    The input value
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         return VarValue(int(round(p)))
     
     @staticmethod
     def from_ppm(p):
-        """
-        Creates a variable value from ppm input.
+        """Creates a variable value from ppm input.
         Used for CO2 sensors.
 
-        @param p the input value
-        @return the variable value (never null)       
+        :param    float    p:   The input value
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         return VarValue(int(round(p)))
     
     @staticmethod
     def from_meters_per_second(ms):
-        """
-        Creates a variable value from m/s input.
+        """Creates a variable value from m/s input.
         Used for LCN-WIH wind speed.
 
-        @param ms the input value
-        @return the variable value (never null)
+        :param    float    ms:    The input value
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         return VarValue(int(round(ms * 10)))
     
     @staticmethod
     def from_volt(v):
-        """
-        Creates a variable value from V input.
+        """Creates a variable value from V input.
 
-        @param v the input value
-        @return the variable value (never null)        
+        :param    float    v:    The input value
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         return VarValue(int(round(v * 400)))
     
     @staticmethod
     def from_ampere(a):
-        """
-        Creates a variable value from A input.
+        """Creates a variable value from A input.
 
-        @param a the input value
-        @return the variable value (never null)       
+        :param    float    a:    The input value
+        
+        :return: The variable value (never null)
+        :rtype:    VarValue
         """
         return VarValue(int(round(a * 100)))
     
     @staticmethod
     def from_degree(d, abs = True):
-        """
-        Creates a variable value from \u00b0 (angle) input.
+        """Creates a variable value from \u00b0 (angle) input.
 
-        @param d the input value
-        @param abs true for absolute values (relative values are used to add/subtract from other VarValues)
-        @return the variable value (never null)
+        :param    float    d:    The input value
+        :param    bool     abs:  True for absolute values (relative values are used to add/subtract from other VarValues), otherwise False
+        
+        :return:    The variable value (never null)
+        :rtype:    VarValue
         """
         n = int(round(d * 10))
         return VarValue(n + 1000 if abs else n)
@@ -772,76 +810,76 @@ class VarValue(object):
             raise ValueError('Wrong unit.')
     
     def to_native(self):
-        """
-        Converts to native value.
+        """Converts to native value.
 
-        @return the converted value
+        :return:    The converted value
+        :rtype:    int
         """
         return self.native_value
     
     def to_celsius(self):
-        """
-        Converts to \u00b0C value.
+        """Converts to \u00b0C value.
         
-        @return the converted value
+        :return:    The converted value
+        :rtype:    float
         """
         return (self.native_value - 1000) / 10.
     
     def to_kelvin(self):
-        """
-        Converts to \u00b0K value.
+        """Converts to \u00b0K value.
         
-        @return the converted value
+        :return:    The converted value
+        :rtype:    float
         """
         return (self.native_value - 1000) / 10. + 273.15
     
     def to_fahrenheit(self):
-        """
-        Converts to \u00b0F value.
+        """Converts to \u00b0F value.
         
-        @return the converted value
+        :return:    The converted value
+        :rtype:    float
         """
         return (self.native_value - 1000) * 0.18 + 32.
     
     def to_lux_t(self):
-        """
-        Converts to lx value.
+        """Converts to lx value.
         Source must be connected to T-port.
         
-        @return the converted value
+        :return:    The converted value
+        :rtype:    float
         """
         return math.exp(0.010380664 * self.native_value + 1.689646994)
     
     def to_lux_i(self):
-        """
-        Converts to lx value.
+        """Converts to lx value.
         Source must be connected to I-port.
         
-        @return the converted value
+        :return:    The converted value
+        :rtype:    float
         """
         return math.exp(self.native_value / 100)
     
     def to_percent(self):
-        """
-        Converts to % value.
+        """Converts to % value.
 
-        @return the converted value
+        :return:    The converted value
+        :rtype:    int
         """
         return self.native_value
 
     def to_ppm(self):
-        """
-        Converts to ppm value.
+        """Converts to ppm value.
 
-        @return the converted value
+        :return:    The converted value
+        :rtype:    int
         """
         return self.native_value
     
     def to_meters_per_sec(self):
-        """
-        Converts to m/s value.
+        """Converts to m/s value.
 
-        @return the converted value
+        :return:    The converted value
+        :rtype:    float
         """
         return self.native_value / 10.
     
@@ -849,7 +887,8 @@ class VarValue(object):
         """
         Converts to V value.
 
-        @return the converted value
+        :return:    The converted value
+        :rtype:    float
         """
         return self.native_value / 400.
     
@@ -857,7 +896,8 @@ class VarValue(object):
         """
         Converts to A value.
 
-        @return the converted value
+        :return:    The converted value
+        :rtype:    float
         """
         return self.native_value / 100.
     
@@ -865,7 +905,8 @@ class VarValue(object):
         """
         Converts to \u00b0 value.
 
-        @return the converted value
+        :return:    The converted value
+        :rtype:    float
         """
         return (self.native_value - 1000) / 10.
     
@@ -919,8 +960,7 @@ class VarValue(object):
     
 
 class LedStatus(Enum):
-    """
-    Possible states for LCN LEDs
+    """Possible states for LCN LEDs
     """
     OFF = 'A'
     ON = 'E'
@@ -929,8 +969,7 @@ class LedStatus(Enum):
     
 
 class LogicOpStatus(Enum):
-    """
-    Possible states for LCN logic-operations.
+    """Possible states for LCN logic-operations.
     """
     NOT = 'N'
     OR = "T"     # Note: Actually not correct since AND won't be OR also
@@ -938,8 +977,7 @@ class LogicOpStatus(Enum):
     
 
 class TimeUnit(Enum):
-    """
-    Time units used for several LCN commands.
+    """Time units used for several LCN commands.
     """
     SECONDS = 'S'
     MINUTES = 'M'
@@ -948,12 +986,12 @@ class TimeUnit(Enum):
     
     @staticmethod
     def parse(input):
-        """
-        Parses the given input into a time unit.
+        """Parses the given input into a time unit.
         It supports several alternative terms.
 
-        @param input the text to parse
-        @return the parsed {@link TimeUnit}
+        :param    str    input:    The text to parse
+        :return:    TimeUnit enum
+        :rtype:    TimeUnit
         """
         input = input.upper()
         if input in ['SECONDS', 'SECOND', 'SEC', 'S']:

@@ -27,8 +27,8 @@ class PchkConnection(asyncio.Protocol):
     :class:`~PchkConnectionManager`.
     """
     def __init__(self, loop, server_addr, port):
-        '''Constructor.
-        '''
+        """Constructor.
+        """
         self.logger = logging.getLogger(self.__class__.__name__)
         self.loop = loop
         self.server_addr = server_addr
@@ -96,7 +96,6 @@ class PchkConnection(asyncio.Protocol):
         :param    str    input:    Input text message
         """
         pass
- 
     def close(self):
         """Closes the active connection.
         """
@@ -232,7 +231,7 @@ class PchkConnectionManager(PchkConnection):
         self.local_seg_id = local_seg_id
         # replace all address_conns with current local_seg_id with new local_seg_id
         for addr in self.address_conns:
-            if addr.seg_id == old_local_seg_id:
+            if addr.seg_id in [0, old_local_seg_id]:
                 address_conn = self.address_conns.pop(addr)
                 address_conn.seg_id = self.local_seg_id
                 self.address_conns[LcnAddr(self.local_seg_id, addr.mod_id, addr.is_group())] = address_conn
@@ -260,7 +259,15 @@ class PchkConnectionManager(PchkConnection):
         
         :returns: The address connection object (never null)
         :rtype: `~ModuleConnection` or `~GroupConnection`
+        
+        :Example:
+    
+        >>> address = LcnAddr(0, 7, False)
+        >>> module = pchk_connection.get_address_conn(address)
+        >>> module.toggle_output(0, 5)
         """
+        if addr.get_seg_id() == 0 and self.local_seg_id != -1:
+            addr.seg_id = self.local_seg_id
         address_conn = self.address_conns.get(addr, None)
         if address_conn is None:
             if addr.is_group():

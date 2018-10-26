@@ -16,4 +16,4 @@
 		connect,
 		get_lcn_connected,
 		is_ready,
-		get_module_conn
+		get_address_conn

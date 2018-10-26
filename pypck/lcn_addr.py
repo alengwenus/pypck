@@ -1,39 +1,66 @@
-
-
 class LcnAddr(object):
-    """
-    Represents a LCN address (module or group)
+    """Represents a LCN address (module or group)
+    If the segment id is 0, the address object points to modules/groups which are in the segment where the bus coupler is
+    connected to. This is also the case if no segment coupler is present at all.
+
+    :param    int    seg_id:    Segment id
+                                (0 = Local,
+                                1..2 = Not allowed (but "seen in the wild")
+                                3 = Broadcast,
+                                4 = Status messages,
+                                5..127,
+                                128 = Segment-bus disabled (valid value))
+    :param    bool   is_group:  Indicates whether address point to a module (False) or a group (True)
+
+
+    If address represents a **module**:
+    
+    :param    int    id:        Module id
+                                (1 = LCN-PRO,
+                                2 = LCN-GVS/LCN-W,
+                                4 = PCHK,
+                                5..254,
+                                255 = Unprog. (valid, but irrelevant here))
+
+    
+    If address represents a **group**:
+
+    :param    int    id:        Group id
+                                (3 = Broadcast,
+                                4 = Status messages,
+                                5..254)
     """
     def __init__(self, seg_id = -1, id = -1, is_group = False):
-        """
-        seg_id: -1 is an invalid segment id (default)
+        """Constructor
         """
         self.seg_id = seg_id
         self.id = id
         self._is_group = is_group
     
     def is_group(self):
-        """
-        Gets the address' module or group id (discarding the concrete type).
+        """Gets the address' module or group id (discarding the concrete type).
         
-        @return the module or group id
+        :return:    Returns whether address points to a module(False) or group(True)
+        :rtype:     bool
         """
         return self._is_group
 
     def get_seg_id(self):
-        """
-        Get the (logical) segment id
-        @return the segment id
+        """Gets the logical segment id.
+        
+        :return:    The (logical) segment id
+        :rtype:     int
         """
         return self.seg_id
     
     def get_physical_seg_id(self, local_seg_id):
-        """
-        Gets the physical segment id ("local" segment replaced with 0).
+        """Gets the physical segment id ("local" segment replaced with 0).
         Can be used to send data into the LCN bus.
 
-        @param localSegId the segment id of the local segment
-        @return the physical segment id        
+        :param    int    local_seg_id:    The segment id of the local segment
+        
+        :return:    The physical segment id
+        :rtype:     int
         """
         return 0 if (self.seg_id == local_seg_id) else self.seg_id
 
@@ -41,23 +68,24 @@ class LcnAddr(object):
         """
         Gets the module id.
 
-        @return the module id
+        :return:    The module id
+        :rtype:     int
         """
         return self.id
  
     def is_valid(self):
         """
-        Queries the concrete address type.
+        Returns if the current address is valid.
 
-        @return true if address is a group address (module address otherwise)
+        :return:    True, if address is a valid group/module address, otherwise False
+        :rtype:     bool
         """
-        
         if self.is_group():
             """
             seg_id:
             0 = Local, 1..2 = Not allowed (but "seen in the wild")
             3 = Broadcast, 4 = Status messages, 5..127, 128 = Segment-bus disabled (valid value)
-            grp_id:
+            id:
             3 = Broadcast, 4 = Status messages, 5..254
             """
             return (self.seg_id >= 0) & (self.seg_id <= 128) & (self.id >= 3) & (self.id < 254)
@@ -66,7 +94,7 @@ class LcnAddr(object):
             seg_id:
             0 = Local, 1..2 = Not allowed (but "seen in the wild")
             3 = Broadcast, 4 = Status messages, 5..127, 128 = Segment-bus disabled (valid value)
-            mod_id:
+            id:
             1 = LCN-PRO, 2 = LCN-GVS/LCN-W, 4 = PCHK, 5..254, 255 = Unprog. (valid, but irrelevant here)
             """
             return (self.seg_id >= 0) & (self.seg_id <= 128) & (self.id >= 1) & (self.id < 254)
