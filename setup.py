@@ -13,6 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/alengwenus/pypck",
     packages=setuptools.find_packages(),
+    install_requires=['aenum'],
     classifiers=[
         "Programming Language :: Python :: 3.7",
         "License :: OSI Approved :: Eclipse Public License 1.0 (EPL-1.0)",

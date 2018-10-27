@@ -11,7 +11,7 @@ Contributors:
   Tobias Juettner - initial LCN binding for openHAB (Java)
 '''
 
-from enum import Enum, auto
+from aenum import Enum, auto
 from itertools import product
 import math
 import re
