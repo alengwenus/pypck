@@ -59,14 +59,14 @@ class PchkConnection(asyncio.Protocol):
     def connection_made(self, transport):
         self.transport = transport
         self.address = transport.get_extra_info('peername')
-        self.logger.info('PCHK server connected at {}:{}'.format(*self.address))
+        self.logger.debug('PCHK server connected at {}:{}'.format(*self.address))
    
     def connection_lost(self, error):
         self.transport = None
         if error:
-            self.logger.info('Error')
+            self.logger.error('Error')
         else:
-            self.logger.info('Connection lost.')
+            self.logger.debug('Connection lost.')
         super().connection_lost(error)
    
     @property
@@ -98,7 +98,7 @@ class PchkConnection(asyncio.Protocol):
         
         :param    str    pck:    PCK command
         """
-        self.logger.info('to PCHK: {}'.format(pck))
+        self.logger.debug('to PCHK: {}'.format(pck))
         self.transport.write((pck + PckGenerator.TERMINATION).encode())
    
     def process_input(self, input_text):
@@ -190,12 +190,12 @@ class PchkConnectionManager(PchkConnection):
             module_conn.cancel_timeout_retries()
        
     def on_successful_login(self):
-        self.logger.info('PCHK login successful.')
+        self.logger.debug('PCHK login successful.')
         self.set_lcn_connected(True)
         self.ping.activate()
  
     def on_auth_ok(self):
-        self.logger.info('Authorization successful!')
+        self.logger.debug('Authorization successful!')
  
     def get_lcn_connected(self):
         """Connection status to the LCN bus.
@@ -298,7 +298,7 @@ class PchkConnectionManager(PchkConnection):
         :param    bool    failed:    True if caller failed to fulfill request otherwise False
         """
         if failed:
-            self.logger.info('No segment coupler found.')
+            self.logger.debug('No segment coupler found.')
             self.set_local_seg_id(0)
         else:
             self.send_command(PckGenerator.generate_address_header(LcnAddr(3, 3, True), self.local_seg_id, False) + PckGenerator.segment_coupler_scan())
@@ -310,7 +310,7 @@ class PchkConnectionManager(PchkConnection):
         self.ping_counter += 1
  
     def process_input(self, input):
-        self.logger.info('from PCHK: {}'.format(input))
+        self.logger.debug('from PCHK: {}'.format(input))
         commands = InputParser.parse(input)
         for command in commands:
             command.process(self)

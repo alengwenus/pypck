@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pypck",
-    version="0.9.0",
+    version="0.5.2",
     author="Andre Lengwenus",
     author_email="alengwenus@gmail.com",
     description="LCN-PCK library",

@@ -127,7 +127,7 @@ class LcnConnState(Input):
  
     def process(self, conn):
         if self.is_lcn_connected:
-            self.logger.info('LCN is connected.')
+            self.logger.debug('LCN is connected.')
             conn.on_successful_login()
             conn.send_command(PckGenerator.set_operation_mode(conn.dim_mode, conn.status_mode))
  
