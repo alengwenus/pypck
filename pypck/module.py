@@ -61,7 +61,8 @@ class StatusRequestHandler(object):
 
     def set_sw_age(self, sw_age):
         self.sw_age = sw_age
-        self.sw_age_known.set_result(True)
+        if not self.sw_age_known.done():
+            self.sw_age_known.set_result(True)
         
     def set_output_timeout_callback(self, output_port, callback):
         self.request_status_outputs[output_port.value].set_timeout_callback(callback)
