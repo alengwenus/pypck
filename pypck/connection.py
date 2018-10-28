@@ -21,6 +21,8 @@ from pypck.lcn_addr import LcnAddr
 from pypck.module import ModuleConnection, GroupConnection
 from pypck.timeout_retry import TimeoutRetryHandler
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class PchkConnection(asyncio.Protocol):
     """Provides a socket connection to LCN-PCHK server.
@@ -39,13 +41,13 @@ class PchkConnection(asyncio.Protocol):
     For login logic or communication with modules use
     :class:`~PchkConnectionManager`.
     """
-    def __init__(self, loop, server_addr, port):
+    def __init__(self, loop, server_addr, port, connection_id = 'PCHK'):
         """Constructor.
         """
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.loop = loop
         self.server_addr = server_addr
         self.port = port
+        self.connection_id = connection_id
         self.transport = None
  
         self.buffer = b''
@@ -59,14 +61,14 @@ class PchkConnection(asyncio.Protocol):
     def connection_made(self, transport):
         self.transport = transport
         self.address = transport.get_extra_info('peername')
-        self.logger.debug('PCHK server connected at {}:{}'.format(*self.address))
+        _LOGGER.debug('{} server connected at {}:{}'.format(self.connection_id, *self.address))
    
     def connection_lost(self, error):
         self.transport = None
         if error:
-            self.logger.error('Error')
+            _LOGGER.error('Error')
         else:
-            self.logger.debug('Connection lost.')
+            _LOGGER.debug('{} connection lost.'.format(self.connection_id))
         super().connection_lost(error)
    
     @property
@@ -98,7 +100,7 @@ class PchkConnection(asyncio.Protocol):
         
         :param    str    pck:    PCK command
         """
-        self.logger.debug('to PCHK: {}'.format(pck))
+        _LOGGER.debug('to {}: {}'.format(self.connection_id, pck))
         self.transport.write((pck + PckGenerator.TERMINATION).encode())
    
     def process_input(self, input_text):
@@ -142,10 +144,10 @@ class PchkConnectionManager(PchkConnection):
     >>> loop.run_forever()
     >>> loop.close()
     """
-    def __init__(self, loop, server_addr, port, username, password, settings = {}):
+    def __init__(self, loop, server_addr, port, username, password, settings = {}, connection_id = 'PCHK'):
         """Constructor.
         """
-        super().__init__(loop, server_addr, port)
+        super().__init__(loop, server_addr, port, connection_id)
        
         self.username = username
         self.password = password
@@ -190,12 +192,12 @@ class PchkConnectionManager(PchkConnection):
             module_conn.cancel_timeout_retries()
        
     def on_successful_login(self):
-        self.logger.debug('PCHK login successful.')
+        _LOGGER.debug('{} login successful.'.format(self.connection_id))
         self.set_lcn_connected(True)
         self.ping.activate()
  
     def on_auth_ok(self):
-        self.logger.debug('Authorization successful!')
+        _LOGGER.debug('{} authorization successful!'.format(self.connection_id))
  
     def get_lcn_connected(self):
         """Connection status to the LCN bus.
@@ -298,7 +300,7 @@ class PchkConnectionManager(PchkConnection):
         :param    bool    failed:    True if caller failed to fulfill request otherwise False
         """
         if failed:
-            self.logger.debug('No segment coupler found.')
+            _LOGGER.debug('{}: No segment coupler found.'.format(self.connection_id))
             self.set_local_seg_id(0)
         else:
             self.send_command(PckGenerator.generate_address_header(LcnAddr(3, 3, True), self.local_seg_id, False) + PckGenerator.segment_coupler_scan())
@@ -310,7 +312,7 @@ class PchkConnectionManager(PchkConnection):
         self.ping_counter += 1
  
     def process_input(self, input):
-        self.logger.debug('from PCHK: {}'.format(input))
+        _LOGGER.debug('from {}: {}'.format(self.connection_id, input))
         commands = InputParser.parse(input)
         for command in commands:
             command.process(self)

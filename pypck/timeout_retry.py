@@ -13,6 +13,8 @@ Contributors:
 
 import logging
 
+_LOGGER = logging.getLogger(__name__)
+
 # The default timeout to use for requests. Worst case: Requesting threshold 4-4 takes at least 1.8s
 DEFAULT_TIMEOUT_MSEC = 3500 
  
@@ -28,8 +30,6 @@ class TimeoutRetryHandler(object):
     def __init__(self, loop, num_tries = 3, timeout_msec = DEFAULT_TIMEOUT_MSEC):
         """Constructor.
         """
-        self.logger = logging.getLogger(self.__class__.__name__)
- 
         self.loop = loop
         self.num_tries = num_tries
         self._timeout_msec = timeout_msec

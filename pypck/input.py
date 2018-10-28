@@ -19,6 +19,7 @@ from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckParser, PckGenerator
 from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC
 
+_LOGGER = logging.getLogger(__name__)
 
 class Input(object):
     """
@@ -33,8 +34,8 @@ class Input(object):
     to trigger further actions.
     """
     def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
- 
+        pass
+     
     @staticmethod
     def try_parse(input):
         """
@@ -127,11 +128,11 @@ class LcnConnState(Input):
  
     def process(self, conn):
         if self.is_lcn_connected:
-            self.logger.debug('LCN is connected.')
+            _LOGGER.debug('{}: LCN is connected.'.format(conn.connection_id))
             conn.on_successful_login()
             conn.send_command(PckGenerator.set_operation_mode(conn.dim_mode, conn.status_mode))
- 
- 
+        else:
+            _LOGGER.debug('{}: LCN is not connected.'.format(conn.connection_id))
  
 ### Inputs received from modules
  
