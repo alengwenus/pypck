@@ -15,7 +15,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=['aenum'],
     classifiers=[
-        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Eclipse Public License 1.0 (EPL-1.0)",
         "Operating System :: OS Independent",
         "Topic :: Home Automation"
