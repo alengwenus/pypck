@@ -133,8 +133,6 @@ class StatusRequestHandler(object):
             if item == lcn_defs.Var.UNKNOWN:
                 continue
             self.cancel(item)
-        
-        
 
 
 class AbstractConnection(LcnAddr):
@@ -146,6 +144,7 @@ class AbstractConnection(LcnAddr):
         self.conn = conn
         super().__init__(seg_id = seg_id, id = id, is_group = is_group)
     
+        self.input_callbacks = []
         self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
     
     def send_command(self, wants_ack, pck):
@@ -198,6 +197,21 @@ class AbstractConnection(LcnAddr):
     def request_status_locked_keys_timeout(self, failed=False):
         if not failed:
             self.send_command(False, PckGenerator.request_key_lock_status())
+
+    
+    ###
+    ### Methods for handling input objects
+    ###
+
+    def new_input(self, input_obj):
+        """Usually gets called by input object's process method.
+        Method to handle incoming commands for this specific module (status, toggle_output, switch_relays, ...)
+        """
+        for input_callback in self.input_callbacks:
+            input_callback(input_obj)
+    
+    def register_for_module_inputs(self, callback):
+        self.input_callbacks.append(callback)
 
 
     ###
@@ -430,6 +444,17 @@ class GroupConnection(AbstractConnection):
                    lcn_defs.Var.THRS1, lcn_defs.Var.THRS2, lcn_defs.Var.THRS3, lcn_defs.Var.THRS4, lcn_defs.Var.THRS5]:
             super().var_reset(var, is2013 = False)
         
+    async def activate_status_request_handler(self, item):
+        '''Activates a specific TimeoutRetryHandler for status requests.
+        '''
+        await self.conn.segment_scan_completed
+
+    async def activate_status_request_handlers(self):
+        """Activates all TimeoutRetryHandlers for status requests.
+        """
+        #self.request_sw_age.activate()
+        await self.conn.segment_scan_completed
+
         
 
 class ModuleConnection(AbstractConnection):
@@ -439,8 +464,6 @@ class ModuleConnection(AbstractConnection):
         super().__init__(loop, conn, seg_id, mod_id, False)
 
         self.has_s0_enabled = has_s0_enabled
-
-        self.input_callbacks = []
 
         # Firmware version request status
         self.request_sw_age = TimeoutRetryHandler(self.loop, conn.settings['NUM_TRIES'])
@@ -575,15 +598,6 @@ class ModuleConnection(AbstractConnection):
     ### End of acknowledge retry logic
     ###
     
-    def new_input(self, input_obj):
-        """Usually gets called by input object's process method.
-        Method to handle incoming commands for this specific module (status, toggle_output, switch_relays, ...)
-        """
-        for input_callback in self.input_callbacks:
-            input_callback(input_obj)
-    
-    def register_for_module_inputs(self, callback):
-        self.input_callbacks.append(callback)
 
 
   
