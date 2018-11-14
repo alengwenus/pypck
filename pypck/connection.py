@@ -166,9 +166,9 @@ class PchkConnectionManager(PchkConnection):
         self.local_seg_id = -1
        
         # Futures for connection status handling.
-        self.socket_connected = asyncio.Future()
-        self.lcn_connected = asyncio.Future()
-        self.segment_scan_completed = asyncio.Future()
+        self.socket_connected = self.loop.create_future()
+        self.lcn_connected = self.loop.create_future()
+        self.segment_scan_completed = self.loop.create_future()
 
         # All modules/groups from or to a communication occurs are represented by a unique
         # ModuleConnection or GroupConnection object.
