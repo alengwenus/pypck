@@ -21,6 +21,7 @@ from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class Input(object):
     """
     Parent class for all input data read from LCN-PCHK.
@@ -33,9 +34,10 @@ class Input(object):
     If parsing is successful, the :func:`~pypck.input.Input.process` method can be called
     to trigger further actions.
     """
+
     def __init__(self):
         pass
-     
+
     @staticmethod
     def try_parse(input):
         """
@@ -48,7 +50,7 @@ class Input(object):
         :rtype:              List with instances of :class:`~pypck.input.Input`
         """
         raise NotImplementedError
- 
+
     def process(self, conn):
         """
         Processes the :class:`~pypck.input.Input` instance and triggers further actions.
@@ -56,76 +58,80 @@ class Input(object):
         :param ~pypck.connection.PchkConnectionManager conn: Connection manager object 
         """
         raise NotImplementedError
- 
- 
+
+
 class ModInput(Input):
     """
     Parent class of all inputs having an LCN module as its source.
     
     The class in inherited from :class:`~pypck.input.Input`
     """
+
     def __init__(self, physical_source_addr):
         super().__init__()
         self.physical_source_addr = physical_source_addr
         self.logical_source_addr = LcnAddr()
-   
+
     def get_logical_source_addr(self):
         return self.logical_source_addr
-   
+
     def process(self, conn):
-        if conn.is_ready(): # Skip if we don't have all necessary bus info yet
+        if conn.is_ready():  # Skip if we don't have all necessary bus info yet
             self.logical_source_addr = conn.physical_to_logical(self.physical_source_addr)
- 
- 
- 
-### Plain text inputs
- 
+
+# ## Plain text inputs
+
+
 class AuthOk(Input):
+
     @staticmethod
     def try_parse(input):
         if input == PckParser.AUTH_OK:
             return [AuthOk()]
-   
+
     def process(self, conn):
         conn.on_auth_ok()
- 
- 
+
+
 class AuthPassword(Input):
+
     @staticmethod
     def try_parse(input):
         if input == PckParser.AUTH_PASSWORD:
             return [AuthPassword()]
-   
+
     def process(self, conn):
         conn.send_command(conn.password)
- 
- 
+
+
 class AuthUsername(Input):
+
     @staticmethod
     def try_parse(input):
         if input == PckParser.AUTH_USERNAME:
             return [AuthUsername()]
- 
+
     def process(self, conn):
         conn.send_command(conn.username)
- 
- 
+
+
 class LcnConnState(Input):
+
     def __init__(self, is_lcn_connected):
         super().__init__()
         self._is_lcn_connected = is_lcn_connected
- 
+
     @property
     def is_lcn_connected(self):
         return self._is_lcn_connected
- 
+
     @staticmethod
     def try_parse(input):
         if input == PckParser.LCNCONNSTATE_CONNECTED:
             return [LcnConnState(True)]
         elif input == PckParser.LCNCONNSTATE_DISCONNECTED:
             return [LcnConnState(False)]
- 
+
     def process(self, conn):
         if self.is_lcn_connected:
             _LOGGER.debug('{}: LCN is connected.'.format(conn.connection_id))
@@ -133,17 +139,19 @@ class LcnConnState(Input):
             conn.send_command(PckGenerator.set_operation_mode(conn.dim_mode, conn.status_mode))
         else:
             _LOGGER.debug('{}: LCN is not connected.'.format(conn.connection_id))
- 
-### Inputs received from modules
- 
+
+# ## Inputs received from modules
+
+
 class ModAck(ModInput):
+
     def __init__(self, physical_source_addr, code):
         super().__init__(physical_source_addr)
         self.code = code
-   
+
     def get_code(self):
         return self.code
- 
+
     @staticmethod
     def try_parse(input):
         matcher_pos = PckParser.PATTERN_ACK_POS.match(input)
@@ -151,29 +159,30 @@ class ModAck(ModInput):
             addr = LcnAddr(int(matcher_pos.group('seg_id')),
                            int(matcher_pos.group('mod_id')))
             return [ModAck(addr, -1)]
-        
+
         matcher_neg = PckParser.PATTERN_ACK_NEG.match(input)
         if matcher_neg:
             addr = LcnAddr(int(matcher_neg.group('seg_id')),
                            int(matcher_neg.group('mod_id')))
             return [ModAck(addr, matcher_neg.group('code'))]
-           
+
     def process(self, conn):
-        super().process(conn)   # Will replace source segment 0 with the local segment id
+        super().process(conn)  # Will replace source segment 0 with the local segment id
         module_conn = conn.get_address_conn(self.logical_source_addr)
         module_conn.on_ack(self.code, DEFAULT_TIMEOUT_MSEC)
- 
- 
+
+
 class ModSk(ModInput):
     """Segment information received from an LCN segment coupler.
     """
+
     def __init__(self, physical_source_addr, reported_seg_id):
         super().__init__(physical_source_addr)
         self.reported_seg_id = reported_seg_id
-   
+
     def get_reported_seg_id(self):
         return self.reported_seg_id
-   
+
     @staticmethod
     def try_parse(input):
         matcher = PckParser.PATTERN_SK_RESPONSE.match(input)
@@ -181,11 +190,11 @@ class ModSk(ModInput):
             addr = LcnAddr(int(matcher.group('seg_id')),
                            int(matcher.group('mod_id')))
             return [ModSk(addr, int(matcher.group('id')))]
- 
+
     def process(self, conn):
         if self.physical_source_addr.seg_id == 0:
             conn.set_local_seg_id(self.reported_seg_id)
-        super().process(conn)   # Will replace source segment 0 with the local segment id
+        super().process(conn)  # Will replace source segment 0 with the local segment id
         conn.status_segment_scan.cancel()
         for module_conn in conn.address_conns.values():
             conn.loop.create_task(module_conn.activate_status_request_handlers())
@@ -194,13 +203,14 @@ class ModSk(ModInput):
 class ModSn(ModInput):
     """Serial number and firmware version received from an LCN module.
     """
+
     def __init__(self, physical_source_addr, sw_age):
         super().__init__(physical_source_addr)
         self.sw_age = sw_age
-   
+
     def get_sw_age(self):
         return self.sw_age
-   
+
     @staticmethod
     def try_parse(input):
         matcher = PckParser.PATTERN_SN.match(input)
@@ -208,29 +218,29 @@ class ModSn(ModInput):
             addr = LcnAddr(int(matcher.group('seg_id')),
                            int(matcher.group('mod_id')))
             return [ModSn(addr, int(matcher.group('sw_age'), 16))]
- 
+
     def process(self, conn):
-        super().process(conn)   # Will replace source segment 0 with the local segment id
+        super().process(conn)  # Will replace source segment 0 with the local segment id
         module_conn = conn.get_address_conn(self.logical_source_addr)
         module_conn.set_sw_age(self.sw_age)
         module_conn.request_sw_age.cancel()
 
 
-
 class ModStatusOutput(ModInput):
     """Status of an output-port received from an LCN module.
     """
+
     def __init__(self, physical_source_addr, output_id, percent):
         super().__init__(physical_source_addr)
         self.output_id = output_id
         self.percent = percent
-        
+
     def get_output_id(self):
         return self.output_id
-    
+
     def get_percent(self):
         return self.percent
-    
+
     @staticmethod
     def try_parse(input):
         matcher = PckParser.PATTERN_STATUS_OUTPUT_PERCENT.match(input)
@@ -238,7 +248,7 @@ class ModStatusOutput(ModInput):
             addr = LcnAddr(int(matcher.group('seg_id')),
                            int(matcher.group('mod_id')))
             return [ModStatusOutput(addr, int(matcher.group('output_id')) - 1, float(matcher.group('percent')))]
-        
+
         matcher = PckParser.PATTERN_STATUS_OUTPUT_NATIVE.match(input)
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
@@ -246,19 +256,20 @@ class ModStatusOutput(ModInput):
             return [ModStatusOutput(addr, int(matcher.group('output_id')), float(matcher.group('value')) / 2.)]
 
     def process(self, conn):
-        super().process(conn)   # Will replace source segment 0 with the local segment id
+        super().process(conn)  # Will replace source segment 0 with the local segment id
         module_conn = conn.get_address_conn(self.logical_source_addr)
-        #module_conn.request_status_outputs[self.output_id].cancel()
+        # module_conn.request_status_outputs[self.output_id].cancel()
         module_conn.new_input(self)
 
 
 class ModStatusRelays(ModInput):
     """Status of 8 relays received from an LCN module.
     """
+
     def __init__(self, physical_source_addr, states):
         super().__init__(physical_source_addr)
         self.states = states
-        
+
     def get_state(self, relay_id):
         """
         Gets the state of a single relay.
@@ -269,7 +280,7 @@ class ModStatusRelays(ModInput):
         :rtype:   bool
         """
         return self.states[relay_id]
-    
+
     @staticmethod
     def try_parse(input):
         matcher = PckParser.PATTERN_STATUS_RELAYS.match(input)
@@ -279,7 +290,7 @@ class ModStatusRelays(ModInput):
             return [ModStatusRelays(addr, PckParser.get_boolean_value(int(matcher.group('byte_value'))))]
 
     def process(self, conn):
-        super().process(conn)   # Will replace source segment 0 with the local segment id
+        super().process(conn)  # Will replace source segment 0 with the local segment id
         module_conn = conn.get_address_conn(self.logical_source_addr)
         # module_conn.request_status_relays.cancel()
         module_conn.new_input(self)
@@ -288,10 +299,11 @@ class ModStatusRelays(ModInput):
 class ModStatusBinSensors(ModInput):
     """Status of 8 binary sensors received from an LCN module.
     """
+
     def __init__(self, physical_source_addr, states):
         super().__init__(physical_source_addr)
         self.states = states
-        
+
     def get_state(self, bin_sensor_id):
         """
         Gets the state of a single binary-sensor.
@@ -302,7 +314,7 @@ class ModStatusBinSensors(ModInput):
         :rtype:   bool
         """
         return not self.states[bin_sensor_id]
-    
+
     @staticmethod
     def try_parse(input):
         matcher = PckParser.PATTERN_STATUS_BINSENSORS.match(input)
@@ -312,7 +324,7 @@ class ModStatusBinSensors(ModInput):
             return [ModStatusBinSensors(addr, PckParser.get_boolean_value(int(matcher.group('byte_value'))))]
 
     def process(self, conn):
-        super().process(conn)   # Will replace source segment 0 with the local segment id
+        super().process(conn)  # Will replace source segment 0 with the local segment id
         module_conn = conn.get_address_conn(self.logical_source_addr)
         # module_conn.request_status_relays.cancel()
         module_conn.new_input(self)
@@ -322,12 +334,13 @@ class ModStatusVar(ModInput):
     """
     Status of a variable received from an LCN module.
     """
+
     def __init__(self, physical_source_addr, orig_var, value):
         super().__init__(physical_source_addr)
         self.orig_var = orig_var
         self.value = value
         self.var = self.orig_var
-        
+
     def get_var(self):
         """
         Gets the variable's real type.
@@ -336,7 +349,7 @@ class ModStatusVar(ModInput):
         :rtype:        :class:`~pypck.lcn_defs.Var`
         """
         return self.var
-    
+
     def get_value(self):
         """
         Gets the variable's value.
@@ -345,7 +358,7 @@ class ModStatusVar(ModInput):
         :rtype:     int
         """
         return self.value
-    
+
     @staticmethod
     def try_parse(input):
         matcher = PckParser.PATTERN_STATUS_VAR.match(input)
@@ -355,7 +368,7 @@ class ModStatusVar(ModInput):
             var = lcn_defs.Var.var_id_to_var(int(matcher.group('id')) - 1)
             value = lcn_defs.VarValue.from_native(int(matcher.group('value')))
             return [ModStatusVar(addr, var, value)]
-        
+
         matcher = PckParser.PATTERN_STATUS_SETVAR.match(input)
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
@@ -400,19 +413,19 @@ class ModStatusVar(ModInput):
             return ret
 
     def process(self, conn):
-        super().process(conn)   # Will replace source segment 0 with the local segment id
+        super().process(conn)  # Will replace source segment 0 with the local segment id
         module_conn = conn.get_address_conn(self.logical_source_addr)
         if self.orig_var == lcn_defs.Var.UNKNOWN:
             self.var = module_conn.get_last_requested_var_without_type_in_response()
         else:
             self.var = self.orig_var
-        
+
         if self.var != lcn_defs.Var.UNKNOWN:
             if module_conn.get_last_requested_var_without_type_in_response() == self.var:
-                module_conn.set_last_requested_var_without_type_in_response(lcn_defs.Var.UNKNOWN)   # Reset
+                module_conn.set_last_requested_var_without_type_in_response(lcn_defs.Var.UNKNOWN)  # Reset
 #             if self.var in module_conn.request_status_vars:
 #                 module_conn.request_status_vars[self.var].cancel()
-        module_conn.new_input(self)        
+        module_conn.new_input(self)
 
 
 class ModStatusLedsAndLogicOps(ModInput):
@@ -424,12 +437,13 @@ class ModStatusLedsAndLogicOps(ModInput):
     :param    states_logic_ops:              The 4 logic-operation states
     :type     states_logic_ops:              list(:class:`~pypck.lcn_defs.LogicOpStatus`)         
     """
+
     def __init__(self, physical_source_addr, states_led, states_logic_ops):
         """Constructor."""
         super().__init__(physical_source_addr)
-        self.states_led = states_led    # 12x LED status.
-        self.states_logic_ops = states_logic_ops    # 4x logic-operation status.
-        
+        self.states_led = states_led  # 12x LED status.
+        self.states_logic_ops = states_logic_ops  # 4x logic-operation status.
+
     def get_led_state(self, led_id):
         """Gets the status of a single LED.
 
@@ -438,7 +452,7 @@ class ModStatusLedsAndLogicOps(ModInput):
         :rtype:   list(:class:`~pypck.lcn_defs.LedStatus`)
         """
         return self.states_led[led_id]
-        
+
     def get_logic_op_state(self, logic_op_id):
         """Gets the status of a single logic operation.
 
@@ -447,26 +461,26 @@ class ModStatusLedsAndLogicOps(ModInput):
         :rtype:     list(:class:`~pypck.lcn_defs.LogicOpStatus`)
         """
         return self.states_logic_ops[logic_op_id]
-    
+
     @staticmethod
     def try_parse(input):
         matcher = PckParser.PATTERN_STATUS_LEDSANDLOGICOPS.match(input)
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
                            int(matcher.group('mod_id')))
-        
+
             led_states = matcher.group('led_states').upper()
             states_leds = [lcn_defs.LedStatus(led_state) for led_state in led_states]
-            
+
             logic_op_states = matcher.group('logic_op_states').upper()
             states_logic_ops = [lcn_defs.LogicOpStatus(logic_op_state) for logic_op_state in logic_op_states]
             return [ModStatusLedsAndLogicOps(addr, states_leds, states_logic_ops)]
-                
+
     def process(self, conn):
-        super().process(conn)   # Will replace source segment 0 with the local segment id
+        super().process(conn)  # Will replace source segment 0 with the local segment id
         module_conn = conn.get_address_conn(self.logical_source_addr)
         # module_conn.request_status_leds_and_logic_ops.cancel()
-        module_conn.new_input(self)        
+        module_conn.new_input(self)
 
 
 class ModStatusKeyLocks(ModInput):
@@ -476,6 +490,7 @@ class ModStatusKeyLocks(ModInput):
     :param    int                physicalSourceAddr:    The source address
     :param    list(list(bool))   states:                The 4x8 key-lock states        
     """
+
     def __init__(self, physical_source_id, states):
         """Constructor.
         """
@@ -491,7 +506,7 @@ class ModStatusKeyLocks(ModInput):
         :rtype:   bool
         """
         return self.states[table_id][key_id]
-    
+
     @staticmethod
     def try_parse(input):
         matcher = PckParser.PATTERN_STATUS_KEYLOCKS.match(input)
@@ -508,30 +523,31 @@ class ModStatusKeyLocks(ModInput):
             return [ModStatusKeyLocks(addr, states)]
 
     def process(self, conn):
-        super().process(conn)   # Will replace source segment 0 with the local segment id
+        super().process(conn)  # Will replace source segment 0 with the local segment id
         module_conn = conn.get_address_conn(self.logical_source_addr)
         # module_conn.request_status_key_locks.cancel()
-        module_conn.new_input(self)          
+        module_conn.new_input(self)
+
+# ## Other inputs
 
 
-### Other inputs
-           
 class Unknown(Input):
+
     def __init__(self, input):
         super().__init__()
         self._input = input
- 
+
     @staticmethod
     def try_parse(input):
         return [Unknown(input)]
-   
+
     @property
     def input(self):
         return self._input
-   
+
     def process(self, conn):
         pass
- 
+
 
 class InputParser(object):
     parsers = [AuthUsername,
@@ -548,13 +564,11 @@ class InputParser(object):
                ModStatusLedsAndLogicOps,
                ModStatusKeyLocks,
                Unknown]
-    
+
     @staticmethod
     def parse(input):
         for parser in InputParser.parsers:
             ret = parser.try_parse(input)
             if ret is not None:
                 return ret
-            
- 
- 
+

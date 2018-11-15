@@ -69,7 +69,6 @@ class MotorPort(Enum):
     MOTOR4 = 3
 
 
-
 class LedPort(Enum):
     """LED port of LCN module.
     """
@@ -85,8 +84,8 @@ class LedPort(Enum):
     LED10 = 9
     LED11 = 10
     LED12 = 11
-    
-    
+
+
 class LogicOpPort(Enum):
     """Logic Operation port of LCN module
     """
@@ -94,7 +93,6 @@ class LogicOpPort(Enum):
     LOGICOP2 = 1
     LOGICOP3 = 2
     LOGICOP4 = 3
-    
 
 
 class BinSensorPort(Enum):
@@ -111,7 +109,7 @@ class BinSensorPort(Enum):
 
 
 # Keys
-Key = Enum('Key', ' '.join(['{:s}{:d}'.format(t[0], t[1]) for t in product(['A', 'B', 'C', 'D'], range(1,9))]), module=__name__)
+Key = Enum('Key', ' '.join(['{:s}{:d}'.format(t[0], t[1]) for t in product(['A', 'B', 'C', 'D'], range(1, 9))]), module=__name__)
 
 
 class OutputPortDimMode(Enum):
@@ -119,10 +117,10 @@ class OutputPortDimMode(Enum):
     If solely modules with firmware 170206 or newer are present, LCN-PRO automatically programs STEPS200.
     Otherwise the default is STEPS50.
     Since LCN-PCHK doesn't know the current mode, it must explicitly be set.
-    """    
-    STEPS50 = auto()    # 0..50 dimming steps (all LCN module generations)
-    STEPS200 = auto()   # 0..200 dimming steps (since 170206)
-    
+    """
+    STEPS50 = auto()  # 0..50 dimming steps (all LCN module generations)
+    STEPS200 = auto()  # 0..200 dimming steps (since 170206)
+
 
 class OutputPortStatusMode(Enum):
     """
@@ -131,8 +129,8 @@ class OutputPortStatusMode(Enum):
     NATIVE: is completely backward compatible and there are no restrictions
     concerning the LCN module generations. It requires LCN-PCHK 2.3 or higher though.
     """
-    PERCENT = auto()    # Default (compatible with all versions of LCN-PCHK)
-    NATIVE = auto()     # 0..200 steps (since LCN-PCHK 2.3)
+    PERCENT = auto()  # Default (compatible with all versions of LCN-PCHK)
+    NATIVE = auto()  # 0..200 steps (since LCN-PCHK 2.3)
 
 
 def time_to_ramp_value(time_msec):
@@ -168,7 +166,7 @@ def time_to_ramp_value(time_msec):
         ret = (time_msec / 1000 - 6) / 2 + 10
         if ret >= 250:
             ret = 250
-    return int(ret) 
+    return int(ret)
 
 
 def ramp_value_to_time(ramp_value):
@@ -181,7 +179,7 @@ def ramp_value_to_time(ramp_value):
     """
     if not 0 <= ramp_value <= 250:
         raise ValueError('Ramp value has to be in range 0..250.')
-    
+
     if ramp_value < 10:
         return [250, 500, 660, 1000, 1400, 2000, 3000, 4000, 5000, 6000][ramp_value]
     else:
@@ -192,7 +190,7 @@ def ramp_value_to_time(ramp_value):
 class Var(Enum):
     """LCN variable types.
     """
-    UNKNOWN = -1    # Used if the real type is not known (yet)
+    UNKNOWN = -1  # Used if the real type is not known (yet)
     VAR1ORTVAR = 0
     TVAR = 0
     VAR1 = 0
@@ -210,30 +208,30 @@ class Var(Enum):
     VAR9 = 8
     VAR10 = 9
     VAR11 = 10
-    VAR12 = 11          # Since 170206
+    VAR12 = 11  # Since 170206
     R1VARSETPOINT = auto()
     R2VARSETPOINT = auto()  # Set-points for regulators
     THRS1 = auto()
     THRS2 = auto()
     THRS3 = auto()
     THRS4 = auto()
-    THRS5 = auto()          # Register 1 (THRS5 only before 170206)
+    THRS5 = auto()  # Register 1 (THRS5 only before 170206)
     THRS2_1 = auto()
     THRS2_2 = auto()
     THRS2_3 = auto()
-    THRS2_4 = auto()        # Register 2 (since 2012)
+    THRS2_4 = auto()  # Register 2 (since 2012)
     THRS3_1 = auto()
     THRS3_2 = auto()
     THRS3_3 = auto()
-    THRS3_4 = auto()        # Register 3 (since 2012)
+    THRS3_4 = auto()  # Register 3 (since 2012)
     THRS4_1 = auto()
     THRS4_2 = auto()
     THRS4_3 = auto()
-    THRS4_4 = auto()        # Register 4 (since 2012)
+    THRS4_4 = auto()  # Register 4 (since 2012)
     S0INPUT1 = auto()
     S0INPUT2 = auto()
     S0INPUT3 = auto()
-    S0INPUT4 = auto()       # LCN-BU4LJVarValue
+    S0INPUT4 = auto()  # LCN-BU4LJVarValue
 
     @staticmethod
     def var_id_to_var(var_id):
@@ -249,7 +247,7 @@ class Var(Enum):
             raise ValueError('Bad var_id.')
         return Var._var_id_to_var[var_id]
 
-    @staticmethod        
+    @staticmethod
     def set_point_id_to_var(set_point_id):
         """
         Translates a given id into a LCN set-point variable type.
@@ -258,11 +256,11 @@ class Var(Enum):
         
         :return: The translated var
         :rtype:  Var     
-        """    
+        """
         if (set_point_id < 0) or (set_point_id >= len(Var._set_point_id_to_var)):
             raise ValueError('Bad set_point_id.')
         return Var._set_point_id_to_var[set_point_id]
-    
+
     @staticmethod
     def thrs_id_to_var(register_id, thrs_id):
         """
@@ -275,10 +273,10 @@ class Var(Enum):
         :rtype:    Var
         """
         if (register_id < 0) or (register_id >= len(Var._thrs_id_to_var)) or (thrs_id < 0) or (thrs_id >= (5 if (register_id == 0) else 4)):
-            #print(register_id, thrs_id)
+            # print(register_id, thrs_id)
             raise ValueError('Bad register_id and/or thrs_id.')
         return Var._thrs_id_to_var[register_id][thrs_id]
-    
+
     @staticmethod
     def s0_id_to_var(s0_id):
         """
@@ -302,7 +300,7 @@ class Var(Enum):
         
         :return:     Variable id 0..11 or -1 if wrong type
         :rtype:    int
-        """        
+        """
         if var == Var.VAR1ORTVAR:
             return 0
         elif var == Var.VAR2ORR1VAR:
@@ -329,7 +327,7 @@ class Var(Enum):
             return 11
         else:
             return -1
-        
+
     @staticmethod
     def to_set_point_id(var):
         """
@@ -346,7 +344,7 @@ class Var(Enum):
             return 1
         else:
             return -1
-        
+
     @staticmethod
     def to_thrs_register_id(var):
         """
@@ -368,7 +366,7 @@ class Var(Enum):
         else:
             return -1
 
-    @staticmethod        
+    @staticmethod
     def to_thrs_id(var):
         """
         Translates a given variable type into a threshold id.
@@ -390,7 +388,7 @@ class Var(Enum):
             return 4
         else:
             return -1
-    
+
     @staticmethod
     def to_s0_id(var):
         """
@@ -411,7 +409,7 @@ class Var(Enum):
             return 3
         else:
             return -1
-    
+
     @staticmethod
     def is_lockable_regulator_source(var):
         """
@@ -423,7 +421,7 @@ class Var(Enum):
         :rtype:    bool
         """
         return var in [Var.R1VARSETPOINT, Var.R2VARSETPOINT]
-    
+
     @staticmethod
     def use_lcn_special_values(var):
         """
@@ -435,8 +433,8 @@ class Var(Enum):
         :return:    True if special values are in use, otherwise False
         :rtype:    bool
         """
-        return var not in [Var.S0INPU1, Var.S0INPUT2, Var.S0INPUT3, Var.S0INPUT4] 
-    
+        return var not in [Var.S0INPU1, Var.S0INPUT2, Var.S0INPUT3, Var.S0INPUT4]
+
     @staticmethod
     def has_type_in_response(var, sw_age):
         """
@@ -488,7 +486,7 @@ class Var(Enum):
         # Regulator set-points will send status-messages on every change (all firmware versions)
         if Var.to_set_point_id(var) != -1:
             return False
-        
+
         # Thresholds since 170206 will send status-messages on every change
         if is2013 and (Var.to_thrs_register_id(var != -1)):
             return False
@@ -498,7 +496,7 @@ class Var(Enum):
         # - Variables since 170206 only send status-messages on "big" changes
         # - Thresholds before 170206 will never send any status-messages
         # - S0-inputs only send status-messages on "big" changes
-        # (all "big changes" cases force us to poll the status to get faster updates)        
+        # (all "big changes" cases force us to poll the status to get faster updates)
         return True
 
     @staticmethod
@@ -536,23 +534,21 @@ Var._thrs_id_to_var = [[Var.THRS1, Var.THRS2, Var.THRS3, Var.THRS4, Var.THRS5],
 Var._s0_id_to_var = [Var.S0INPUT1, Var.S0INPUT2, Var.S0INPUT3, Var.S0INPUT4]
 
 
-
-
 class VarUnit(Enum):
     """Measurement units used with LCN variables.
     """
-    NATIVE = ''             # LCN internal representation (0 = -100�C for absolute values)
+    NATIVE = ''  # LCN internal representation (0 = -100�C for absolute values)
     CELSIUS = '\u00b0C'
     KELVIN = '\u00b0K'
     FAHRENHEIT = '\u00b0F'
     LUX_T = 'Lux_T'
     LUX_I = 'Lux_I'
     METERPERSECOND = 'm/s'  # Used for LCN-WIH wind speed
-    PERCENT = '%'           # Used for humidity
-    PPM = 'ppm'             # Used by CO2 sensor
+    PERCENT = '%'  # Used for humidity
+    PPM = 'ppm'  # Used by CO2 sensor
     VOLT = 'V'
     AMPERE = 'A'
-    DEGREE = '\u00b0'       #Used for angles,
+    DEGREE = '\u00b0'  # Used for angles,
 
     @staticmethod
     def parse(input):
@@ -583,7 +579,7 @@ class VarUnit(Enum):
             return VarUnit.DEGREE
         else:
             raise ValueError('Bad input.')
-        
+
 
 class VarValue(object):
     """A value of an LCN variable.
@@ -595,6 +591,7 @@ class VarValue(object):
     
     :param    int    native_value:    The native value       
     """
+
     def __init__(self, native_value):
         """Constructor with native LCN value.
         """
@@ -653,7 +650,7 @@ class VarValue(object):
         return VarValue(n)
 
     @staticmethod
-    def from_celsius(c, abs = True):
+    def from_celsius(c, abs=True):
         """Creates a variable value from \u00b0C input.
 
         :param    float    c:    The input value
@@ -664,9 +661,9 @@ class VarValue(object):
         """
         n = int(round(c * 10))
         return VarValue(n + 1000 if abs else n)
-    
+
     @staticmethod
-    def from_kelvin(k, abs = True):
+    def from_kelvin(k, abs=True):
         """Creates a variable value from \u00b0K input.
 
         :param    float    k:    The input value
@@ -677,12 +674,12 @@ class VarValue(object):
         """
         if abs:
             k -= 273.15
-        
+
         n = int(round(k * 10))
         return VarValue(n + 1000 if abs else n)
 
     @staticmethod
-    def from_fahrenheit(f, abs = True):
+    def from_fahrenheit(f, abs=True):
         """Creates a variable value from \u00b0F input.
 
         :param    float    f:    The input value
@@ -693,11 +690,10 @@ class VarValue(object):
         """
         if abs:
             f -= 32
-        
+
         n = int(round(f / 0.18))
         return VarValue(n + 1000 if abs else n)
-    
-    
+
     @staticmethod
     def from_lux_t(l):
         """Creates a variable value from lx input.
@@ -709,7 +705,7 @@ class VarValue(object):
         :rtype:    VarValue
         """
         return VarValue(int(round(math.log(l) - 1.689646994) / 0.010380664))
-    
+
     @staticmethod
     def from_lux_i(l):
         """Creates a variable value from lx input.
@@ -721,7 +717,7 @@ class VarValue(object):
         :rtype:    VarValue
         """
         return VarValue(int(round(math.log(l) * 100)))
-    
+
     @staticmethod
     def from_percent(p):
         """Creates a variable value from % input.
@@ -732,7 +728,7 @@ class VarValue(object):
         :rtype:    VarValue
         """
         return VarValue(int(round(p)))
-    
+
     @staticmethod
     def from_ppm(p):
         """Creates a variable value from ppm input.
@@ -744,7 +740,7 @@ class VarValue(object):
         :rtype:    VarValue
         """
         return VarValue(int(round(p)))
-    
+
     @staticmethod
     def from_meters_per_second(ms):
         """Creates a variable value from m/s input.
@@ -756,7 +752,7 @@ class VarValue(object):
         :rtype:    VarValue
         """
         return VarValue(int(round(ms * 10)))
-    
+
     @staticmethod
     def from_volt(v):
         """Creates a variable value from V input.
@@ -767,7 +763,7 @@ class VarValue(object):
         :rtype:    VarValue
         """
         return VarValue(int(round(v * 400)))
-    
+
     @staticmethod
     def from_ampere(a):
         """Creates a variable value from A input.
@@ -778,9 +774,9 @@ class VarValue(object):
         :rtype:    VarValue
         """
         return VarValue(int(round(a * 100)))
-    
+
     @staticmethod
-    def from_degree(d, abs = True):
+    def from_degree(d, abs=True):
         """Creates a variable value from \u00b0 (angle) input.
 
         :param    float    d:    The input value
@@ -791,10 +787,10 @@ class VarValue(object):
         """
         n = int(round(d * 10))
         return VarValue(n + 1000 if abs else n)
-    
-    def to_var_unit(self, unit, is_lockable_regulator_source = False):
+
+    def to_var_unit(self, unit, is_lockable_regulator_source=False):
         v = VarValue(self.native_value & 0x7fff if is_lockable_regulator_source else self.native_value)
-    
+
         if unit == VarUnit.NATIVE:
             return v.to_native()
         elif unit == VarUnit.CELSIUS:
@@ -821,7 +817,7 @@ class VarValue(object):
             return v.to_degree()
         else:
             raise ValueError('Wrong unit.')
-    
+
     def to_native(self):
         """Converts to native value.
 
@@ -829,7 +825,7 @@ class VarValue(object):
         :rtype:    int
         """
         return self.native_value
-    
+
     def to_celsius(self):
         """Converts to \u00b0C value.
         
@@ -837,7 +833,7 @@ class VarValue(object):
         :rtype:    float
         """
         return (self.native_value - 1000) / 10.
-    
+
     def to_kelvin(self):
         """Converts to \u00b0K value.
         
@@ -845,7 +841,7 @@ class VarValue(object):
         :rtype:    float
         """
         return (self.native_value - 1000) / 10. + 273.15
-    
+
     def to_fahrenheit(self):
         """Converts to \u00b0F value.
         
@@ -853,7 +849,7 @@ class VarValue(object):
         :rtype:    float
         """
         return (self.native_value - 1000) * 0.18 + 32.
-    
+
     def to_lux_t(self):
         """Converts to lx value.
         Source must be connected to T-port.
@@ -862,7 +858,7 @@ class VarValue(object):
         :rtype:    float
         """
         return math.exp(0.010380664 * self.native_value + 1.689646994)
-    
+
     def to_lux_i(self):
         """Converts to lx value.
         Source must be connected to I-port.
@@ -871,7 +867,7 @@ class VarValue(object):
         :rtype:    float
         """
         return math.exp(self.native_value / 100)
-    
+
     def to_percent(self):
         """Converts to % value.
 
@@ -887,7 +883,7 @@ class VarValue(object):
         :rtype:    int
         """
         return self.native_value
-    
+
     def to_meters_per_sec(self):
         """Converts to m/s value.
 
@@ -895,7 +891,7 @@ class VarValue(object):
         :rtype:    float
         """
         return self.native_value / 10.
-    
+
     def to_volt(self):
         """
         Converts to V value.
@@ -904,7 +900,7 @@ class VarValue(object):
         :rtype:    float
         """
         return self.native_value / 400.
-    
+
     def to_ampere(self):
         """
         Converts to A value.
@@ -913,7 +909,7 @@ class VarValue(object):
         :rtype:    float
         """
         return self.native_value / 100.
-    
+
     def to_degree(self):
         """
         Converts to \u00b0 value.
@@ -922,13 +918,13 @@ class VarValue(object):
         :rtype:    float
         """
         return (self.native_value - 1000) / 10.
-    
-    def to_var_unit_string(self, unit, is_lockable_regulator_source = False, use_lcn_special_values = False):
-        if use_lcn_special_values and (self.native_value == 0xffff):    # No value
+
+    def to_var_unit_string(self, unit, is_lockable_regulator_source=False, use_lcn_special_values=False):
+        if use_lcn_special_values and (self.native_value == 0xffff):  # No value
             ret = '---'
-        elif use_lcn_special_values and ((self.native_value & 0xff00) == 0x8100):   # Undefined
+        elif use_lcn_special_values and ((self.native_value & 0xff00) == 0x8100):  # Undefined
             ret = '---'
-        elif use_lcn_special_values and ((self.native_value & 0xff00) == 0x7f00):   # Defective
+        elif use_lcn_special_values and ((self.native_value & 0xff00) == 0x7f00):  # Defective
             ret = '!!!'
         else:
             var = VarValue((self.native_value & 0x7ff) if is_lockable_regulator_source else self.native_value)
@@ -941,12 +937,12 @@ class VarValue(object):
             elif unit == VarUnit.FAHRENHEIT:
                 ret = '{:.01f}'.format(var.to_fahrenheit())
             elif unit == VarUnit.LUX_T:
-                if (var.to_native() > 1152):    # Max. value the HW can do
+                if (var.to_native() > 1152):  # Max. value the HW can do
                     ret = '---'
                 else:
                     ret = '{:.0f}'.format(var.to_lux_t())
             elif unit == VarUnit.LUX_I:
-                if (var.to_native() > 1152):    # Max. value the HW can do
+                if (var.to_native() > 1152):  # Max. value the HW can do
                     ret = '---'
                 else:
                     ret = '{:.0f}'.format(var.to_lux_i())
@@ -970,7 +966,7 @@ class VarValue(object):
             ret = '({:s})'.format(ret)
 
         return ret
-    
+
 
 class LedStatus(Enum):
     """Possible states for LCN LEDs
@@ -979,15 +975,15 @@ class LedStatus(Enum):
     ON = 'E'
     BLINK = 'B'
     FLICKER = 'F'
-    
+
 
 class LogicOpStatus(Enum):
     """Possible states for LCN logic-operations.
     """
     NOT = 'N'
-    OR = "T"     # Note: Actually not correct since AND won't be OR also
+    OR = "T"  # Note: Actually not correct since AND won't be OR also
     AND = 'V'
-    
+
 
 class TimeUnit(Enum):
     """Time units used for several LCN commands.
@@ -996,7 +992,7 @@ class TimeUnit(Enum):
     MINUTES = 'M'
     HOURS = 'H'
     DAYS = 'D'
-    
+
     @staticmethod
     def parse(input):
         """Parses the given input into a time unit.
@@ -1017,7 +1013,7 @@ class TimeUnit(Enum):
             return TimeUnit.DAYS
         else:
             raise ValueError('Bad time unit input.')
-        
+
 
 class RelayStateModifier(Enum):
     """Relay-state modifiers used in LCN commands.
@@ -1026,7 +1022,7 @@ class RelayStateModifier(Enum):
     OFF = '0'
     TOGGLE = 'U'
     NOCHANGE = '-'
-    
+
 
 class MotorStateModifier(Enum):
     """Motor-state modifiers used in LCN commands.
@@ -1035,18 +1031,18 @@ class MotorStateModifier(Enum):
     UP = 'U'
     DOWN = 'D'
     STOP = 'S'
-    TOGGLEONOFF = 'T'   # toggle on/off
-    TOGGLEDIR = 'D'     # toggle direction
-    CYCLE = 'C'         # up, stop, down, stop, ...
-    NOCHANGE = '-' 
-    
+    TOGGLEONOFF = 'T'  # toggle on/off
+    TOGGLEDIR = 'D'  # toggle direction
+    CYCLE = 'C'  # up, stop, down, stop, ...
+    NOCHANGE = '-'
+
 
 class RelVarRef(Enum):
     """Value-reference for relative LCN variable commands.
     """
     CURRENT = auto()
-    PROG = auto()       # Programmed value (LCN-PRO). Relevant for set-points and thresholds.
-    
+    PROG = auto()  # Programmed value (LCN-PRO). Relevant for set-points and thresholds.
+
 
 class SendKeyCommand(Enum):
     """Command types used when sending LCN keys.
@@ -1055,8 +1051,8 @@ class SendKeyCommand(Enum):
     MAKE = 'L'
     BREAK = 'O'
     DONTSEND = '-'
-    
-    
+
+
 class KeyLockStateModifier(Enum):
     """Key-lock modifiers used in LCN commands.
     """
@@ -1066,12 +1062,11 @@ class KeyLockStateModifier(Enum):
     NOCHANGE = '-'
 
 
-
 default_connection_settings = {'NUM_TRIES': 3,  # Total number of request to sent before going into failed-state.
-                               'SK_NUM_TRIES': 3, # Total number of segment coupler scan tries
+                               'SK_NUM_TRIES': 3,  # Total number of segment coupler scan tries
                                'DIM_MODE': OutputPortDimMode.STEPS50,
                                'PING_TIMEOUT': 600000,  # The default timeout for pings sent to PCHK.
-                               'MAX_STATUS_EVENTBASED_VALUEAGE_MSEC': 600000,   # Poll interval for status values that automatically send their values on change.
-                               'MAX_STATUS_POLLED_VALUEAGE_MSEC': 30000,    # Poll interval for status values that do not send their values on change (always polled).
+                               'MAX_STATUS_EVENTBASED_VALUEAGE_MSEC': 600000,  # Poll interval for status values that automatically send their values on change.
+                               'MAX_STATUS_POLLED_VALUEAGE_MSEC': 30000,  # Poll interval for status values that do not send their values on change (always polled).
                                'STATUS_REQUEST_DELAY_AFTER_COMMAND_MSEC': 2000  # Status request delay after a command has been send which potentially changed that status.
                                }

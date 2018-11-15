@@ -254,7 +254,8 @@ class PchkConnectionManager(PchkConnection):
                 address_conn.seg_id = self.local_seg_id
                 self.address_conns[LcnAddr(self.local_seg_id, addr.id, addr.is_group())] = address_conn
 
-        self.segment_scan_completed.set_result(True)
+        if not self.segment_scan_completed.done():
+            self.segment_scan_completed.set_result(True)
 
     def physical_to_logical(self, addr):
         return LcnAddr(self.local_seg_id if addr.get_seg_id() == 0 else addr.get_seg_id(), addr.get_id(), addr.is_group())
@@ -319,3 +320,9 @@ class PchkConnectionManager(PchkConnection):
         commands = InputParser.parse(input)
         for command in commands:
             command.process(self)
+
+    def close(self):
+        for address_conn in self.address_conns.values():
+            if isinstance(address_conn, ModuleConnection):
+                address_conn.cancel_timeout_retries()
+        super().close()
