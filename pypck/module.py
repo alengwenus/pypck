@@ -212,7 +212,7 @@ class AbstractConnection(LcnAddr):
         for input_callback in self.input_callbacks:
             input_callback(input_obj)
 
-    def register_for_module_inputs(self, callback):
+    def register_for_inputs(self, callback):
         self.input_callbacks.append(callback)
 
     # ##
