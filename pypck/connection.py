@@ -321,8 +321,10 @@ class PchkConnectionManager(PchkConnection):
         for command in commands:
             command.process(self)
 
-    def close(self):
+    async def close(self):
         for address_conn in self.address_conns.values():
             if isinstance(address_conn, ModuleConnection):
-                address_conn.cancel_timeout_retries()
+                await address_conn.cancel_timeout_retries()
+        await self.ping.cancel()
+        await self.status_segment_scan.cancel()
         super().close()

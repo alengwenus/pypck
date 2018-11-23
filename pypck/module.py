@@ -18,7 +18,7 @@ from collections import deque
 from pypck.lcn_addr import LcnAddr
 from pypck import lcn_defs
 from pypck.pck_commands import PckGenerator
-from pypck.timeout_retry import TimeoutRetryHandler
+from pypck.timeout_retry import TimeoutRetryHandler, DEFAULT_TIMEOUT_MSEC
 
 
 class StatusRequestHandler(object):
@@ -105,19 +105,19 @@ class StatusRequestHandler(object):
         elif item in lcn_defs.Key:
             self.request_status_locked_keys.activate()
 
-    def cancel(self, item):
+    async def cancel(self, item):
         if (item in lcn_defs.Var) and (item != lcn_defs.Var.UNKNOWN):  # handle variables independently
-            self.request_status_vars[item].cancel()
+            await self.request_status_vars[item].cancel()
         elif item in lcn_defs.OutputPort:
-            self.request_status_outputs[item.value].cancel()
+            await self.request_status_outputs[item.value].cancel()
         elif item in lcn_defs.RelayPort:
-            self.request_status_relays.cancel()
+            await self.request_status_relays.cancel()
         elif item in lcn_defs.BinSensorPort:
-            self.request_status_bin_sensors.cancel()
+            await self.request_status_bin_sensors.cancel()
         elif item in lcn_defs.LedPort:
-            self.request_status_leds_and_logic_ops.cancel()
+            await self.request_status_leds_and_logic_ops.cancel()
         elif item in lcn_defs.Key:
-            self.request_status_locked_keys.cancel()
+            await self.request_status_locked_keys.cancel()
 
     async def activate_all(self, s0=False):
         for item in list(lcn_defs.OutputPort) + list(lcn_defs.RelayPort) + list(lcn_defs.BinSensorPort) + \
@@ -129,12 +129,12 @@ class StatusRequestHandler(object):
             await self.activate(item)
             # self.loop.create_task(self.activate(item))
 
-    def cancel_all(self):
+    async def cancel_all(self):
         for item in list(lcn_defs.OutputPort) + list(lcn_defs.RelayPort) + list(lcn_defs.BinSensorPort) + \
                     list(lcn_defs.LedPort) + list(lcn_defs.Key) + list(lcn_defs.Var):
             if item == lcn_defs.Var.UNKNOWN:
                 continue
-            self.cancel(item)
+            await self.cancel(item)
 
 
 class AbstractConnection(LcnAddr):
@@ -517,13 +517,15 @@ class ModuleConnection(AbstractConnection):
         # await self.conn.lcn_connected
         await self.status_requests.activate_all(s0=self.has_s0_enabled)
 
-    def cancel_timeout_retries(self):
+    async def cancel_timeout_retries(self):
         """
         Cancels all TimeoutRetryHandlers for firmware request and status requests.
         """
         # module related handlers
-        self.request_sw_age.cancel()
-        self.status_requests.cancel_all()
+        await self.request_sw_age.cancel()
+        await self.status_requests.cancel_all()
+        await self.request_curr_pck_command_with_ack.cancel()
+        self.pck_commands_with_ack.clear()
         self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
 
     def set_s0_enabled(self, s0_enabled):
@@ -566,16 +568,16 @@ class ModuleConnection(AbstractConnection):
         # Try to process the new acknowledged command. Will do nothing if another one is still in progress.
         self.try_process_next_command_with_ack()
 
-    def on_ack(self, code, timeout_msec):
+    async def on_ack(self, code=-1, timeout_msec=DEFAULT_TIMEOUT_MSEC):
         """Called whenever an acknowledge is received from the LCN module.
     
         :param     int    code:           The LCN internal code. -1 means "positive" acknowledge
-        :param     intt   imeout_mSec:    The time to wait for a response before retrying a request
+        :param     intt   timeout_mSec:    The time to wait for a response before retrying a request
         """
         if self.request_curr_pck_command_with_ack.is_active():  # Check if we wait for an ack.
             if len(self.pck_commands_with_ack) > 0:
                 self.pck_commands_with_ack.popleft()
-            self.request_curr_pck_command_with_ack.reset()
+            await self.request_curr_pck_command_with_ack.cancel()
             # Try to process next acknowledged command
             self.try_process_next_command_with_ack()
 

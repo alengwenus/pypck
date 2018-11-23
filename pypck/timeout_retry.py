@@ -11,6 +11,7 @@ Contributors:
   Tobias Juettner - initial LCN binding for openHAB (Java)
 '''
 
+import asyncio
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,56 +34,60 @@ class TimeoutRetryHandler(object):
         """
         self.loop = loop
         self.num_tries = num_tries
-        self._timeout_msec = timeout_msec
+        self.timeout_msec = timeout_msec
+        self._timeout_callback = None
+        self.timeout_loop_task = None
 
-        self._timeout_handle = None
-
-        self.reset()
-
-    def is_active(self):
-        """Checks whether the request logic is active.
-        """
-        return self._timeout_handle is not None
-
-    def set_timeout_msec(self, timeout_msec):
-        self._timeout_msec = timeout_msec
-
-    def set_timeout_callback(self, func):
+    def set_timeout_callback(self, timeout_callback):
         """Timeout_callback function is called, if timeout expires.
         Function has to take one argument:
         Returns failed state (True if failed)
         """
-        self._timeout_callback = func
-
-    def on_timeout(self):
-        if self._timeout_callback is not None:
-            self._timeout_callback(self._num_tries_left == 0)
-
-        if self._num_tries_left == 0:
-            self.cancel()
-            return
-        elif self._num_tries_left > 0 :
-            self._num_tries_left -= 1
-        self._timeout_handle = self.loop.call_later(self._timeout_msec / 1000, self.on_timeout)
-
-    def reset(self):
-        if self._timeout_handle is not None:
-            self._timeout_handle.cancel()
-            self._timeout_handle = None
-        self._num_tries_left = 0
+        self._timeout_callback = timeout_callback
 
     def activate(self, timeout_callback=None):
         """Schedules the next request.
         """
-#         if self.is_active():
-#             return
-        self.reset()
-        self._num_tries_left = self.num_tries
         if timeout_callback is not None:
             self.set_timeout_callback(timeout_callback)
-        self._timeout_handle = self.loop.call_soon(self.on_timeout)
 
-    def cancel(self):
+        self.timeout_loop_task = self.loop.create_task(self.timeout_loop())
+
+    async def done(self):
+        await self.timeout_loop_task
+
+    async def cancel(self):
         """Must be called when a response (requested or not) has been received.
         """
-        self.reset()
+        if self.timeout_loop_task is not None:
+            self.timeout_loop_task.cancel()
+            try:
+                await self.timeout_loop_task
+            except asyncio.CancelledError:
+                pass
+
+    def is_active(self):
+        """Checks whether the request logic is active.
+        """
+        if self.timeout_loop_task is None:
+            return False
+        return not self.timeout_loop_task.done()
+
+    async def on_timeout(self, failed=False):
+        if self._timeout_callback is not None:
+            self._timeout_callback(failed)
+
+    async def timeout_loop(self):
+        tries_left = self.num_tries
+        while (tries_left > 0) or (tries_left == -1):
+            if not self.timeout_loop_task.done():
+                await self.on_timeout()
+                await asyncio.sleep(self.timeout_msec / 1000)
+                if self.num_tries != -1:
+                    tries_left -= 1
+            else:
+                break
+
+        if not self.timeout_loop_task.done():
+            await self.on_timeout(failed=True)
+

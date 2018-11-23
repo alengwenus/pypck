@@ -169,7 +169,7 @@ class ModAck(ModInput):
     def process(self, conn):
         super().process(conn)  # Will replace source segment 0 with the local segment id
         module_conn = conn.get_address_conn(self.logical_source_addr)
-        module_conn.on_ack(self.code, DEFAULT_TIMEOUT_MSEC)
+        conn.loop.create_task(module_conn.on_ack(self.code, DEFAULT_TIMEOUT_MSEC))
 
 
 class ModSk(ModInput):
@@ -195,7 +195,7 @@ class ModSk(ModInput):
         if self.physical_source_addr.seg_id == 0:
             conn.set_local_seg_id(self.reported_seg_id)
         super().process(conn)  # Will replace source segment 0 with the local segment id
-        conn.status_segment_scan.cancel()
+        conn.loop.create_task(conn.status_segment_scan.cancel())
         for module_conn in conn.address_conns.values():
             conn.loop.create_task(module_conn.activate_status_request_handlers())
 
@@ -223,7 +223,7 @@ class ModSn(ModInput):
         super().process(conn)  # Will replace source segment 0 with the local segment id
         module_conn = conn.get_address_conn(self.logical_source_addr)
         module_conn.set_sw_age(self.sw_age)
-        module_conn.request_sw_age.cancel()
+        conn.loop.create_task(module_conn.request_sw_age.cancel())
 
 
 class ModStatusOutput(ModInput):
