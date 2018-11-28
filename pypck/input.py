@@ -196,8 +196,8 @@ class ModSk(ModInput):
             conn.set_local_seg_id(self.reported_seg_id)
         super().process(conn)  # Will replace source segment 0 with the local segment id
         conn.loop.create_task(conn.status_segment_scan.cancel())
-        for module_conn in conn.address_conns.values():
-            conn.loop.create_task(module_conn.activate_status_request_handlers())
+#         for module_conn in conn.address_conns.values():
+#             conn.loop.create_task(module_conn.activate_status_request_handlers())
 
 
 class ModSn(ModInput):
