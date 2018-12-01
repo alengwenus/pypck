@@ -38,6 +38,9 @@ class TimeoutRetryHandler(object):
         self._timeout_callback = None
         self.timeout_loop_task = None
 
+    def set_timeout_msec(self, timeout_msec):
+        self.timeout_msec = timeout_msec
+
     def set_timeout_callback(self, timeout_callback):
         """Timeout_callback function is called, if timeout expires.
         Function has to take one argument:
