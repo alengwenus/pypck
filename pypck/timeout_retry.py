@@ -16,17 +16,20 @@ import logging
 
 _LOGGER = logging.getLogger(__name__)
 
-# The default timeout to use for requests. Worst case: Requesting threshold 4-4 takes at least 1.8s
+# The default timeout to use for requests. Worst case: Requesting threshold
+# 4-4 takes at least 1.8s
 DEFAULT_TIMEOUT_MSEC = 3500
 
 
-class TimeoutRetryHandler(object):
+class TimeoutRetryHandler():
     """Manages timeout and retry logic for an LCN request.
-    
+
     :param           loop:           The asyncio event loop
-    :param    int    num_tries:      The maximum number of tries until the request is marked as failed (-1 means forever)
+    :param    int    num_tries:      The maximum number of tries until the
+                                     request is marked as failed (-1 means
+                                     forever)
     :param    int    timeout_msec:   Default timeout in milliseconds
-    
+
     """
 
     def __init__(self, loop, num_tries=3, timeout_msec=DEFAULT_TIMEOUT_MSEC):
@@ -39,6 +42,10 @@ class TimeoutRetryHandler(object):
         self.timeout_loop_task = None
 
     def set_timeout_msec(self, timeout_msec):
+        """Set the timeout in milliseconds.
+
+        :param    int    timeout_msec:    The timeout in milliseconds
+        """
         self.timeout_msec = timeout_msec
 
     def set_timeout_callback(self, timeout_callback):
@@ -59,10 +66,13 @@ class TimeoutRetryHandler(object):
         self.timeout_loop_task = self.loop.create_task(self.timeout_loop())
 
     async def done(self):
+        """Signals the completion of the TimeoutRetryHandler.
+        """
         await self.timeout_loop_task
 
     async def cancel(self):
-        """Must be called when a response (requested or not) has been received.
+        """Must be called when a response (requested or not) has been
+        received.
         """
         if self.timeout_loop_task is not None:
             self.timeout_loop_task.cancel()
@@ -79,10 +89,14 @@ class TimeoutRetryHandler(object):
         return not self.timeout_loop_task.done()
 
     async def on_timeout(self, failed=False):
+        """Callback which is called on timeout of TimeoutRetryHandler.
+        """
         if self._timeout_callback is not None:
             self._timeout_callback(failed)
 
     async def timeout_loop(self):
+        """Timeout / retry loop.
+        """
         tries_left = self.num_tries
         while (tries_left > 0) or (tries_left == -1):
             if not self.timeout_loop_task.done():
@@ -95,4 +109,3 @@ class TimeoutRetryHandler(object):
 
         if not self.timeout_loop_task.done():
             await self.on_timeout(failed=True)
-
