@@ -37,11 +37,6 @@ class StatusRequestHandler():
                 self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC'])
              for i in range(4)]
 
-#        for output_id in range(4):
-#            self.request_status_outputs[output_id].set_timeout_callback(
-#                lambda failed, output_id=output_id:
-#                self.request_status_outputs_timeout(failed, output_id))
-
         # Relay request status (all 8)
         self.request_status_relays = \
             TimeoutRetryHandler(
@@ -166,6 +161,8 @@ class StatusRequestHandler():
             await self.request_status_outputs[item.value].cancel()
         elif item in lcn_defs.RelayPort:
             await self.request_status_relays.cancel()
+        elif item in lcn_defs.MotorPort:
+            await self.request_status_relays.cancel()
         elif item in lcn_defs.BinSensorPort:
             await self.request_status_bin_sensors.cancel()
         elif item in lcn_defs.LedPort:
@@ -202,19 +199,29 @@ class AbstractConnection(LcnAddr):
     Sends status requests to the connection and handles status responses.
     """
 
-    def __init__(self, loop, conn, seg_id, addr_id, is_group):
+    def __init__(self, loop, conn, seg_id, addr_id, is_group, sw_age=None):
         self.loop = loop
         self.conn = conn
         super().__init__(seg_id=seg_id, addr_id=addr_id, is_group=is_group)
+
+        if sw_age is not None:
+            self.set_sw_age(sw_age)
 
         self.input_callbacks = []
         self.last_requested_var_without_type_in_response = \
             lcn_defs.Var.UNKNOWN
 
+    def set_sw_age(self, sw_age):
+        """Sets the software firmware date.
+
+        :param     int    swAge:    The firmware date
+        """
+        self._sw_age = sw_age
+
     def get_sw_age(self):
         """Returns standard sw_age.
         """
-        return 0x170206
+        return self._sw_age
 
     def send_command(self, wants_ack, pck):
         """Sends a command to the module represented by this class.
@@ -542,8 +549,8 @@ class GroupConnection(AbstractConnection):
     It is assumed that all modules within this group are newer than FW170206
     """
 
-    def __init__(self, loop, conn, seg_id, grp_id):
-        super().__init__(loop, conn, seg_id, grp_id, True)
+    def __init__(self, loop, conn, seg_id, grp_id, sw_age=0x170206):
+        super().__init__(loop, conn, seg_id, grp_id, True, sw_age=sw_age)
 
     def var_abs(self, var, value, unit=lcn_defs.VarUnit.NATIVE, is2013=None):
         # for new modules (>=0x170206)
@@ -586,22 +593,22 @@ class ModuleConnection(AbstractConnection):
     """
 
     def __init__(self, loop, conn, seg_id, mod_id,
-                 activate_status_requests=False, has_s0_enabled=False):
-        super().__init__(loop, conn, seg_id, mod_id, False)
+                 activate_status_requests=False, has_s0_enabled=False,
+                 sw_age=None):
 
         self.has_s0_enabled = has_s0_enabled
 
         # Firmware version request status
-        self.request_sw_age = TimeoutRetryHandler(self.loop,
+        self.request_sw_age = TimeoutRetryHandler(loop,
                                                   conn.settings['NUM_TRIES'])
         self.request_sw_age.set_timeout_callback(self.request_sw_age_timeout)
 
         self.request_curr_pck_command_with_ack = \
-            TimeoutRetryHandler(self.loop, conn.settings['NUM_TRIES'])
+            TimeoutRetryHandler(loop, conn.settings['NUM_TRIES'])
         self.request_curr_pck_command_with_ack.set_timeout_callback(
             self.request_curr_pck_command_with_ack_timeout)
 
-        self.status_requests = StatusRequestHandler(loop, self.conn.settings)
+        self.status_requests = StatusRequestHandler(loop, conn.settings)
 
         for output_port in lcn_defs.OutputPort:
             self.status_requests.set_output_timeout_callback(
@@ -628,7 +635,10 @@ class ModuleConnection(AbstractConnection):
         # Note that the first one might currently be "in progress".
         self.pck_commands_with_ack = deque()
 
-        loop.create_task(self.get_module_sw())
+        super().__init__(loop, conn, seg_id, mod_id, False, sw_age=sw_age)
+
+        if sw_age is None:
+            loop.create_task(self.get_module_sw())
 
         if activate_status_requests:
             loop.create_task(self.activate_status_request_handlers())
@@ -651,8 +661,8 @@ class ModuleConnection(AbstractConnection):
         self.request_sw_age.activate()
 
     async def activate_status_request_handler(self, item):
-        '''Activates a specific TimeoutRetryHandler for status requests.
-        '''
+        """Activates a specific TimeoutRetryHandler for status requests.
+        """
         await self.conn.segment_scan_completed
         # await self.conn.lcn_connected
         await self.status_requests.activate(item)
@@ -665,6 +675,16 @@ class ModuleConnection(AbstractConnection):
         # await self.conn.lcn_connected
         await self.status_requests.activate_all(
             activate_s0=self.has_s0_enabled)
+
+    async def cancel_status_request_handler(self, item):
+        """Cancels a specific TimeoutRetryHandler for status requests.
+        """
+        await self.status_requests.cancel(item)
+
+    async def cancel_status_request_handlers(self):
+        """Canecls all TimeoutRetryHandlers for status requests.
+        """
+        await self.status_requests.cancel_all()
 
     async def cancel_timeout_retries(self):
         """
