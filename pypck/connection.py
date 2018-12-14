@@ -14,11 +14,11 @@ Contributors:
 import asyncio
 import logging
 
-from pypck.pck_commands import PckGenerator
 from pypck import lcn_defs
 from pypck.inputs import InputParser
 from pypck.lcn_addr import LcnAddr
-from pypck.module import ModuleConnection, GroupConnection
+from pypck.module import GroupConnection, ModuleConnection
+from pypck.pck_commands import PckGenerator
 from pypck.timeout_retry import TimeoutRetryHandler
 
 _LOGGER = logging.getLogger(__name__)
@@ -254,7 +254,7 @@ class PchkConnectionManager(PchkConnection):
 
         :param    int    timeout:    Timeout in seconds
         """
-        super().connect()
+        self.connect()
         done_pending = await asyncio.wait([self.socket_connected,
                                            self.lcn_connected,
                                            self.segment_scan_completed],

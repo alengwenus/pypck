@@ -15,7 +15,7 @@ import logging
 
 from pypck import lcn_defs
 from pypck.lcn_addr import LcnAddr
-from pypck.pck_commands import PckParser, PckGenerator
+from pypck.pck_commands import PckGenerator, PckParser
 from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC
 
 _LOGGER = logging.getLogger(__name__)

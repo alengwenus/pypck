@@ -13,10 +13,10 @@ Contributors:
 
 from collections import deque
 
-from pypck.lcn_addr import LcnAddr
 from pypck import lcn_defs
+from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
-from pypck.timeout_retry import TimeoutRetryHandler, DEFAULT_TIMEOUT_MSEC
+from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC, TimeoutRetryHandler
 
 
 class StatusRequestHandler():
