@@ -11,9 +11,9 @@ Contributors:
   Tobias Juettner - initial LCN binding for openHAB (Java)
 '''
 
-import asyncio
 import logging
 
+import asyncio
 from pypck import lcn_defs
 from pypck.inputs import InputParser
 from pypck.lcn_addr import LcnAddr
@@ -273,7 +273,7 @@ class PchkConnectionManager(PchkConnection):
         self.local_seg_id = local_seg_id
         # replace all address_conns with current local_seg_id with new
         # local_seg_id
-        for addr in self.address_conns:
+        for addr in list(self.address_conns):
             if addr.seg_id in [0, old_local_seg_id]:
                 address_conn = self.address_conns.pop(addr)
                 address_conn.seg_id = self.local_seg_id
