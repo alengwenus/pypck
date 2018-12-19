@@ -1,17 +1,8 @@
-'''
-Test:
-  - Setup of address_connections
-  - Receive segment_id info from modules (address_connections)
-    - within the same segment
-    - within foreign segments
-  - Test firmware differences (behaviours)
-'''
-
 import pytest
 
-from conftest import encode_pck
 from pypck.lcn_addr import LcnAddr
 from pypck.module import ModuleConnection
+from tests.conftest import encode_pck
 
 
 @pytest.fixture
@@ -70,15 +61,47 @@ def test_dynamical_setup_of_address_conn_ready(pchk_connection_manager):
 # Test setting local segment id
 
 
+@pytest.mark.usefixtures("patch_get_module_sw")
 def test_post_set_local_seg_id(pchk_connection_manager):
     """Test if local segment id was set correctly on previously defined
     address_connections.
     """
-    pass
+    assert pchk_connection_manager.local_seg_id == -1
+
+    addr_05 = LcnAddr(0, 5, False)
+    addr_06 = LcnAddr(7, 6, False)
+    addr_07 = LcnAddr(6, 7, False)
+    module_05 = pchk_connection_manager.get_address_conn(addr_05)
+    module_06 = pchk_connection_manager.get_address_conn(addr_06)
+    module_07 = pchk_connection_manager.get_address_conn(addr_07)
+    assert module_05.get_seg_id() == 0
+    assert module_06.get_seg_id() == 7
+    assert module_07.get_seg_id() == 6
+
+    # This should only affect module_05
+    pchk_connection_manager.set_local_seg_id(7)
+
+    assert module_05.get_seg_id() == 7
+    assert module_06.get_seg_id() == 7
+    assert module_07.get_seg_id() == 6
 
 
+@pytest.mark.usefixtures("patch_get_module_sw")
 def test_pre_set_local_seg_id(pchk_connection_manager):
     """Test if local segment id is set correctly on post defined
     address_connections.
     """
-    pass
+    assert pchk_connection_manager.local_seg_id == -1
+
+    pchk_connection_manager.set_local_seg_id(7)
+
+    addr_05 = LcnAddr(0, 5, False)
+    addr_06 = LcnAddr(7, 6, False)
+    addr_07 = LcnAddr(6, 7, False)
+    module_05 = pchk_connection_manager.get_address_conn(addr_05)
+    module_06 = pchk_connection_manager.get_address_conn(addr_06)
+    module_07 = pchk_connection_manager.get_address_conn(addr_07)
+
+    assert module_05.get_seg_id() == 7
+    assert module_06.get_seg_id() == 7
+    assert module_07.get_seg_id() == 6

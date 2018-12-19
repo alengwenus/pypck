@@ -3,9 +3,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from conftest import encode_pck, password, username
 from pypck.connection import PchkConnectionManager
 from pypck.pck_commands import PckGenerator, PckParser
+from tests.conftest import encode_pck, password, username
 
 # Socket connection tests
 
