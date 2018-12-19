@@ -6,9 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from pypck import lcn_defs
-from pypck.connection import PchkConnectionManager
 from pypck.module import ModuleConnection
-from pypck.timeout_retry import TimeoutRetryHandler
 
 
 class MockPchkConnectionManager(Mock):
@@ -23,13 +21,6 @@ class MockPchkConnectionManager(Mock):
         self.socket_connected.set_result(True)
         self.lcn_connected.set_result(True)
         self.segment_scan_completed.set_result(True)
-
-
-@pytest.fixture
-def loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest.fixture
