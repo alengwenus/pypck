@@ -198,9 +198,10 @@ class ModAck(ModInput):
     def process(self, conn):
         # Will replace source segment 0 with the local segment id
         super().process(conn)
-        module_conn = conn.get_address_conn(self.logical_source_addr)
-        conn.loop.create_task(module_conn.on_ack(self.code,
-                                                 DEFAULT_TIMEOUT_MSEC))
+        if conn.is_ready():
+            module_conn = conn.get_address_conn(self.logical_source_addr)
+            conn.loop.create_task(module_conn.on_ack(self.code,
+                                                     DEFAULT_TIMEOUT_MSEC))
 
 
 class ModSk(ModInput):
@@ -262,9 +263,10 @@ class ModSn(ModInput):
     def process(self, conn):
         # Will replace source segment 0 with the local segment id
         super().process(conn)
-        module_conn = conn.get_address_conn(self.logical_source_addr)
-        module_conn.set_sw_age(self.sw_age)
-        conn.loop.create_task(module_conn.request_sw_age.cancel())
+        if conn.is_ready():
+            module_conn = conn.get_address_conn(self.logical_source_addr)
+            module_conn.set_sw_age(self.sw_age)
+            conn.loop.create_task(module_conn.request_sw_age.cancel())
 
 
 class ModStatusOutput(ModInput):
@@ -311,8 +313,9 @@ class ModStatusOutput(ModInput):
     def process(self, conn):
         # Will replace source segment 0 with the local segment id
         super().process(conn)
-        module_conn = conn.get_address_conn(self.logical_source_addr)
-        module_conn.new_input(self)
+        if conn.is_ready():
+            module_conn = conn.get_address_conn(self.logical_source_addr)
+            module_conn.new_input(self)
 
 
 class ModStatusRelays(ModInput):
@@ -346,8 +349,9 @@ class ModStatusRelays(ModInput):
     def process(self, conn):
         # Will replace source segment 0 with the local segment id
         super().process(conn)
-        module_conn = conn.get_address_conn(self.logical_source_addr)
-        module_conn.new_input(self)
+        if conn.is_ready():
+            module_conn = conn.get_address_conn(self.logical_source_addr)
+            module_conn.new_input(self)
 
 
 class ModStatusBinSensors(ModInput):
@@ -381,8 +385,9 @@ class ModStatusBinSensors(ModInput):
     def process(self, conn):
         # Will replace source segment 0 with the local segment id
         super().process(conn)
-        module_conn = conn.get_address_conn(self.logical_source_addr)
-        module_conn.new_input(self)
+        if conn.is_ready():
+            module_conn = conn.get_address_conn(self.logical_source_addr)
+            module_conn.new_input(self)
 
 
 class ModStatusVar(ModInput):
@@ -474,19 +479,21 @@ class ModStatusVar(ModInput):
     def process(self, conn):
         # Will replace source segment 0 with the local segment id
         super().process(conn)
-        address_conn = conn.get_address_conn(self.logical_source_addr)
-        if self.orig_var == lcn_defs.Var.UNKNOWN:
-            self.var = address_conn.\
-                get_last_requested_var_without_type_in_response()
-        else:
-            self.var = self.orig_var
+        if conn.is_ready():
+            address_conn = conn.get_address_conn(self.logical_source_addr)
+            if self.orig_var == lcn_defs.Var.UNKNOWN:
+                self.var = address_conn.\
+                    get_last_requested_var_without_type_in_response()
+            else:
+                self.var = self.orig_var
 
-        if self.var != lcn_defs.Var.UNKNOWN:
-            if address_conn.get_last_requested_var_without_type_in_response()\
-                    == self.var:
-                address_conn.set_last_requested_var_without_type_in_response(
-                    lcn_defs.Var.UNKNOWN)  # Reset
-        address_conn.new_input(self)
+            if self.var != lcn_defs.Var.UNKNOWN:
+                if address_conn.\
+                get_last_requested_var_without_type_in_response() == self.var:
+                    address_conn.\
+                    set_last_requested_var_without_type_in_response(
+                        lcn_defs.Var.UNKNOWN)  # Reset
+            address_conn.new_input(self)
 
 
 class ModStatusLedsAndLogicOps(ModInput):
@@ -543,8 +550,9 @@ class ModStatusLedsAndLogicOps(ModInput):
     def process(self, conn):
         # Will replace source segment 0 with the local segment id
         super().process(conn)
-        address_conn = conn.get_address_conn(self.logical_source_addr)
-        address_conn.new_input(self)
+        if conn.is_ready():
+            address_conn = conn.get_address_conn(self.logical_source_addr)
+            address_conn.new_input(self)
 
 
 class ModStatusKeyLocks(ModInput):
@@ -587,8 +595,9 @@ class ModStatusKeyLocks(ModInput):
     def process(self, conn):
         # Will replace source segment 0 with the local segment id
         super().process(conn)
-        module_conn = conn.get_address_conn(self.logical_source_addr)
-        module_conn.new_input(self)
+        if conn.is_ready():
+            module_conn = conn.get_address_conn(self.logical_source_addr)
+            module_conn.new_input(self)
 
 # ## Other inputs
 
