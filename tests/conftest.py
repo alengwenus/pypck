@@ -1,3 +1,5 @@
+"""Core testing functionality."""
+
 from unittest.mock import Mock
 
 import asyncio
@@ -12,13 +14,13 @@ password = 'lcn_password'
 
 
 def encode_pck(pck):
-    """Encodes the given PCK string as PCK binary string.
-    """
+    """Encode the given PCK string as PCK binary string."""
     return (pck + PckGenerator.TERMINATION).encode()
 
 
 @pytest.fixture
 def loop():
+    """Set up an event loop."""
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
@@ -26,6 +28,7 @@ def loop():
 
 @pytest.fixture
 def pchk_connection_manager(monkeypatch, loop):
+    """Set up a PchkConnectionManager instace."""
     pchk_connection_manager = PchkConnectionManager(loop,
                                                     ip_address,
                                                     port,
@@ -37,6 +40,7 @@ def pchk_connection_manager(monkeypatch, loop):
                                                   port))
 
     def mock_connect():
+        """Mock the connection_made method."""
         pchk_connection_manager.connection_made(transport)
 
     monkeypatch.setattr(pchk_connection_manager, 'connect', mock_connect)
@@ -49,6 +53,7 @@ def pchk_connection_manager(monkeypatch, loop):
 
 @pytest.fixture
 def connection_is_ready(pchk_connection_manager):
+    """Set the PchkConnectionManager connection to fully established."""
     pchk_connection_manager.socket_connected.set_result(True)
     pchk_connection_manager.lcn_connected.set_result(True)
     pchk_connection_manager.segment_scan_completed.set_result(True)

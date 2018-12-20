@@ -1,5 +1,4 @@
-'''
-Copyright (c) 2006-2018 by the respective copyright holders.
+"""Copyright (c) 2006-2018 by the respective copyright holders.
 
 All rights reserved. This program and the accompanying materials
 are made available under the terms of the Eclipse Public License v1.0
@@ -9,11 +8,11 @@ http://www.eclipse.org/legal/epl-v10.html
 Contributors:
   Andre Lengwenus - port to Python and further improvements
   Tobias Juettner - initial LCN binding for openHAB (Java)
-'''
+"""
 
-import asyncio
 import logging
 
+import asyncio
 from pypck import lcn_defs
 from pypck.inputs import InputParser
 from pypck.lcn_addr import LcnAddr
@@ -25,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PchkConnection(asyncio.Protocol):
-    """Provides a socket connection to LCN-PCHK server.
+    """Socket connection to LCN-PCHK server.
 
     :param           loop:        Asyncio event loop
     :param    str    server_addr: Server IP address formatted as
@@ -45,8 +44,7 @@ class PchkConnection(asyncio.Protocol):
     """
 
     def __init__(self, loop, server_addr, port, connection_id='PCHK'):
-        """Constructor.
-        """
+        """Construct PchkConnection."""
         self.loop = loop
         self.server_addr = server_addr
         self.port = port
@@ -58,19 +56,20 @@ class PchkConnection(asyncio.Protocol):
         self.buffer = b''
 
     def connect(self):
-        """Establish a connection to PCHK at the given socket.
-        """
+        """Establish a connection to PCHK at the given socket."""
         coro = self.loop.create_connection(lambda: self, self.server_addr,
                                            self.port)
         self.client = self.loop.create_task(coro)
 
     def connection_made(self, transport):
+        """Is called when a connection is made."""
         self.transport = transport
         self.address = transport.get_extra_info('peername')
         _LOGGER.debug('{} server connected at {}:{}'.format(
             self.connection_id, *self.address))
 
     def connection_lost(self, exc):
+        """Is called when the connection is lost or closed."""
         self.transport = None
         if exc:
             _LOGGER.error('Error')
@@ -80,7 +79,7 @@ class PchkConnection(asyncio.Protocol):
 
     @property
     def is_socket_connected(self):
-        """Connection status to PCHK.
+        """Get the connection status to PCHK.
 
         :return:       Connection status to PCHK.
         :rtype:        bool
@@ -88,6 +87,7 @@ class PchkConnection(asyncio.Protocol):
         return self.transport is not None
 
     def data_received(self, data):
+        """Is called when some data is received."""
         self.buffer += data
         data_chunks = self.buffer.split(PckGenerator.TERMINATION.encode())
         self.buffer = data_chunks.pop()
@@ -96,14 +96,14 @@ class PchkConnection(asyncio.Protocol):
             self.process_message(data_chunk.decode())
 
     def send_command(self, pck):
-        """Sends a PCK command to the PCHK server.
+        """Send a PCK command to the PCHK server.
 
         :param    str    pck:    PCK command
         """
         self.loop.create_task(self.send_command_async(pck))
 
     async def send_command_async(self, pck):
-        """Coroutine: Sends a PCK command to the PCHK server.
+        """Send a PCK command to the PCHK server.
 
         :param    str    pck:    PCK command
         """
@@ -111,7 +111,8 @@ class PchkConnection(asyncio.Protocol):
         self.transport.write((pck + PckGenerator.TERMINATION).encode())
 
     def process_message(self, message):
-        """Is called if a new text message is received from the PCHK server.
+        """Is called when a new text message is received from the PCHK server.
+
         This class should be reimplemented in any subclass which evaluates
         recieved messages.
 
@@ -119,14 +120,15 @@ class PchkConnection(asyncio.Protocol):
         """
 
     def close(self):
-        """Closes the active connection.
-        """
+        """Close the active connection."""
         if self.transport is not None:
             self.transport.close()
 
 
 class PchkConnectionManager(PchkConnection):
-    """Has the following tasks:
+    """Connection to LCN-PCHK.
+
+    Has the following tasks:
     - Initiates login procedure.
     - Ping PCHK.
     - Parse incoming commands and create input objects.
@@ -156,8 +158,7 @@ class PchkConnectionManager(PchkConnection):
 
     def __init__(self, loop, server_addr, port, username, password,
                  settings=None, connection_id='PCHK'):
-        """Constructor.
-        """
+        """Construct PchkConnectionManager."""
         super().__init__(loop, server_addr, port, connection_id)
 
         self.username = username
@@ -196,10 +197,12 @@ class PchkConnectionManager(PchkConnection):
         self.ping.set_timeout_callback(self.ping_timeout)
 
     def connection_made(self, transport):
+        """Is called when a connection is made."""
         super().connection_made(transport)
         self.socket_connected.set_result(True)
 
     def connection_lost(self, exc):
+        """Is called when the connection is lost or closed."""
         super().connection_lost(exc)
 
         self.status_segment_scan.cancel()
@@ -208,20 +211,18 @@ class PchkConnectionManager(PchkConnection):
             module_conn.cancel_timeout_retries()
 
     def on_successful_login(self):
-        """Is called after connection to LCN bus system is established.
-        """
+        """Is called after connection to LCN bus system is established."""
         _LOGGER.debug('{} login successful.'.format(self.connection_id))
         self.set_lcn_connected(True)
         self.ping.activate()
 
     def on_auth_ok(self):
-        """Is called after successful authentication.
-        """
+        """Is called after successful authentication."""
         _LOGGER.debug('{} authorization successful!'.format(
             self.connection_id))
 
     def get_lcn_connected(self):
-        """Connection status to the LCN bus.
+        """Get the connection status to the LCN bus.
 
         :return:       Connection status to LCN bus.
         :rtype:        bool
@@ -229,8 +230,7 @@ class PchkConnectionManager(PchkConnection):
         return self.lcn_connected.done()
 
     def set_lcn_connected(self, is_lcn_connected):
-        """
-        Sets the current connection state to the LCN bus.
+        """Set the current connection state to the LCN bus.
 
         :param    bool    is_lcn_connected: Current connection status
         """
@@ -247,9 +247,10 @@ class PchkConnectionManager(PchkConnection):
             self.address_conns.clear()
 
     async def async_connect(self, timeout=30):
-        """Establishes a connection to PCHK at the given socket, ensures that
-        the LCN bus is present and authorizes at PCHK.
-        Raises a :class:`TimeoutError`, if connection could not be established
+        """Establish a connection to PCHK at the given socket.
+
+        Ensures that the LCN bus is present and authorizes at PCHK.
+        Raise a :class:`TimeoutError`, if connection could not be established
         within the given timeout.
 
         :param    int    timeout:    Timeout in seconds
@@ -264,7 +265,7 @@ class PchkConnectionManager(PchkConnection):
             raise TimeoutError('No server listening. Aborting.')
 
     def set_local_seg_id(self, local_seg_id):
-        """Sets the local segment id.
+        """Set the local segment id.
 
         :param    int    local_seg_id:    The local segment_id.
         """
@@ -284,7 +285,7 @@ class PchkConnectionManager(PchkConnection):
             self.segment_scan_completed.set_result(True)
 
     def physical_to_logical(self, addr):
-        """Converts the physical segment id of an address to the logical one.
+        """Convert the physical segment id of an address to the logical one.
 
         :param    addr:    The module's/group's address
         :type     addr:    :class:`~LcnAddrMod` or :class:`~LcnAddrGrp`
@@ -296,7 +297,8 @@ class PchkConnectionManager(PchkConnection):
                        else addr.get_seg_id(), addr.get_id(), addr.is_group())
 
     def is_ready(self):
-        """Retrieves the overall connection state.
+        """Retrieve the overall connection state.
+
         Nothing should be sent before this is signaled.
 
         :returns:    True if everything is set-up, False otherwise
@@ -306,8 +308,9 @@ class PchkConnectionManager(PchkConnection):
             and self.segment_scan_completed.done()
 
     def get_address_conn(self, addr):
-        """Creates and/or returns cached data for the given LCN module or
-        group. The LCN module/group object is used for further communication
+        """Create and/or return the given LCN module or group.
+
+        The LCN module/group object is used for further communication
         with the module/group (e.g. sending commands).
 
         :param    addr:    The module's/group's address
@@ -338,7 +341,7 @@ class PchkConnectionManager(PchkConnection):
         return address_conn
 
     def segment_scan_timeout(self, failed):
-        """Gets called if no response from segment coupler was received.
+        """Is called if no response from segment coupler was received.
 
         :param    bool    failed:    True if caller failed to fulfill request
                                      otherwise False
@@ -354,17 +357,27 @@ class PchkConnectionManager(PchkConnection):
 
     def ping_timeout(self, failed):
         """Send a ping command to keep the connection to LCN-PCHK alive.
-        (default is every 10 minutes)"""
+
+        Default is every 10 minutes.
+        """
         self.send_command('^ping{:d}'.format(self.ping_counter))
         self.ping_counter += 1
 
     def process_message(self, message):
+        """Is called when a new text message is received from the PCHK server.
+
+        This class should be reimplemented in any subclass which evaluates
+        recieved messages.
+
+        :param    str    input:    Input text message
+        """
         _LOGGER.debug('from {}: {}'.format(self.connection_id, message))
         commands = InputParser.parse(message)
         for command in commands:
             command.process(self)
 
     async def close(self):
+        """Close the active connection."""
         for address_conn in self.address_conns.values():
             if isinstance(address_conn, ModuleConnection):
                 await address_conn.cancel_timeout_retries()

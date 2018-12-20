@@ -1,5 +1,4 @@
-'''
-Copyright (c) 2006-2018 by the respective copyright holders.
+"""Copyright (c) 2006-2018 by the respective copyright holders.
 
 All rights reserved. This program and the accompanying materials
 are made available under the terms of the Eclipse Public License v1.0
@@ -9,7 +8,7 @@ http://www.eclipse.org/legal/epl-v10.html
 Contributors:
   Andre Lengwenus - port to Python and further improvements
   Tobias Juettner - initial LCN binding for openHAB (Java)
-'''
+"""
 
 import logging
 
@@ -36,11 +35,12 @@ class Input():
     """
 
     def __init__(self):
-        pass
+        """Construct Input object."""
 
     @staticmethod
     def try_parse(data):
-        """Tries to parse the given input text.
+        """Try to parse the given input text.
+
         Will return a list of parsed Inputs. The list might be empty (but not
         null).
 
@@ -52,8 +52,9 @@ class Input():
         raise NotImplementedError
 
     def process(self, conn):
-        """Processes the :class:`~pypck.input.Input` instance and triggers
-        further actions.
+        """Process the :class:`~pypck.input.Input` instance.
+
+        Trigger further actions.
 
         :param ~pypck.connection.PchkConnectionManager conn: Connection
                                                              manager object
@@ -68,6 +69,7 @@ class ModInput(Input):
     """
 
     def __init__(self, physical_source_addr):
+        """Construct ModInput object."""
         super().__init__()
         self.physical_source_addr = physical_source_addr
         self.logical_source_addr = LcnAddr()
@@ -81,6 +83,13 @@ class ModInput(Input):
         return self.logical_source_addr
 
     def process(self, conn):
+        """Process instance of of :class:`~pypck.input.ModInput`.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         if conn.is_ready():  # Skip if we don't have all necessary bus info yet
             self.logical_source_addr = conn.physical_to_logical(
                 self.physical_source_addr)
@@ -89,55 +98,104 @@ class ModInput(Input):
 
 
 class AuthUsername(Input):
-    """Authentication username message received from PCHK.
-    """
+    """Authentication username message received from PCHK."""
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         if data == PckParser.AUTH_USERNAME:
             return [AuthUsername()]
 
     def process(self, conn):
+        """Process the :class:`~pypck.input.Input` instance.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         conn.send_command(conn.username)
 
 
 class AuthPassword(Input):
-    """Authentication password message received from PCHK.
-    """
+    """Authentication password message received from PCHK."""
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         if data == PckParser.AUTH_PASSWORD:
             return [AuthPassword()]
 
     def process(self, conn):
+        """Process the :class:`~pypck.input.Input` instance.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         conn.send_command(conn.password)
 
 
 class AuthOk(Input):
-    """Authentication ok message received from PCHK.
-    """
+    """Authentication ok message received from PCHK."""
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         if data == PckParser.AUTH_OK:
             return [AuthOk()]
 
     def process(self, conn):
+        """Process the :class:`~pypck.input.Input` instance.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         conn.on_auth_ok()
 
 
 class LcnConnState(Input):
-    """LCN bus connected message received from PCHK.
-    """
+    """LCN bus connected message received from PCHK."""
 
     def __init__(self, is_lcn_connected):
+        """Construct ModInput object."""
         super().__init__()
         self._is_lcn_connected = is_lcn_connected
 
     @property
     def is_lcn_connected(self):
-        """Returns the LCN bus connection status.
+        """Return the LCN bus connection status.
+
         :return:   True if connection to hardware bus was established,
                    otherwise False.
         :rtype:    bool
@@ -146,6 +204,16 @@ class LcnConnState(Input):
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         inputs = None
         if data == PckParser.LCNCONNSTATE_CONNECTED:
             inputs = [LcnConnState(True)]
@@ -154,6 +222,13 @@ class LcnConnState(Input):
         return inputs
 
     def process(self, conn):
+        """Process the :class:`~pypck.input.Input` instance.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         if self.is_lcn_connected:
             _LOGGER.debug('{}: LCN is connected.'.format(conn.connection_id))
             conn.on_successful_login()
@@ -167,15 +242,16 @@ class LcnConnState(Input):
 
 
 class ModAck(ModInput):
-    """Acknowledge message received from module.
-    """
+    """Acknowledge message received from module."""
 
     def __init__(self, physical_source_addr, code):
+        """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.code = code
 
     def get_code(self):
-        """Returns the acknowledge code.
+        """Return the acknowledge code.
+
         :return:    Acknowledge code.
         :rtype:     int
         """
@@ -183,6 +259,16 @@ class ModAck(ModInput):
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         matcher_pos = PckParser.PATTERN_ACK_POS.match(data)
         if matcher_pos:
             addr = LcnAddr(int(matcher_pos.group('seg_id')),
@@ -196,6 +282,13 @@ class ModAck(ModInput):
             return [ModAck(addr, matcher_neg.group('code'))]
 
     def process(self, conn):
+        """Process instance of of :class:`~pypck.input.ModInput`.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         # Will replace source segment 0 with the local segment id
         super().process(conn)
         if conn.is_ready():
@@ -205,15 +298,15 @@ class ModAck(ModInput):
 
 
 class ModSk(ModInput):
-    """Segment information received from an LCN segment coupler.
-    """
+    """Segment information received from an LCN segment coupler."""
 
     def __init__(self, physical_source_addr, reported_seg_id):
+        """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.reported_seg_id = reported_seg_id
 
     def get_reported_seg_id(self):
-        """Returns the segment id reported from segment coupler.
+        """Return the segment id reported from segment coupler.
 
         :return:   Reported segment id.
         :rtype:    int
@@ -222,6 +315,16 @@ class ModSk(ModInput):
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         matcher = PckParser.PATTERN_SK_RESPONSE.match(data)
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
@@ -229,6 +332,13 @@ class ModSk(ModInput):
             return [ModSk(addr, int(matcher.group('id')))]
 
     def process(self, conn):
+        """Process instance of of :class:`~pypck.input.ModInput`.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         if self.physical_source_addr.seg_id == 0:
             conn.set_local_seg_id(self.reported_seg_id)
         # Will replace source segment 0 with the local segment id
@@ -237,15 +347,15 @@ class ModSk(ModInput):
 
 
 class ModSn(ModInput):
-    """Serial number and firmware version received from an LCN module.
-    """
+    """Serial number and firmware version received from an LCN module."""
 
     def __init__(self, physical_source_addr, sw_age):
+        """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.sw_age = sw_age
 
     def get_sw_age(self):
-        """Returns the software firmware version.
+        """Return the software firmware version.
 
         :return:    Software firmware version.
         :rtype:     int
@@ -254,6 +364,16 @@ class ModSn(ModInput):
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         matcher = PckParser.PATTERN_SN.match(data)
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
@@ -261,6 +381,13 @@ class ModSn(ModInput):
             return [ModSn(addr, int(matcher.group('sw_age'), 16))]
 
     def process(self, conn):
+        """Process instance of of :class:`~pypck.input.ModInput`.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         # Will replace source segment 0 with the local segment id
         super().process(conn)
         if conn.is_ready():
@@ -270,16 +397,16 @@ class ModSn(ModInput):
 
 
 class ModStatusOutput(ModInput):
-    """Status of an output-port received from an LCN module.
-    """
+    """Status of an output-port received from an LCN module."""
 
     def __init__(self, physical_source_addr, output_id, percent):
+        """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.output_id = output_id
         self.percent = percent
 
     def get_output_id(self):
-        """Returns the output port id.
+        """Return the output port id.
 
         :return:    Output port id.
         :rtype:     int
@@ -287,7 +414,7 @@ class ModStatusOutput(ModInput):
         return self.output_id
 
     def get_percent(self):
-        """Returns the output brightness in percent.
+        """Return the output brightness in percent.
 
         :return:    Brightness in percent.
         :rtype:     int
@@ -296,6 +423,16 @@ class ModStatusOutput(ModInput):
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         matcher = PckParser.PATTERN_STATUS_OUTPUT_PERCENT.match(data)
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
@@ -311,6 +448,13 @@ class ModStatusOutput(ModInput):
                                     float(matcher.group('value')) / 2.)]
 
     def process(self, conn):
+        """Process instance of of :class:`~pypck.input.ModInput`.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         # Will replace source segment 0 with the local segment id
         super().process(conn)
         if conn.is_ready():
@@ -319,16 +463,16 @@ class ModStatusOutput(ModInput):
 
 
 class ModStatusRelays(ModInput):
-    """Status of 8 relays received from an LCN module.
-    """
+    """Status of 8 relays received from an LCN module."""
 
     def __init__(self, physical_source_addr, states):
+        """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.states = states
 
     def get_state(self, relay_id):
         """
-        Gets the state of a single relay.
+        Get the state of a single relay.
 
         :param    int    relay_id:    Relay id (0..7)
 
@@ -339,6 +483,16 @@ class ModStatusRelays(ModInput):
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         matcher = PckParser.PATTERN_STATUS_RELAYS.match(data)
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
@@ -347,6 +501,13 @@ class ModStatusRelays(ModInput):
                 int(matcher.group('byte_value'))))]
 
     def process(self, conn):
+        """Process instance of of :class:`~pypck.input.ModInput`.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         # Will replace source segment 0 with the local segment id
         super().process(conn)
         if conn.is_ready():
@@ -355,16 +516,15 @@ class ModStatusRelays(ModInput):
 
 
 class ModStatusBinSensors(ModInput):
-    """Status of 8 binary sensors received from an LCN module.
-    """
+    """Status of 8 binary sensors received from an LCN module."""
 
     def __init__(self, physical_source_addr, states):
+        """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.states = states
 
     def get_state(self, bin_sensor_id):
-        """
-        Gets the state of a single binary-sensor.
+        """Get the state of a single binary-sensor.
 
         :param    int    bin_sensor_id:    Binary sensor id (0..7)
 
@@ -375,6 +535,16 @@ class ModStatusBinSensors(ModInput):
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         matcher = PckParser.PATTERN_STATUS_BINSENSORS.match(data)
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
@@ -383,6 +553,13 @@ class ModStatusBinSensors(ModInput):
                 int(matcher.group('byte_value'))))]
 
     def process(self, conn):
+        """Process instance of of :class:`~pypck.input.ModInput`.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         # Will replace source segment 0 with the local segment id
         super().process(conn)
         if conn.is_ready():
@@ -391,19 +568,17 @@ class ModStatusBinSensors(ModInput):
 
 
 class ModStatusVar(ModInput):
-    """
-    Status of a variable received from an LCN module.
-    """
+    """Status of a variable received from an LCN module."""
 
     def __init__(self, physical_source_addr, orig_var, value):
+        """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.orig_var = orig_var
         self.value = value
         self.var = self.orig_var
 
     def get_var(self):
-        """
-        Gets the variable's real type.
+        """Get the variable's real type.
 
         :return:        The real type
         :rtype:        :class:`~pypck.lcn_defs.Var`
@@ -411,8 +586,7 @@ class ModStatusVar(ModInput):
         return self.var
 
     def get_value(self):
-        """
-        Gets the variable's value.
+        """Get the variable's value.
 
         :return:    The value of the variable.
         :rtype:     int
@@ -421,6 +595,16 @@ class ModStatusVar(ModInput):
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         matcher = PckParser.PATTERN_STATUS_VAR.match(data)
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
@@ -477,6 +661,13 @@ class ModStatusVar(ModInput):
             return ret
 
     def process(self, conn):
+        """Process instance of of :class:`~pypck.input.ModInput`.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         # Will replace source segment 0 with the local segment id
         super().process(conn)
         if conn.is_ready():
@@ -508,13 +699,13 @@ class ModStatusLedsAndLogicOps(ModInput):
     """
 
     def __init__(self, physical_source_addr, states_led, states_logic_ops):
-        """Constructor."""
+        """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.states_led = states_led  # 12x LED status.
         self.states_logic_ops = states_logic_ops  # 4x logic-operation status.
 
     def get_led_state(self, led_id):
-        """Gets the status of a single LED.
+        """Get the status of a single LED.
 
         :param    int    led_id:   LED id (0..11)
         :return:                   The LED's status
@@ -523,7 +714,7 @@ class ModStatusLedsAndLogicOps(ModInput):
         return self.states_led[led_id]
 
     def get_logic_op_state(self, logic_op_id):
-        """Gets the status of a single logic operation.
+        """Get the status of a single logic operation.
 
         :param    int    logic_op_id:    Logic operation id (0..3)
         :return:    The logic-operation's status
@@ -533,6 +724,16 @@ class ModStatusLedsAndLogicOps(ModInput):
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         matcher = PckParser.PATTERN_STATUS_LEDSANDLOGICOPS.match(data)
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
@@ -549,6 +750,13 @@ class ModStatusLedsAndLogicOps(ModInput):
                                              states_logic_ops)]
 
     def process(self, conn):
+        """Process instance of of :class:`~pypck.input.ModInput`.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         # Will replace source segment 0 with the local segment id
         super().process(conn)
         if conn.is_ready():
@@ -557,21 +765,19 @@ class ModStatusLedsAndLogicOps(ModInput):
 
 
 class ModStatusKeyLocks(ModInput):
-    """
-    Status of locked keys received from an LCN module.
+    """Status of locked keys received from an LCN module.
 
     :param    int                physicalSourceAddr:   The source address
     :param    list(list(bool))   states:               The 4x8 key-lock states
     """
 
     def __init__(self, physical_source_id, states):
-        """Constructor.
-        """
+        """Construct ModInput object."""
         super().__init__(physical_source_id)
         self.states = states
 
     def get_state(self, table_id, key_id):
-        """Gets the lock-state of a single key.
+        """Get the lock-state of a single key.
 
         :param    int    tableId:    Table id: (0..3  =>  A..D)
         :param    int    keyId:      Key id (0..7  =>  1..8)
@@ -582,6 +788,16 @@ class ModStatusKeyLocks(ModInput):
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         matcher = PckParser.PATTERN_STATUS_KEYLOCKS.match(data)
         states = []
         if matcher:
@@ -594,6 +810,13 @@ class ModStatusKeyLocks(ModInput):
             return [ModStatusKeyLocks(addr, states)]
 
     def process(self, conn):
+        """Process instance of of :class:`~pypck.input.ModInput`.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
         # Will replace source segment 0 with the local segment id
         super().process(conn)
         if conn.is_ready():
@@ -604,20 +827,30 @@ class ModStatusKeyLocks(ModInput):
 
 
 class Unknown(Input):
-    """Handle all unknown input data.
-    """
+    """Handle all unknown input data."""
 
     def __init__(self, data):
+        """Construct Input object."""
         super().__init__()
         self._data = data
 
     @staticmethod
     def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         return [Unknown(data)]
 
     @property
     def data(self):
-        """Returns the received data.
+        """Return the received data.
 
         :return:    Received data.
         :rtype:     str
@@ -625,12 +858,17 @@ class Unknown(Input):
         return self._data
 
     def process(self, conn):
-        pass
+        """Process instance of of :class:`~pypck.input.Input`.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
 
 
 class InputParser():
-    """Parse all input objects for given input data.
-    """
+    """Parse all input objects for given input data."""
 
     parsers = [AuthUsername,
                AuthPassword,
