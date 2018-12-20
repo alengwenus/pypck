@@ -1,10 +1,9 @@
-import asyncio
 from unittest.mock import Mock
 
+import asyncio
 import pytest
-
 from pypck.connection import PchkConnectionManager
-from pypck.pck_commands import PckGenerator, PckParser
+from pypck.pck_commands import PckGenerator
 
 ip_address = '127.0.0.1'
 port = 4114

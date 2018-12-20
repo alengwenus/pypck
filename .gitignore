@@ -21,6 +21,8 @@ lib64
 .settings
 .project
 .pydevproject
+.tox
+.coverage
 
 # Build docs
 docs/build

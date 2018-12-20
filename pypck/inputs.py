@@ -489,10 +489,11 @@ class ModStatusVar(ModInput):
 
             if self.var != lcn_defs.Var.UNKNOWN:
                 if address_conn.\
-                get_last_requested_var_without_type_in_response() == self.var:
+                    get_last_requested_var_without_type_in_response() == \
+                        self.var:
                     address_conn.\
-                    set_last_requested_var_without_type_in_response(
-                        lcn_defs.Var.UNKNOWN)  # Reset
+                        set_last_requested_var_without_type_in_response(
+                            lcn_defs.Var.UNKNOWN)  # Reset
             address_conn.new_input(self)
 
 
