@@ -10,9 +10,9 @@ Contributors:
   Tobias Juettner - initial LCN binding for openHAB (Java)
 """
 
+import asyncio
 import logging
 
-import asyncio
 from pypck import lcn_defs
 from pypck.inputs import InputParser
 from pypck.lcn_addr import LcnAddr
@@ -204,11 +204,8 @@ class PchkConnectionManager(PchkConnection):
     def connection_lost(self, exc):
         """Is called when the connection is lost or closed."""
         super().connection_lost(exc)
-
-        self.status_segment_scan.cancel()
-        self.ping.cancel()
-        for module_conn in self.address_conns.values():
-            module_conn.cancel_timeout_retries()
+        if exc is not None:  # Connection closed by other side
+            self.loop.create_task(self.cancel_timeout_retries())
 
     def on_successful_login(self):
         """Is called after connection to LCN bus system is established."""
@@ -263,6 +260,11 @@ class PchkConnectionManager(PchkConnection):
         pending = done_pending[1]
         if pending:
             raise TimeoutError('No server listening. Aborting.')
+
+    async def async_close(self):
+        """Close the active connection."""
+        super().close()
+        await self.cancel_timeout_retries()
 
     def set_local_seg_id(self, local_seg_id):
         """Set the local segment id.
@@ -369,6 +371,7 @@ class PchkConnectionManager(PchkConnection):
         This class should be reimplemented in any subclass which evaluates
         recieved messages.
 
+
         :param    str    input:    Input text message
         """
         _LOGGER.debug('from {}: {}'.format(self.connection_id, message))
@@ -376,11 +379,10 @@ class PchkConnectionManager(PchkConnection):
         for command in commands:
             command.process(self)
 
-    async def close(self):
-        """Close the active connection."""
-        for address_conn in self.address_conns.values():
-            if isinstance(address_conn, ModuleConnection):
-                await address_conn.cancel_timeout_retries()
-        await self.ping.cancel()
-        await self.status_segment_scan.cancel()
-        super().close()
+    async def cancel_timeout_retries(self):
+        cancel_coros = [self.status_segment_scan.cancel(),
+                self.ping.cancel()] + \
+                [address_conn.cancel_timeout_retries()
+                 for address_conn in self.address_conns.values()]
+
+        await asyncio.wait(cancel_coros)
