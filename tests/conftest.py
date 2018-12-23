@@ -1,9 +1,10 @@
 """Core testing functionality."""
 
+import asyncio
 from unittest.mock import Mock
 
-import asyncio
 import pytest
+
 from pypck.connection import PchkConnectionManager
 from pypck.pck_commands import PckGenerator
 
@@ -48,7 +49,7 @@ def pchk_connection_manager(monkeypatch, loop):
 
     yield pchk_connection_manager
 
-    loop.run_until_complete(pchk_connection_manager.close())
+    loop.run_until_complete(pchk_connection_manager.async_close())
 
 
 @pytest.fixture

@@ -380,9 +380,10 @@ class PchkConnectionManager(PchkConnection):
             command.process(self)
 
     async def cancel_timeout_retries(self):
+        """Cancel all TimeoutRetryHandlers."""
         cancel_coros = [self.status_segment_scan.cancel(),
-                self.ping.cancel()] + \
-                [address_conn.cancel_timeout_retries()
-                 for address_conn in self.address_conns.values()]
+                        self.ping.cancel()] + \
+            [address_conn.cancel_timeout_retries()
+             for address_conn in self.address_conns.values()]
 
         await asyncio.wait(cancel_coros)
