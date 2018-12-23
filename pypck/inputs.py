@@ -531,7 +531,7 @@ class ModStatusBinSensors(ModInput):
         :return:                           The binary-sensor's state
         :rtype:   bool
         """
-        return not self.states[bin_sensor_id]
+        return self.states[bin_sensor_id]
 
     @staticmethod
     def try_parse(data):
