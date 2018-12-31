@@ -8,10 +8,10 @@ import pytest
 from pypck.connection import PchkConnectionManager
 from pypck.pck_commands import PckGenerator
 
-ip_address = '127.0.0.1'
-port = 4114
-username = 'lcn_username'
-password = 'lcn_password'
+IP_ADDRESS = '127.0.0.1'
+PORT = 4114
+USERNAME = 'lcn_username'
+PASSWORD = 'lcn_password'
 
 
 def encode_pck(pck):
@@ -31,14 +31,14 @@ def loop():
 def pchk_connection_manager(monkeypatch, loop):
     """Set up a PchkConnectionManager instace."""
     pchk_connection_manager = PchkConnectionManager(loop,
-                                                    ip_address,
-                                                    port,
-                                                    username,
-                                                    password)
+                                                    IP_ADDRESS,
+                                                    PORT,
+                                                    USERNAME,
+                                                    PASSWORD)
 
     transport = Mock()
-    transport.get_extra_info = Mock(return_value=(ip_address,
-                                                  port))
+    transport.get_extra_info = Mock(return_value=(IP_ADDRESS,
+                                                  PORT))
 
     def mock_connect():
         """Mock the connection_made method."""

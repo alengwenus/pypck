@@ -1,3 +1,5 @@
+"""Test for address_connection."""
+
 import pytest
 
 from pypck.lcn_addr import LcnAddr
@@ -7,7 +9,7 @@ from tests.conftest import encode_pck
 
 @pytest.fixture
 def patch_get_module_sw(monkeypatch):
-
+    """Patch the get_module_sw method."""
     async def mock_get_module_sw(self):
         pass
 
@@ -33,20 +35,26 @@ def test_manual_setup_of_address_connection(pchk_connection_manager):
 
 @pytest.mark.usefixtures("patch_get_module_sw")
 def test_dynamical_setup_of_address_conn_not_ready(pchk_connection_manager):
-    """PCK command is received from module. PchkConnectionManager is not
+    """Test receiving PCK command form module.
+
+    PCK command is received from module. PchkConnectionManager is not
     completely connected (is_ready() == False).
-    No address_connection should be added."""
+    No address_connection should be added.
+    """
     pck = '=M005007.SN1945134DAF00FW1B0513HW0'
     pchk_connection_manager.data_received(encode_pck(pck))
 
-    assert len(pchk_connection_manager.address_conns) == 0
+    assert not pchk_connection_manager.address_conns
 
 
 @pytest.mark.usefixtures("connection_is_ready", "patch_get_module_sw")
 def test_dynamical_setup_of_address_conn_ready(pchk_connection_manager):
-    """PCK command is received from module. PchkConnectionManager is
+    """Test receiving PCK command form module.
+
+    PCK command is received from module. PchkConnectionManager is
     completely connected (is_ready() == True).
-    An address_connection should be added."""
+    An address_connection should be added.
+    """
     pck = '=M005007.SN1945134DAF00FW1B0513HW0'
     pchk_connection_manager.data_received(encode_pck(pck))
 
@@ -63,8 +71,9 @@ def test_dynamical_setup_of_address_conn_ready(pchk_connection_manager):
 
 @pytest.mark.usefixtures("patch_get_module_sw")
 def test_post_set_local_seg_id(pchk_connection_manager):
-    """Test if local segment id was set correctly on previously defined
-    address_connections.
+    """Test if local segment id was set correctly.
+
+    Address_connection was previously defined.
     """
     assert pchk_connection_manager.local_seg_id == -1
 
@@ -85,11 +94,24 @@ def test_post_set_local_seg_id(pchk_connection_manager):
     assert module_06.get_seg_id() == 7
     assert module_07.get_seg_id() == 6
 
+    # Now, this should affect module_05 and module_06
+    pchk_connection_manager.set_local_seg_id(6)
+    assert module_05.get_seg_id() == 6
+    assert module_06.get_seg_id() == 6
+    assert module_07.get_seg_id() == 6
+
+    # Now, this should affect all defined modules
+    pchk_connection_manager.set_local_seg_id(8)
+    assert module_05.get_seg_id() == 8
+    assert module_06.get_seg_id() == 8
+    assert module_07.get_seg_id() == 8
+
 
 @pytest.mark.usefixtures("patch_get_module_sw")
 def test_pre_set_local_seg_id(pchk_connection_manager):
-    """Test if local segment id is set correctly on post defined
-    address_connections.
+    """Test if local segment id is set correctly.
+
+    Address_connection is defined afterwards.
     """
     assert pchk_connection_manager.local_seg_id == -1
 

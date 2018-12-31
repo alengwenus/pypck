@@ -17,10 +17,19 @@ lib64
 *.pyc
 /__pycache__
 
+# pytest
+.pytest_cache
+.cache
+
 # Development
 .settings
 .project
 .pydevproject
+
+# Visual Studio Code
+.vscode
+
+# Testing
 .tox
 .coverage
 
@@ -32,3 +41,6 @@ desktop.ini
 
 # Patches
 *.patch
+
+# mypy
+/.mypy_cache/*

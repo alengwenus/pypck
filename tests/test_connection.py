@@ -1,22 +1,25 @@
+"""Connection tests."""
 from unittest.mock import Mock
 
 from pypck.pck_commands import PckParser
-from tests.conftest import encode_pck, password, username
+from tests.conftest import PASSWORD, USERNAME, encode_pck
 
 # Socket connection tests
 
 
 def test_called_connection_made(pchk_connection_manager):
-    """Test if socket_connected future is done after connection to socket
-    is established.
+    """Test if socket_connected future is done.
+
+    Connection to socket is already established.
     """
     pchk_connection_manager.connect()
     assert pchk_connection_manager.socket_connected.done()
 
 
 def test_async_connect(monkeypatch, loop, pchk_connection_manager):
-    """Tests if async_connect coroutine continues after all connection
-    futures are done.
+    """Tests if async_connect coroutine continues.
+
+    All connection futures are done previously.
     """
     monkeypatch.setattr(pchk_connection_manager, 'connect', Mock())
     pchk_connection_manager.socket_connected.set_result(True)
@@ -30,24 +33,21 @@ def test_async_connect(monkeypatch, loop, pchk_connection_manager):
 
 
 def test_received_auth_username(pchk_connection_manager):
-    """Test username authentication workflow.
-    """
+    """Test username authentication workflow."""
     pchk_connection_manager.data_received(
         encode_pck(PckParser.AUTH_USERNAME))
-    pchk_connection_manager.send_command.assert_called_with(username)
+    pchk_connection_manager.send_command.assert_called_with(USERNAME)
 
 
 def test_received_auth_password(pchk_connection_manager):
-    """Test password authentication workflow.
-    """
+    """Test password authentication workflow."""
     pchk_connection_manager.data_received(
         encode_pck(PckParser.AUTH_PASSWORD))
-    pchk_connection_manager.send_command.assert_called_with(password)
+    pchk_connection_manager.send_command.assert_called_with(PASSWORD)
 
 
 def test_received_auth_ok(monkeypatch, pchk_connection_manager):
-    """Test authentication ok workflow.
-    """
+    """Test authentication ok workflow."""
     monkeypatch.setattr(pchk_connection_manager, 'on_auth_ok', Mock())
     pchk_connection_manager.data_received(
         encode_pck(PckParser.AUTH_OK))
@@ -57,8 +57,9 @@ def test_received_auth_ok(monkeypatch, pchk_connection_manager):
 
 
 def test_received_lcn_connected(monkeypatch, pchk_connection_manager):
-    """Test if correct workflow is done after lcn connected message is
-    received.
+    """Test if correct workflow is done.
+
+    LCN connected message is already received.
     """
     monkeypatch.setattr(pchk_connection_manager, 'on_successful_login', Mock())
     pchk_connection_manager.data_received(
@@ -69,8 +70,9 @@ def test_received_lcn_connected(monkeypatch, pchk_connection_manager):
 
 
 def test_called_on_successful_login(monkeypatch, pchk_connection_manager):
-    """Test workflow after on_successful_login was called (e.g.
-    lcn_connected future is done, ping procedure started, segment scan
+    """Test workflow after on_successful_login was called.
+
+    (E.g. lcn_connected future is done, ping procedure started, segment scan
     started).
     """
     with monkeypatch.context() as mpc:
@@ -90,8 +92,7 @@ def test_called_on_successful_login(monkeypatch, pchk_connection_manager):
 
 
 def test_called_segment_scan(monkeypatch, pchk_connection_manager):
-    """Test workflow after segment_scan completed (not) successful.
-    """
+    """Test workflow after segment_scan completed (not) successful."""
     monkeypatch.setattr(pchk_connection_manager, 'set_local_seg_id', Mock())
     # assert that for each timeout a segment scan command is sent
     pchk_connection_manager.segment_scan_timeout(False)
@@ -103,8 +104,9 @@ def test_called_segment_scan(monkeypatch, pchk_connection_manager):
 
 
 def test_received_segment_info(monkeypatch, pchk_connection_manager):
-    """Test if local segment id is about to set after receiving
-    appropriate PCK command.
+    """Test if local segment id is about to set.
+
+    Appropriate PCK command was received previously.
     """
     monkeypatch.setattr(pchk_connection_manager, 'set_local_seg_id', Mock())
     pck = '=M000005.SK7'
@@ -115,8 +117,9 @@ def test_received_segment_info(monkeypatch, pchk_connection_manager):
 
 
 def test_called_local_seg_id(pchk_connection_manager):
-    """Test if local segment id was set correctly after calling
-    set_local_seg_id.
+    """Test if local segment id was set correctly.
+
+    Set_local_seg_id was called previously.
     """
     pchk_connection_manager.set_local_seg_id(7)
 
