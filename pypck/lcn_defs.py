@@ -188,7 +188,7 @@ def ramp_value_to_time(ramp_value):
         raise ValueError('Ramp value has to be in range 0..250.')
 
     if ramp_value < 10:
-        times = [250, 500, 660, 1000, 1400, 2000, 3000, 4000, 5000, 6000]
+        times = [0, 250, 500, 660, 1000, 1400, 2000, 3000, 4000, 5000]
         t = times[ramp_value]
     else:
         t = int(((ramp_value - 10) * 2 + 6) * 1000)
