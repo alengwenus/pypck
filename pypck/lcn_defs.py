@@ -295,7 +295,7 @@ class Var(Enum):
         """
         if (s0_id < 0) or (s0_id >= len(Var.s0s)):
             raise ValueError('Bad s0_id.')
-        return Var._s0_id_to_var_array[s0_id]
+        return Var.s0s[s0_id]
 
     @staticmethod
     def to_var_id(var):
@@ -438,7 +438,7 @@ class Var(Enum):
         :return:    True if special values are in use, otherwise False
         :rtype:    bool
         """
-        return var not in [Var.S0INPU1, Var.S0INPUT2, Var.S0INPUT3,
+        return var not in [Var.S0INPUT1, Var.S0INPUT2, Var.S0INPUT3,
                            Var.S0INPUT4]
 
     @staticmethod
