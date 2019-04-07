@@ -795,3 +795,67 @@ class PckGenerator():
             raise ValueError('Wrong reg_id.')
         return 'RE{:s}X{:s}'.format('A' if reg_id == 0 else 'B',
                                     'S' if state else 'A')
+
+    @staticmethod
+    def change_scene_register(register_id):
+        """Change the scene register id.
+
+        :param    int    register_id:    Register id 0..9
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        if (register_id < 0) or (register_id > 9):
+            raise ValueError('Wrong register_id.')
+        return 'SZW{:03d}'.format(register_id)
+
+    @staticmethod
+    def activate_scene_output(scene_id, output_ports=(), ramp=None):
+        """Activate the stored output states for the given scene.
+
+        Please note: The output ports 3 and 4 can only be activated
+        simultaneously. If one of them is given, the other one is activated,
+        too.
+
+        :param    int                scene_id:       Scene id 0..9
+        :param    list(OutputPort)   output_ports:   Output ports to activate
+                                                     as list
+        :param    int                ramp:           Ramp value
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        if (scene_id < 0) or (scene_id > 9):
+            raise ValueError('Wrong scene_id.')
+        if not output_ports:
+            raise ValueError('output_port list is empty.')
+        output_mask = 0
+        if lcn_defs.OutputPort.OUTPUT1 in output_ports:
+            output_mask += 1
+        if lcn_defs.OutputPort.OUTPUT2 in output_ports:
+            output_mask += 2
+        if lcn_defs.OutputPort.OUTPUT3 in output_ports or\
+                lcn_defs.OutputPort.OUTPUT4 in output_ports:
+            output_mask += 4
+        if ramp is None:
+            pck = 'SZA{:1d}{:03d}'.format(output_mask, scene_id)
+        else:
+            pck = 'SZA{:1d}{:03d}{:03d}'.format(output_mask, scene_id, ramp)
+        return pck
+
+    @staticmethod
+    def activate_scene_relay(scene_id, relay_ports=()):
+        """Activate the stored relay states for the given scene.
+
+        :param    int                scene_id:       Scene id 0..9
+        :param    list(RelayPort)    relay_ports:    Relay ports to activate
+                                                     as list
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        if (scene_id < 0) or (scene_id > 9):
+            raise ValueError('Wrong scene_id.')
+        if not relay_ports:
+            raise ValueError('relay_port list is empty.')
+        relays_mask = ['0'] * 8
+        for port in relay_ports:
+            relays_mask[port.value] = '1'
+        return 'SZA0{:03d}{:s}'.format(scene_id, ''.join(relays_mask))

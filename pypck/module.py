@@ -368,6 +368,30 @@ class AbstractConnection(LcnAddr):
         self.send_command(not self.is_group(),
                           PckGenerator.control_motors(states))
 
+    def activate_scene(self, register_id, scene_id,
+                       output_ports=(), relay_ports=(), ramp=None):
+        """Activate the stored states for the given scene.
+
+        :param    int                register_id:    Register id 0..9
+        :param    int                scene_id:       Scene id 0..9
+        :param    list(OutputPort)   output_ports:   Output ports to activate
+                                                     as list
+        :param    list(RelayPort)    relay_ports:    Relay ports to activate
+                                                     as list
+        :param    int                ramp:           Ramp value
+        """
+        self.send_command(not self.is_group(),
+                          PckGenerator.change_scene_register(register_id))
+        if output_ports:
+            self.send_command(not self.is_group(),
+                              PckGenerator.activate_scene_output(scene_id,
+                                                                 output_ports,
+                                                                 ramp))
+        if relay_ports:
+            self.send_command(not self.is_group(),
+                              PckGenerator.activate_scene_relay(scene_id,
+                                                                relay_ports))
+
     def var_abs(self, var, value, unit=lcn_defs.VarUnit.NATIVE, is2013=None):
         """Send a command to set the absolute value to a variable.
 
