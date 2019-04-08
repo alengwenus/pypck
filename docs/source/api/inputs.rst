@@ -1,5 +1,5 @@
 :mod:`pypck.input`
 ------------------
 
-.. automodule:: pypck.input
+.. automodule:: pypck.inputs
 	:members:
