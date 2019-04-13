@@ -271,7 +271,7 @@ class CommandError(Input):
         :param ~pypck.connection.PchkConnectionManager conn: Connection
                                                              manager object
         """
-        _LOGGER.debug('LCN command error: %s' % self.message)
+        _LOGGER.debug('LCN command error: %s', self.message)
         for address_conn in conn.address_conns.values():
             if not address_conn.is_group():
                 conn.loop.create_task(
