@@ -37,6 +37,10 @@ class PckParser():
     # LCN-PK/PKU is disconnected.
     LCNCONNSTATE_DISCONNECTED = '$io:#LCN:disconnected'
 
+    # Pattern to parse error messages.
+    PATTERN_COMMAND_ERROR = re.compile(
+        r'\((?P<message>.+)\?\)')
+
     # Pattern to parse positive acknowledges.
     PATTERN_ACK_POS = re.compile(
         r'-M(?P<seg_id>\d{3})(?P<mod_id>\d{3})!')

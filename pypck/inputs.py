@@ -188,7 +188,7 @@ class LcnConnState(Input):
     """LCN bus connected message received from PCHK."""
 
     def __init__(self, is_lcn_connected):
-        """Construct ModInput object."""
+        """Construct Input object."""
         super().__init__()
         self._is_lcn_connected = is_lcn_connected
 
@@ -237,6 +237,45 @@ class LcnConnState(Input):
         else:
             _LOGGER.debug('{}: LCN is not connected.'.format(
                 conn.connection_id))
+
+
+class CommandError(Input):
+    """Command error received from PCHK."""
+
+    def __init__(self, message):
+        """Construct Input object."""
+        super().__init__()
+        self.message = message
+
+    @staticmethod
+    def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_COMMAND_ERROR.match(data)
+        if matcher:
+            return [CommandError(matcher.group('message'))]
+
+    def process(self, conn):
+        """Process the :class:`~pypck.input.Input` instance.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
+        _LOGGER.debug('LCN command error: %s' % self.message)
+        for address_conn in conn.address_conns.values():
+            if not address_conn.is_group():
+                conn.loop.create_task(
+                    address_conn.request_curr_pck_command_with_ack.cancel())
 
 # ## Inputs received from modules
 
@@ -874,6 +913,7 @@ class InputParser():
                AuthPassword,
                AuthOk,
                LcnConnState,
+               CommandError,
                ModAck,
                ModSk,
                ModSn,
