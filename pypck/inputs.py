@@ -274,6 +274,8 @@ class CommandError(Input):
         _LOGGER.debug('LCN command error: %s', self.message)
         for address_conn in conn.address_conns.values():
             if not address_conn.is_group():
+                if address_conn.pck_commands_with_ack:
+                    address_conn.pck_commands_with_ack.popleft()
                 conn.loop.create_task(
                     address_conn.request_curr_pck_command_with_ack.cancel())
 
