@@ -37,6 +37,9 @@ class OutputPort(Enum):
     OUTPUT3 = 2
     OUTPUT4 = 3
 
+    OUTPUTUP = 0
+    OUTPUTDOWN = 1
+
 
 class RelayPort(Enum):
     """Relay port of LCN module."""
@@ -67,6 +70,7 @@ class MotorPort(Enum):
     MOTOR2 = 1
     MOTOR3 = 2
     MOTOR4 = 3
+    OUTPUTS = 4
 
 
 class LedPort(Enum):
@@ -1098,6 +1102,17 @@ class MotorStateModifier(Enum):
     TOGGLEDIR = 'D'  # toggle direction
     CYCLE = 'C'  # up, stop, down, stop, ...
     NOCHANGE = '-'
+
+
+class MotorReverseTime(Enum):
+    """Motor reverse time user in LCN commands.
+
+    For modules with FW<190C the release time has to be specified.
+    """
+
+    RT70 = auto()       # 70ms
+    RT600 = auto()      # 600ms
+    RT1200 = auto()     # 1200ms
 
 
 class RelVarRef(Enum):

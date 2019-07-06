@@ -363,7 +363,7 @@ class PckGenerator():
         return ret
 
     @staticmethod
-    def control_motors(states):
+    def control_motors_relays(states):
         """Generate a command to control motors via relays.
 
         :param    MotorStateModifier    states:    The 4 modifiers for the
@@ -396,6 +396,49 @@ class PckGenerator():
             elif state == lcn_defs.MotorStateModifier.NOCHANGE:
                 ret += lcn_defs.RelayStateModifier.NOCHANGE.value
                 ret += lcn_defs.RelayStateModifier.NOCHANGE.value
+
+        return ret
+
+    @staticmethod
+    def control_motors_outputs(state, reverse_time=None):
+        """Generate a command to control a motor via output ports 1+2.
+
+        :param    MotorStateModifier    state:     The modifier for the
+                                                   motor state
+        :param    MotorReverseTime      reverse_time: Reverse time for modules
+                                                      with FW<190C
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        if state == lcn_defs.MotorStateModifier.UP:
+            if reverse_time in [None, lcn_defs.MotorReverseTime.RT70]:
+                params = (0x01, 0xE4, 0x00)
+            elif reverse_time == lcn_defs.MotorReverseTime.RT600:
+                params = (0x04, 0xC8, 0x08)
+            elif reverse_time == lcn_defs.MotorReverseTime.RT1200:
+                params = (0x04, 0xC8, 0x0B)
+            else:
+                raise ValueError('Wrong MotorReverseTime.')
+            ret = 'X2{:03d}{:03d}{:03d}'.format(*params)
+
+        elif state == lcn_defs.MotorStateModifier.DOWN:
+            if reverse_time in [None, lcn_defs.MotorReverseTime.RT70]:
+                params = (0x01, 0x00, 0xE4)
+            elif reverse_time == lcn_defs.MotorReverseTime.RT600:
+                params = (0x05, 0xC8, 0x08)
+            elif reverse_time == lcn_defs.MotorReverseTime.RT1200:
+                params = (0x05, 0xC8, 0x0B)
+            else:
+                raise ValueError('Wrong MotorReverseTime.')
+            ret = 'X2{:03d}{:03d}{:03d}'.format(*params)
+
+        elif state == lcn_defs.MotorStateModifier.STOP:
+            ret = 'AY000000'
+        elif state == lcn_defs.MotorStateModifier.CYCLE:
+            ret = 'JE'
+        else:
+            raise ValueError(
+                'MotorStateModifier is not supported by output ports.')
 
         return ret
 

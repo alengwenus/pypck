@@ -359,14 +359,26 @@ class AbstractConnection(LcnAddr):
         self.send_command(not self.is_group(),
                           PckGenerator.control_relays(states))
 
-    def control_motors(self, states):
+    def control_motors_relays(self, states):
         """Send a command to control motors via relays.
 
         :param    states:   The 4 modifiers for the cover states as a list
-        :type     states:   list(:class: `~pypck.cln-defs.MotorStateModifier`)
+        :type     states:   list(:class: `~pypck.lcn-defs.MotorStateModifier`)
         """
         self.send_command(not self.is_group(),
-                          PckGenerator.control_motors(states))
+                          PckGenerator.control_motors_relays(states))
+
+    def control_motors_outputs(self, state, reverse_time=None):
+        """Send a command to control a motor via output ports 1+2.
+
+        :param    MotorStateModifier  state: The modifier for the cover state
+        :param    MotorReverseTime    reverse_time: Reverse time for modules
+                                                    with FW<190C
+        :type     state:   :class: `~pypck.lcn-defs.MotorStateModifier`
+        """
+        self.send_command(not self.is_group(),
+                          PckGenerator.control_motors_outputs(
+                              state, reverse_time))
 
     def activate_scene(self, register_id, scene_id,
                        output_ports=(), relay_ports=(), ramp=None):
