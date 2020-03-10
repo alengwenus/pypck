@@ -8,17 +8,17 @@ from tests.conftest import encode_pck
 
 
 @pytest.fixture
-def patch_get_module_sw(monkeypatch):
-    """Patch the get_module_sw method."""
-    async def mock_get_module_sw(self):
+def patch_get_module_sn(monkeypatch):
+    """Patch the get_module_sn method."""
+    async def mock_get_module_sn(self):
         pass
 
-    monkeypatch.setattr(ModuleConnection, 'get_module_sw', mock_get_module_sw)
+    monkeypatch.setattr(ModuleConnection, 'get_module_sn', mock_get_module_sn)
 
 # Test setup of address_connection and handling
 
 
-@pytest.mark.usefixtures("patch_get_module_sw")
+@pytest.mark.usefixtures("patch_get_module_sn")
 def test_manual_setup_of_address_connection(pchk_connection_manager):
     """By manual setup."""
     addr_05 = LcnAddr(0, 5, False)
@@ -33,7 +33,7 @@ def test_manual_setup_of_address_connection(pchk_connection_manager):
     assert module_05 is pchk_connection_manager.get_address_conn(module_05)
 
 
-@pytest.mark.usefixtures("patch_get_module_sw")
+@pytest.mark.usefixtures("patch_get_module_sn")
 def test_dynamical_setup_of_address_conn_not_ready(pchk_connection_manager):
     """Test receiving PCK command form module.
 
@@ -47,7 +47,7 @@ def test_dynamical_setup_of_address_conn_not_ready(pchk_connection_manager):
     assert not pchk_connection_manager.address_conns
 
 
-@pytest.mark.usefixtures("connection_is_ready", "patch_get_module_sw")
+@pytest.mark.usefixtures("connection_is_ready", "patch_get_module_sn")
 def test_dynamical_setup_of_address_conn_ready(pchk_connection_manager):
     """Test receiving PCK command form module.
 
@@ -69,7 +69,7 @@ def test_dynamical_setup_of_address_conn_ready(pchk_connection_manager):
 # Test setting local segment id
 
 
-@pytest.mark.usefixtures("patch_get_module_sw")
+@pytest.mark.usefixtures("patch_get_module_sn")
 def test_post_set_local_seg_id(pchk_connection_manager):
     """Test if local segment id was set correctly.
 
@@ -107,7 +107,7 @@ def test_post_set_local_seg_id(pchk_connection_manager):
     assert module_07.get_seg_id() == 8
 
 
-@pytest.mark.usefixtures("patch_get_module_sw")
+@pytest.mark.usefixtures("patch_get_module_sn")
 def test_pre_set_local_seg_id(pchk_connection_manager):
     """Test if local segment id is set correctly.
 

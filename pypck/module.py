@@ -24,7 +24,10 @@ class StatusRequestHandler():
     def __init__(self, loop, settings):
         """Construct StatusRequestHandler instance."""
         self.loop = loop
+        self.sn = -1
+        self.manu = -1
         self.sw_age = -1
+        self.hw_type = -1
         self.settings = settings
 
         self.activate_backlog = []
@@ -81,12 +84,19 @@ class StatusRequestHandler():
         """
         return self.sw_age
 
-    def set_sw_age(self, sw_age):
-        """Set the software firmware version.
-
-        :param    int    sw_age:    Software firmware version
+    def set_sn(self, sn, manu, sw_age, hw_type):
         """
+        Set the serial number, software firmware version and the hardware type.
+
+        :param    int   sn:         Module serial number
+        :param    int   manu:       Module manufacturing number
+        :param    int   sw_age:     Software firmware version
+        :param    int   hw_type:    Hardware type
+        """
+        self.sn = sn
+        self.manu = manu
         self.sw_age = sw_age
+        self.hw_type = hw_type
         if not self.sw_age_known.done():
             self.sw_age_known.set_result(True)
 
@@ -195,18 +205,21 @@ class AbstractConnection(LcnAddr):
         super().__init__(seg_id=seg_id, addr_id=addr_id, is_group=is_group)
 
         if sw_age is not None:
-            self.set_sw_age(sw_age)
+            self._sw_age = sw_age
 
         self.input_callbacks = []
         self.last_requested_var_without_type_in_response = \
             lcn_defs.Var.UNKNOWN
 
-    def set_sw_age(self, sw_age):
+    def set_sn(self, sn, manu, sw_age, hw_type):
         """Set the software firmware date.
 
         :param     int    swAge:    The firmware date
         """
+        self._sn = sn
+        self._manu = manu
         self._sw_age = sw_age
+        self._hw_type = hw_type
 
     def get_sw_age(self):
         """Return standard sw_age."""
@@ -225,7 +238,7 @@ class AbstractConnection(LcnAddr):
     # ## Status requests timeout methods
     # ##
 
-    def request_sw_age_timeout(self, failed=False):
+    def request_sn_timeout(self, failed=False):
         """Is called on sw_age request timeout."""
         if not failed:
             self.send_command(False, PckGenerator.request_sn())
@@ -619,7 +632,7 @@ class GroupConnection(AbstractConnection):
 
     async def activate_status_request_handlers(self):
         """Activate all TimeoutRetryHandlers for status requests."""
-        # self.request_sw_age.activate()
+        # self.request_sn.activate()
         await self.conn.segment_scan_completed
 
 
@@ -633,9 +646,8 @@ class ModuleConnection(AbstractConnection):
         self.has_s0_enabled = has_s0_enabled
 
         # Firmware version request status
-        self.request_sw_age = TimeoutRetryHandler(loop,
-                                                  conn.settings['NUM_TRIES'])
-        self.request_sw_age.set_timeout_callback(self.request_sw_age_timeout)
+        self.request_sn = TimeoutRetryHandler(loop, conn.settings['NUM_TRIES'])
+        self.request_sn.set_timeout_callback(self.request_sn_timeout)
 
         self.request_curr_pck_command_with_ack = \
             TimeoutRetryHandler(loop, conn.settings['NUM_TRIES'])
@@ -672,7 +684,7 @@ class ModuleConnection(AbstractConnection):
         super().__init__(loop, conn, seg_id, mod_id, False, sw_age=sw_age)
 
         if sw_age is None:
-            loop.create_task(self.get_module_sw())
+            loop.create_task(self.get_module_sn())
 
         if activate_status_requests:
             loop.create_task(self.activate_status_request_handlers())
@@ -688,10 +700,10 @@ class ModuleConnection(AbstractConnection):
         else:
             super().send_command(False, pck)
 
-    async def get_module_sw(self):
-        """Activate the software firmware request handler."""
+    async def get_module_sn(self):
+        """Activate the module serial and firmware request handler."""
         await self.conn.segment_scan_completed
-        self.request_sw_age.activate()
+        self.request_sn.activate()
 
     async def activate_status_request_handler(self, item):
         """Activate a specific TimeoutRetryHandler for status requests."""
@@ -716,7 +728,7 @@ class ModuleConnection(AbstractConnection):
     async def cancel_timeout_retries(self):
         """Cancel all TimeoutRetryHandlers for firmware/status requests."""
         # module related handlers
-        await self.request_sw_age.cancel()
+        await self.request_sn.cancel()
         await self.status_requests.cancel_all()
         await self.request_curr_pck_command_with_ack.cancel()
         self.pck_commands_with_ack.clear()
@@ -739,12 +751,16 @@ class ModuleConnection(AbstractConnection):
         """Get the LCN module's firmware date."""
         return self.status_requests.get_sw_age()
 
-    def set_sw_age(self, sw_age):
-        """Set the LCN module's firmware date.
-
-        :param     int    swAge:    The firmware date
+    def set_sn(self, sn, manu, sw_age, hw_type):
         """
-        self.status_requests.set_sw_age(sw_age)
+        Set the serial number, software firmware version and the hardware type.
+
+        :param    int   sn:         Module serial number
+        :param    int   manu:       Module manufacturing number
+        :param    int   sw_age:     Software firmware version
+        :param    int   hw_type:    Hardware type
+        """
+        self.status_requests.set_sn(sn, manu, sw_age, hw_type)
 
     def get_last_requested_var_without_type_in_response(self):
         """Return the last requested variable without type in response."""
