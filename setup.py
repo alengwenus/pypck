@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pypck",
-    version="0.6.3",
+    version="0.6.4",
     author="Andre Lengwenus",
     author_email="alengwenus@gmail.com",
     description="LCN-PCK library",
@@ -13,11 +13,12 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/alengwenus/pypck",
     packages=setuptools.find_packages(),
-    install_requires=['aenum'],
+    install_requires=[],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Eclipse Public License 1.0 (EPL-1.0)",
         "Operating System :: OS Independent",
         "Topic :: Home Automation"
     ],
+    python_requires='>=3.6',
 )

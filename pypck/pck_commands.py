@@ -211,7 +211,7 @@ class PckGenerator():
         return 'SK'
 
     @staticmethod
-    def request_sn():
+    def request_serial():
         """Generate a firmware/serial-number request.
 
         :return: The PCK command (without address header) as text
@@ -681,8 +681,7 @@ class PckGenerator():
                 # command
                 # for table A-C which is compatible with older LCN modules
                 break
-            else:
-                ret += cmd.value
+            ret += cmd.value
 
         for key in keys:
             ret += '1' if key else '0'

@@ -14,7 +14,7 @@ import math
 import re
 from itertools import product
 
-from aenum import Enum, auto
+from enum import Enum, auto
 
 LCN_ENCODING = 'utf-8'
 PATTERN_SPLIT_PORT_PIN = re.compile(r'(?P<port>[a-zA-Z]+)(?P<pin>\d+)')

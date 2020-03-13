@@ -390,10 +390,10 @@ class ModSk(ModInput):
 class ModSn(ModInput):
     """Serial number and firmware version received from an LCN module."""
 
-    def __init__(self, physical_source_addr, sn, manu, sw_age, hw_type):
+    def __init__(self, physical_source_addr, serial, manu, sw_age, hw_type):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
-        self.sn = sn
+        self.serial = serial
         self.manu = manu
         self.sw_age = sw_age
         self.hw_type = hw_type
@@ -414,11 +414,11 @@ class ModSn(ModInput):
         if matcher:
             addr = LcnAddr(int(matcher.group('seg_id')),
                            int(matcher.group('mod_id')))
-            sn = int(matcher.group('sn'), 16)
+            serial = int(matcher.group('sn'), 16)
             manu = int(matcher.group('manu'), 16)
             sw_age = int(matcher.group('sw_age'), 16)
             hw_type = int(matcher.group('hw_type'), 16)
-            return [ModSn(addr, sn, manu, sw_age, hw_type)]
+            return [ModSn(addr, serial, manu, sw_age, hw_type)]
 
     def process(self, conn):
         """Process instance of of :class:`~pypck.input.ModInput`.
@@ -432,8 +432,9 @@ class ModSn(ModInput):
         super().process(conn)
         if conn.is_ready():
             module_conn = conn.get_address_conn(self.logical_source_addr)
-            module_conn.set_sn(self.sn, self.manu, self.sw_age, self.hw_type)
-            conn.loop.create_task(module_conn.request_sn.cancel())
+            module_conn.set_serial(self.serial, self.manu,
+                                   self.sw_age, self.hw_type)
+            conn.loop.create_task(module_conn.request_serial.cancel())
 
 
 class ModStatusOutput(ModInput):
