@@ -467,7 +467,8 @@ class ModSn(ModInput):
             module_conn = conn.get_address_conn(self.logical_source_addr)
             module_conn.set_serial(self.serial, self.manu,
                                    self.sw_age, self.hw_type)
-            conn.loop.create_task(module_conn.request_serial.cancel())
+            conn.loop.create_task(
+                module_conn.properties_requests.request_serial_number.cancel())
 
 
 class ModStatusOutput(ModInput):
