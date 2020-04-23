@@ -44,3 +44,6 @@ desktop.ini
 
 # mypy
 /.mypy_cache/*
+
+# other
+sandbox
