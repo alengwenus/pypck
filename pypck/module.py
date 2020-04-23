@@ -67,38 +67,50 @@ class ModulePropertiesRequestHandler():
         self.request_serial_number.cancel()
 
 
-class StatusRequestHandler():
+class StatusRequestsHandler():
     """Manages all status requests for variables, software version, ..."""
 
-    def __init__(self, loop, settings, sw_age=None):
+    def __init__(self, loop, addr_conn, sw_age=None):
         """Construct StatusRequestHandler instance."""
         self.loop = loop
         if sw_age:  # if sw_age is given externally
             self.set_sw_age(sw_age)
         else:
             self.sw_age = -1
-        self.settings = settings
+        self.addr_conn = addr_conn
+        self.settings = addr_conn.conn.settings
 
         self.activate_backlog = []
 
+        self.last_requested_var_without_type_in_response = \
+            lcn_defs.Var.UNKNOWN
+
         # Output-port request status (0..3)
-        self.request_status_outputs = \
-            [TimeoutRetryHandler(
+        self.request_status_outputs = []
+        for output_port in range(4):
+            trh = TimeoutRetryHandler(
                 self.loop, -1,
                 self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC'])
-             for i in range(4)]
+            trh.set_timeout_callback(
+                lambda failed, output_port=output_port:
+                self.request_status_outputs_timeout(failed, output_port))
+            self.request_status_outputs.append(trh)
 
         # Relay request status (all 8)
         self.request_status_relays = \
             TimeoutRetryHandler(
                 self.loop, -1,
                 self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC'])
+        self.request_status_relays.set_timeout_callback(
+            self.request_status_relays_timeout)
 
         # Binary-sensors request status (all 8)
         self.request_status_bin_sensors = \
             TimeoutRetryHandler(
                 self.loop, -1,
                 self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC'])
+        self.request_status_bin_sensors.set_timeout_callback(
+            self.request_status_bin_sensors_timeout)
 
         # Variables request status.
         # Lazy initialization: Will be filled once the firmware version is
@@ -110,18 +122,25 @@ class StatusRequestHandler():
                     TimeoutRetryHandler(
                         self.loop, -1,
                         self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC'])
+                self.request_status_vars[var].set_timeout_callback(
+                    lambda failed, var=var: self.request_status_var_timeout(
+                        failed, var))
 
         # LEDs and logic-operations request status (all 12+4).
         self.request_status_leds_and_logic_ops = \
             TimeoutRetryHandler(
                 self.loop, -1,
                 self.settings['MAX_STATUS_POLLED_VALUEAGE_MSEC'])
+        self.request_status_leds_and_logic_ops.set_timeout_callback(
+            self.request_status_leds_and_logic_ops_timeout)
 
         # Key lock-states request status (all tables, A-D).
         self.request_status_locked_keys = \
             TimeoutRetryHandler(
                 self.loop, -1,
                 self.settings['MAX_STATUS_POLLED_VALUEAGE_MSEC'])
+        self.request_status_locked_keys.set_timeout_callback(
+            self.request_status_locked_keys_timeout)
 
         self.sw_age_known = self.loop.create_future()
 
@@ -143,31 +162,53 @@ class StatusRequestHandler():
         if not self.sw_age_known.done():
             self.sw_age_known.set_result(True)
 
-    def set_output_timeout_callback(self, output_port, callback):
-        """Set callback for output status request timeouts."""
-        self.request_status_outputs[output_port.value].set_timeout_callback(
-            callback)
+    def request_status_outputs_timeout(self, failed=False, output_port=0):
+        """Is called on output status request timeout."""
+        if not failed:
+            self.addr_conn.send_command(False, PckGenerator.request_output_status(
+                output_port))
 
-    def set_relays_timeout_callback(self, callback):
-        """Set callback for relay status request timeouts."""
-        self.request_status_relays.set_timeout_callback(callback)
+    def request_status_relays_timeout(self, failed=False):
+        """Is called on relay status request timeout."""
+        if not failed:
+            self.addr_conn.send_command(False, PckGenerator.request_relays_status())
 
-    def set_bin_sensors_timeout_callback(self, callback):
-        """Set callback for binary sensor status request timeouts."""
-        self.request_status_bin_sensors.set_timeout_callback(callback)
+    def request_status_bin_sensors_timeout(self, failed=False):
+        """Is called on binary sensor status request timeout."""
+        if not failed:
+            self.addr_conn.send_command(
+                False, PckGenerator.request_bin_sensors_status())
 
-    def set_var_timeout_callback(self, var, callback):
-        """Set callback for variable status request timeouts."""
-        if var != lcn_defs.Var.UNKNOWN:
-            self.request_status_vars[var].set_timeout_callback(callback)
+    def request_status_var_timeout(self, failed=False, var=None):
+        """Is called on variable status request timeout."""
+        # Use the chance to remove a failed "typeless variable" request
+        if self.last_requested_var_without_type_in_response == var:
+            self.last_requested_var_without_type_in_response = \
+                lcn_defs.Var.UNKNOWN
 
-    def set_leds_and_logic_opts_timeout_callback(self, callback):
-        """Set callback for leds/logic operations status request timeouts."""
-        self.request_status_leds_and_logic_ops.set_timeout_callback(callback)
+        # Detect if we can send immediately or if we have to wait for a
+        # "typeless" request first
+        has_type_in_response = lcn_defs.Var.has_type_in_response(
+            var, self.get_sw_age())
+        if has_type_in_response or\
+            (self.last_requested_var_without_type_in_response ==
+             lcn_defs.Var.UNKNOWN):
+            self.addr_conn.send_command(False, PckGenerator.request_var_status(
+                var, self.get_sw_age()))
+            if not has_type_in_response:
+                self.last_requested_var_without_type_in_response = var
 
-    def set_locked_keys_callback(self, callback):
-        """Set callback for locked keys status request timeouts."""
-        self.request_status_locked_keys.set_timeout_callback(callback)
+    def request_status_leds_and_logic_ops_timeout(self, failed=False):
+        """Is called on leds/logical ops status request timeout."""
+        if not failed:
+            self.addr_conn.send_command(
+                False, PckGenerator.request_leds_and_logic_ops())
+
+    def request_status_locked_keys_timeout(self, failed=False):
+        """Is called on locked keys status request timeout."""
+        if not failed:
+            self.addr_conn.send_command(
+                False, PckGenerator.request_key_lock_status())
 
     async def activate(self, item):
         """Activate status requests for given item."""
@@ -200,6 +241,8 @@ class StatusRequestHandler():
         # handle variables independently
         if (item in lcn_defs.Var) and (item != lcn_defs.Var.UNKNOWN):
             await self.request_status_vars[item].cancel()
+            self.last_requested_var_without_type_in_response = \
+                lcn_defs.Var.UNKNOWN
         elif item in lcn_defs.OutputPort:
             await self.request_status_outputs[item.value].cancel()
         elif item in lcn_defs.RelayPort:
@@ -254,8 +297,6 @@ class AbstractConnection(LcnAddr):
         self._hw_type = None
 
         self.input_callbacks = []
-        self.last_requested_var_without_type_in_response = \
-            lcn_defs.Var.UNKNOWN
 
     def set_serial(self, serial, manu, sw_age, hw_type):
         """Set the software firmware date.
@@ -635,59 +676,26 @@ class ModuleConnection(AbstractConnection):
         """Construct ModuleConnection instance."""
         self.has_s0_enabled = has_s0_enabled
 
-        # Firmware version request status
-        # self.request_serial = TimeoutRetryHandler(loop,
-        #                                           conn.settings['NUM_TRIES'])
-        # self.request_serial.set_timeout_callback(self.request_serial_timeout)
-
-        # Module comment requests
-        # self.requests_name = []
-        # for part in range(2):
-        #     request_name = TimeoutRetryHandler(
-        #         loop, conn.settings['NUM_TRIES'])
-        #     request_name.set_timeout_callback(
-        #         lambda failed, i: self.request_name_timeout(failed, part))
-        #     self.requests_name.append(request_name)
-
         self.request_curr_pck_command_with_ack = \
             TimeoutRetryHandler(loop, conn.settings['NUM_TRIES'])
         self.request_curr_pck_command_with_ack.set_timeout_callback(
             self.request_curr_pck_command_with_ack_timeout)
 
+        self.pck_commands_with_ack = deque()
+
+        super().__init__(loop, conn, seg_id, mod_id, False, sw_age=sw_age)
+
         self.properties_requests = ModulePropertiesRequestHandler(
             loop, conn.settings, sw_age=sw_age)
-        self.status_requests = StatusRequestHandler(
-            loop, conn.settings, sw_age=sw_age)
+        self.status_requests = StatusRequestsHandler(
+            loop, self, sw_age=sw_age)
 
         self.properties_requests.set_serial_timeout_callback(
             self.request_serial_timeout)
 
-        for output_port in lcn_defs.OutputPort:
-            self.status_requests.set_output_timeout_callback(
-                output_port, lambda failed, output_port=output_port:
-                self.request_status_outputs_timeout(failed, output_port))
-
-        self.status_requests.set_relays_timeout_callback(
-            self.request_status_relays_timeout)
-        self.status_requests.set_bin_sensors_timeout_callback(
-            self.request_status_bin_sensors_timeout)
-
-        for var in lcn_defs.Var:
-            self.status_requests.set_var_timeout_callback(
-                var, lambda failed, v=var: self.request_status_var_timeout(
-                    failed, v))
-
-        self.status_requests.set_leds_and_logic_opts_timeout_callback(
-            self.request_status_leds_and_logic_ops_timeout)
-        self.status_requests.set_locked_keys_callback(
-            self.request_status_locked_keys_timeout)
-
         # List of queued PCK commands to be acknowledged by the LCN module.
         # Commands are always without address header.
         # Note that the first one might currently be "in progress".
-        self.pck_commands_with_ack = deque()
-
-        super().__init__(loop, conn, seg_id, mod_id, False, sw_age=sw_age)
 
         loop.create_task(self.activate_properties_request_handlers())
         if activate_status_requests:
@@ -735,8 +743,6 @@ class ModuleConnection(AbstractConnection):
         await self.status_requests.cancel_all()
         await self.request_curr_pck_command_with_ack.cancel()
         self.pck_commands_with_ack.clear()
-        self.last_requested_var_without_type_in_response = \
-            lcn_defs.Var.UNKNOWN
 
     def set_s0_enabled(self, s0_enabled):
         """Set the activation status for S0 variables.
@@ -768,11 +774,11 @@ class ModuleConnection(AbstractConnection):
 
     def get_last_requested_var_without_type_in_response(self):
         """Return the last requested variable without type in response."""
-        return self.last_requested_var_without_type_in_response
+        return self.status_requests.last_requested_var_without_type_in_response
 
     def set_last_requested_var_without_type_in_response(self, var):
         """Set the last requested variable without type in response."""
-        self.last_requested_var_without_type_in_response = var
+        self.status_requests.last_requested_var_without_type_in_response = var
 
     # ##
     # ## Status requests timeout methods
@@ -786,52 +792,6 @@ class ModuleConnection(AbstractConnection):
     def request_name_timeout(self, failed=False, part=0):
         pass
 
-    def request_status_outputs_timeout(self, failed=False, output_port=0):
-        """Is called on output status request timeout."""
-        if not failed:
-            self.send_command(False, PckGenerator.request_output_status(
-                output_port.value))
-
-    def request_status_relays_timeout(self, failed=False):
-        """Is called on relay status request timeout."""
-        if not failed:
-            self.send_command(False, PckGenerator.request_relays_status())
-
-    def request_status_bin_sensors_timeout(self, failed=False):
-        """Is called on binary sensor status request timeout."""
-        if not failed:
-            self.send_command(False,
-                              PckGenerator.request_bin_sensors_status())
-
-    def request_status_var_timeout(self, failed=False, var=None):
-        """Is called on variable status request timeout."""
-        # Use the chance to remove a failed "typeless variable" request
-        if self.last_requested_var_without_type_in_response == var:
-            self.last_requested_var_without_type_in_response = \
-                lcn_defs.Var.UNKNOWN
-
-        # Detect if we can send immediately or if we have to wait for a
-        # "typeless" request first
-        has_type_in_response = lcn_defs.Var.has_type_in_response(
-            var, self.get_sw_age())
-        if has_type_in_response or\
-            (self.last_requested_var_without_type_in_response ==
-             lcn_defs.Var.UNKNOWN):
-            self.send_command(False, PckGenerator.request_var_status(
-                var, self.get_sw_age()))
-            if not has_type_in_response:
-                self.last_requested_var_without_type_in_response = var
-
-    def request_status_leds_and_logic_ops_timeout(self, failed=False):
-        """Is called on leds/logical ops status request timeout."""
-        if not failed:
-            self.send_command(False,
-                              PckGenerator.request_leds_and_logic_ops())
-
-    def request_status_locked_keys_timeout(self, failed=False):
-        """Is called on locked keys status request timeout."""
-        if not failed:
-            self.send_command(False, PckGenerator.request_key_lock_status())
 
     # ##
     # ## Retry logic if an acknowledge is requested
