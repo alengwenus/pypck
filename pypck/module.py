@@ -20,7 +20,7 @@ from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC, TimeoutRetryHandler
 
 class ModulePropertiesRequestHandler():
     """Manages all property requestst for serial number, name, comments, ..."""
-    def __init__(self, loop, settings, sw_age=None):
+    def __init__(self, loop, addr_conn, sw_age=None):
         """Construct ModulePropertiesRequestHandler"""
         self.loop = loop
         self.hw_serial = -1
@@ -29,13 +29,19 @@ class ModulePropertiesRequestHandler():
             sw_age = -1
         self.sw_age = sw_age
         self.hw_type = -1
-        self.settings = settings
+
+        self.addr_conn = addr_conn
+        self.settings = addr_conn.conn.settings
 
         # futures
+        self.serial_known = self.loop.create_future()
 
         # Serial Number request
         self.request_serial_number = TimeoutRetryHandler(
-            self.loop, self.settings['NUM_TRIES'])
+            self.loop, self.settings['NUM_TRIES'],
+            timeout_msec=1000)
+        self.request_serial_number.set_timeout_callback(
+            self.request_serial_timeout)
 
         # Module name request
 
@@ -53,9 +59,15 @@ class ModulePropertiesRequestHandler():
         self.sw_age = sw_age
         self.hw_type = hw_type
 
-    def set_serial_timeout_callback(self, callback):
-        """Set callback for serial number reuqest timeouts."""
-        self.request_serial_number.set_timeout_callback(callback)
+        if not self.serial_known.done():
+            self.serial_known.set_result(self.sw_age)
+
+    def request_serial_timeout(self, failed=False):
+        """Is called on sw_age request timeout."""
+        if not failed:
+            self.addr_conn.send_command(False, PckGenerator.request_serial())
+        else:
+            self.serial_known.set_result(self.sw_age)
 
     async def activate_all(self):
         "Activate all properties requests."
@@ -70,13 +82,9 @@ class ModulePropertiesRequestHandler():
 class StatusRequestsHandler():
     """Manages all status requests for variables, software version, ..."""
 
-    def __init__(self, loop, addr_conn, sw_age=None):
+    def __init__(self, loop, addr_conn):
         """Construct StatusRequestHandler instance."""
         self.loop = loop
-        if sw_age:  # if sw_age is given externally
-            self.set_sw_age(sw_age)
-        else:
-            self.sw_age = -1
         self.addr_conn = addr_conn
         self.settings = addr_conn.conn.settings
 
@@ -142,26 +150,6 @@ class StatusRequestsHandler():
         self.request_status_locked_keys.set_timeout_callback(
             self.request_status_locked_keys_timeout)
 
-        self.sw_age_known = self.loop.create_future()
-
-    def get_sw_age(self):
-        """Return the software firmware version.
-
-        :return:    Software firmware version
-        :rtype:     int
-        """
-        return self.sw_age
-
-    def set_sw_age(self, sw_age):
-        """
-        Set the software firmware version.
-
-        :param    int   sw_age:     Software firmware version
-        """
-        self.sw_age = sw_age
-        if not self.sw_age_known.done():
-            self.sw_age_known.set_result(True)
-
     def request_status_outputs_timeout(self, failed=False, output_port=0):
         """Is called on output status request timeout."""
         if not failed:
@@ -189,12 +177,12 @@ class StatusRequestsHandler():
         # Detect if we can send immediately or if we have to wait for a
         # "typeless" request first
         has_type_in_response = lcn_defs.Var.has_type_in_response(
-            var, self.get_sw_age())
+            var, self.addr_conn.software_serial)
         if has_type_in_response or\
             (self.last_requested_var_without_type_in_response ==
              lcn_defs.Var.UNKNOWN):
             self.addr_conn.send_command(False, PckGenerator.request_var_status(
-                var, self.get_sw_age()))
+                var, self.addr_conn.software_serial))
             if not has_type_in_response:
                 self.last_requested_var_without_type_in_response = var
 
@@ -214,8 +202,9 @@ class StatusRequestsHandler():
         """Activate status requests for given item."""
         # handle variables independently
         if (item in lcn_defs.Var) and (item != lcn_defs.Var.UNKNOWN):
-            await self.sw_age_known  # wait until we know the software version
-            if self.sw_age >= 0x170206:
+            # wait until we know the software version
+            await self.addr_conn.serial_known
+            if self.addr_conn.software_serial >= 0x170206:
                 timeout_msec = \
                     self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC']
             else:
@@ -258,6 +247,7 @@ class StatusRequestsHandler():
 
     async def activate_all(self, activate_s0=False):
         """Activate all status requests."""
+        # await self.sw_age_known
         for item in list(lcn_defs.OutputPort) + list(lcn_defs.RelayPort) + \
                 list(lcn_defs.BinSensorPort) + list(lcn_defs.LedPort) + \
                 list(lcn_defs.Key) + list(lcn_defs.Var):
@@ -674,28 +664,23 @@ class ModuleConnection(AbstractConnection):
                  activate_status_requests=False, has_s0_enabled=False,
                  sw_age=None):
         """Construct ModuleConnection instance."""
+        super().__init__(loop, conn, seg_id, mod_id, False, sw_age=sw_age)
         self.has_s0_enabled = has_s0_enabled
+
+        # List of queued PCK commands to be acknowledged by the LCN module.
+        # Commands are always without address header.
+        # Note that the first one might currently be "in progress".
+        self.pck_commands_with_ack = deque()
 
         self.request_curr_pck_command_with_ack = \
             TimeoutRetryHandler(loop, conn.settings['NUM_TRIES'])
         self.request_curr_pck_command_with_ack.set_timeout_callback(
             self.request_curr_pck_command_with_ack_timeout)
 
-        self.pck_commands_with_ack = deque()
-
-        super().__init__(loop, conn, seg_id, mod_id, False, sw_age=sw_age)
-
         self.properties_requests = ModulePropertiesRequestHandler(
-            loop, conn.settings, sw_age=sw_age)
-        self.status_requests = StatusRequestsHandler(
             loop, self, sw_age=sw_age)
-
-        self.properties_requests.set_serial_timeout_callback(
-            self.request_serial_timeout)
-
-        # List of queued PCK commands to be acknowledged by the LCN module.
-        # Commands are always without address header.
-        # Note that the first one might currently be "in progress".
+        self.status_requests = StatusRequestsHandler(
+            loop, self)
 
         loop.create_task(self.activate_properties_request_handlers())
         if activate_status_requests:
@@ -712,15 +697,15 @@ class ModuleConnection(AbstractConnection):
         else:
             super().send_command(False, pck)
 
-    async def activate_status_request_handler(self, item):
-        """Activate a specific TimeoutRetryHandler for status requests."""
-        await self.conn.segment_scan_completed
-        await self.status_requests.activate(item)
-
     async def activate_properties_request_handlers(self):
         """Activate all TimeoutRetryHandlers for property requests."""
         await self.conn.segment_scan_completed
         await self.properties_requests.activate_all()
+
+    async def activate_status_request_handler(self, item):
+        """Activate a specific TimeoutRetryHandler for status requests."""
+        await self.conn.segment_scan_completed
+        await self.status_requests.activate(item)
 
     async def activate_status_request_handlers(self):
         """Activate all TimeoutRetryHandlers for status requests."""
@@ -738,8 +723,6 @@ class ModuleConnection(AbstractConnection):
 
     async def cancel_timeout_retries(self):
         """Cancel all TimeoutRetryHandlers for firmware/status requests."""
-        # module related handlers
-        # await self.request_serial.cancel()
         await self.status_requests.cancel_all()
         await self.request_curr_pck_command_with_ack.cancel()
         self.pck_commands_with_ack.clear()
@@ -758,19 +741,7 @@ class ModuleConnection(AbstractConnection):
 
     def get_sw_age(self):
         """Get the LCN module's firmware date."""
-        return self.status_requests.get_sw_age()
-
-    def set_serial(self, serial, manu, sw_age, hw_type):
-        """
-        Set the serial number, software firmware version and the hardware type.
-
-        :param    int   sn:         Module serial number
-        :param    int   manu:       Module manufacturing number
-        :param    int   sw_age:     Software firmware version
-        :param    int   hw_type:    Hardware type
-        """
-        self.status_requests.set_sw_age(sw_age)
-        self.properties_requests.set_serial(serial, manu, sw_age, hw_type)
+        return self.properties_requests.sw_age
 
     def get_last_requested_var_without_type_in_response(self):
         """Return the last requested variable without type in response."""
@@ -779,19 +750,6 @@ class ModuleConnection(AbstractConnection):
     def set_last_requested_var_without_type_in_response(self, var):
         """Set the last requested variable without type in response."""
         self.status_requests.last_requested_var_without_type_in_response = var
-
-    # ##
-    # ## Status requests timeout methods
-    # ##
-
-    def request_serial_timeout(self, failed=False):
-        """Is called on sw_age request timeout."""
-        if not failed:
-            self.send_command(False, PckGenerator.request_serial())
-
-    def request_name_timeout(self, failed=False, part=0):
-        pass
-
 
     # ##
     # ## Retry logic if an acknowledge is requested
@@ -842,8 +800,13 @@ class ModuleConnection(AbstractConnection):
     # ## End of acknowledge retry logic
     # ##
 
+    # ## method routing
 
-    ### properties
+    # pylint: disable=arguments-differ
+    def set_serial(self, *args):
+        return self.properties_requests.set_serial(*args)
+
+    # ## properties
 
     @property
     def hardware_serial(self):
@@ -865,3 +828,10 @@ class ModuleConnection(AbstractConnection):
     def serial(self):
         return (self.hardware_serial, self.manu, self.software_serial,
                 self.hw_type)
+
+
+    # ## future properties
+
+    @property
+    def serial_known(self):
+        return self.properties_requests.serial_known
