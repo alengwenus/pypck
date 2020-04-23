@@ -23,6 +23,13 @@ from pypck.timeout_retry import TimeoutRetryHandler
 _LOGGER = logging.getLogger(__name__)
 
 
+class PchkLicenseError(Exception):
+    def __init__(self, message=None):
+        if message is None:
+            message = ('Maximum number of onnections was reached. An '
+                       'additional license key is required.')
+        super().__init__(message)
+
 class PchkConnection(asyncio.Protocol):
     """Socket connection to LCN-PCHK server.
 
@@ -182,6 +189,7 @@ class PchkConnectionManager(PchkConnection):
         # Futures for connection status handling.
         self.socket_connected = self.loop.create_future()
         self.lcn_connected = self.loop.create_future()
+        self.license_status = self.loop.create_future()
         self.segment_scan_completed = self.loop.create_future()
 
         # All modules/groups from or to a communication occurs are represented
@@ -213,6 +221,11 @@ class PchkConnectionManager(PchkConnection):
         self.set_lcn_connected(True)
         self.ping.activate()
 
+    def on_license_error(self):
+        """Is called if a license error occurs during connection."""
+        _LOGGER.debug('{}: License Error.'.format(self.connection_id))
+        self.license_status.set_exception(PchkLicenseError)
+
     def on_auth_ok(self):
         """Is called after successful authentication."""
         _LOGGER.debug('{} authorization successful!'.format(
@@ -233,6 +246,7 @@ class PchkConnectionManager(PchkConnection):
         """
         # self._is_lcn_connected = is_lcn_connected
         if is_lcn_connected:
+            self.license_status.set_result(True)
             self.lcn_connected.set_result(True)
             self.status_segment_scan.activate(self.segment_scan_timeout)
         else:
@@ -255,8 +269,14 @@ class PchkConnectionManager(PchkConnection):
         self.connect()
         done_pending = await asyncio.wait([self.socket_connected,
                                            self.lcn_connected,
+                                           self.license_status,
                                            self.segment_scan_completed],
-                                          timeout=timeout)
+                                          timeout=timeout,
+                                          return_when=asyncio.FIRST_EXCEPTION)
+
+        if self.license_status.exception():
+            raise self.license_status.exception()
+
         pending = done_pending[1]
         if pending:
             raise TimeoutError('No server listening. Aborting.')
@@ -306,8 +326,10 @@ class PchkConnectionManager(PchkConnection):
         :returns:    True if everything is set-up, False otherwise
         :rtype:      bool
         """
-        return self.socket_connected.done() and self.lcn_connected.done()\
-            and self.segment_scan_completed.done()
+        return (self.socket_connected.done() and
+                self.lcn_connected.done() and
+                self.license_status.done() and
+                self.segment_scan_completed.done())
 
     def get_address_conn(self, addr):
         """Create and/or return the given LCN module or group.

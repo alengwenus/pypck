@@ -37,6 +37,9 @@ class PckParser():
     # LCN-PK/PKU is disconnected.
     LCNCONNSTATE_DISCONNECTED = '$io:#LCN:disconnected'
 
+    # License Error
+    LICENSE_ERROR = '$err:(license?)'
+
     # Pattern to parse error messages.
     PATTERN_COMMAND_ERROR = re.compile(
         r'\((?P<message>.+)\?\)')

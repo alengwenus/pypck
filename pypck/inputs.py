@@ -239,6 +239,39 @@ class LcnConnState(Input):
                 conn.connection_id))
 
 
+class LicenseError(Input):
+    """LCN bus connected message received from PCHK."""
+
+    def __init__(self):
+        """Construct Input object."""
+        super().__init__()
+
+    @staticmethod
+    def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        if data == PckParser.LICENSE_ERROR:
+            return [LicenseError()]
+
+    def process(self, conn):
+        """Process the :class:`~pypck.input.Input` instance.
+
+        Trigger further actions.
+
+        :param ~pypck.connection.PchkConnectionManager conn: Connection
+                                                             manager object
+        """
+        conn.on_license_error()
+
+
 class CommandError(Input):
     """Command error received from PCHK."""
 
@@ -915,6 +948,7 @@ class InputParser():
                AuthPassword,
                AuthOk,
                LcnConnState,
+               LicenseError,
                CommandError,
                ModAck,
                ModSk,
