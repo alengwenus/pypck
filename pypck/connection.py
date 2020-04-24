@@ -446,13 +446,6 @@ class PchkConnectionManager(PchkConnection):
                 if inp.physical_source_addr.seg_id == 0:
                     self.set_local_seg_id(inp.reported_seg_id)
                 self.loop.create_task(self.status_segment_scan.cancel())
-            elif isinstance(inp, inputs.ModSn):
-                # Skip if we don't have all necessary bus info yet
-                module_conn.set_serial(inp.serial, inp.manu,
-                                       inp.sw_age, inp.hw_type)
-                self.loop.create_task(
-                    module_conn.properties_requests.request_serial_number.
-                    cancel())
             elif isinstance(inp,
                             (inputs.ModStatusOutput,
                              inputs.ModStatusRelays,
@@ -460,7 +453,7 @@ class PchkConnectionManager(PchkConnection):
                              inputs.ModStatusLedsAndLogicOps,
                              inputs.ModStatusKeyLocks)):
                 # Skip if we don't have all necessary bus info yet
-                module_conn.new_input(inp)
+                module_conn.process_input(inp)
             elif isinstance(inp, inputs.ModStatusVar):
                 # Skip if we don't have all necessary bus info yet
                 module_conn = self.get_address_conn(inp.logical_source_addr)
@@ -477,7 +470,9 @@ class PchkConnectionManager(PchkConnection):
                         module_conn.\
                             set_last_requested_var_without_type_in_response(
                                 lcn_defs.Var.UNKNOWN)  # Reset
-                module_conn.new_input(inp)
+                module_conn.process_input(inp)
+            else:
+                module_conn.process_input(inp)
 
     async def cancel_timeout_retries(self):
         """Cancel all TimeoutRetryHandlers."""

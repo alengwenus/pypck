@@ -12,71 +12,98 @@ Contributors:
 
 from collections import deque
 
-from pypck import lcn_defs
+from pypck import inputs, lcn_defs
 from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
 from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC, TimeoutRetryHandler
 
 
-class ModulePropertiesRequestHandler():
-    """Manages all property requestst for serial number, name, comments, ..."""
-    def __init__(self, loop, addr_conn, sw_age=None):
-        """Construct ModulePropertiesRequestHandler"""
-        self.loop = loop
-        self.hw_serial = -1
-        self.manu = -1
-        if sw_age is None:
-            sw_age = -1
-        self.sw_age = sw_age
-        self.hw_type = -1
-
+class SerialRequestHandler():
+    def __init__(self, addr_conn, num_tries=3, timeout_msec=1000,
+                 software_serial=None):
         self.addr_conn = addr_conn
-        self.settings = addr_conn.conn.settings
+        self.loop = addr_conn.loop
+
+        self.hardware_serial = -1
+        self.manu = -1
+        if software_serial is None:
+            software_serial = -1
+        self.software_serial = software_serial
+        self.hardware_type = -1
+
+        # Serial Number request
+        self.trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
+        self.trh.set_timeout_callback(self.timeout)
+
+        # callback
+        addr_conn.register_for_inputs(self.process_input)
 
         # futures
         self.serial_known = self.loop.create_future()
 
-        # Serial Number request
-        self.request_serial_number = TimeoutRetryHandler(
-            self.loop, self.settings['NUM_TRIES'],
-            timeout_msec=1000)
-        self.request_serial_number.set_timeout_callback(
-            self.request_serial_timeout)
+    def process_input(self, inp):
+        if isinstance(inp, inputs.ModSn):
+            # Skip if we don't have all necessary bus info yet
+            self.hardware_serial = inp.serial
+            self.manu = inp.manu
+            self.software_serial = inp.sw_age
+            self.hardware_type = inp.hw_type
 
-        # Module name request
+            if not self.serial_known.done():
+                self.serial_known.set_result(self.serial)
 
-    def set_serial(self, hw_serial, manu, sw_age, hw_type):
-        """
-        Set the serial number, software firmware version and the hardware type.
+            self.cancel()
 
-        :param    int   sn:         Module serial number
-        :param    int   manu:       Module manufacturing number
-        :param    int   sw_age:     Software firmware version
-        :param    int   hw_type:    Hardware type
-        """
-        self.hw_serial = hw_serial
-        self.manu = manu
-        self.sw_age = sw_age
-        self.hw_type = hw_type
-
-        if not self.serial_known.done():
-            self.serial_known.set_result(self.sw_age)
-
-    def request_serial_timeout(self, failed=False):
-        """Is called on sw_age request timeout."""
+    def timeout(self, failed=False):
+        """Is called on serial request timeout."""
         if not failed:
             self.addr_conn.send_command(False, PckGenerator.request_serial())
         else:
-            self.serial_known.set_result(self.sw_age)
+            self.serial_known.set_result(self.serial)
+
+    async def request(self):
+        await self.addr_conn.conn.segment_scan_completed
+        self.serial_known = self.addr_conn.loop.create_future()
+        self.trh.activate()
+        return await self.serial_known
+
+    def cancel(self):
+        self.loop.create_task(self.trh.cancel())
+
+    @property
+    def serial(self):
+        return {'hardware_serial': self.hardware_serial,
+                'manu': self.manu,
+                'software_serial': self.software_serial,
+                'hardware_type': self.hardware_type}
+
+
+class ModulePropertiesRequestHandler():
+    """Manages all property requestst for serial number, name, comments, ..."""
+    def __init__(self, loop, addr_conn, software_serial=None):
+        """Construct ModulePropertiesRequestHandler"""
+        self.loop = loop
+
+        self.addr_conn = addr_conn
+        self.settings = addr_conn.conn.settings
+
+        # addr_conn.register_for_inputs(self.process_input)
+
+        # Serial Number request
+        self.serials = SerialRequestHandler(
+            addr_conn, self.settings['NUM_TRIES'], timeout_msec=1000,
+            software_serial=software_serial)
 
     async def activate_all(self):
         "Activate all properties requests."
-        if self.sw_age == -1:   # sw_age is not given externally
-            self.request_serial_number.activate()
+        # software_serial is not given externally
+        await self.addr_conn.conn.segment_scan_completed
+        if self.serials.software_serial == -1:
+            self.loop.create_task(self.serials.request())
 
     async def cancel_all(self):
         "Cancel all properties requests."
-        self.request_serial_number.cancel()
+        self.serials.cancel()
 
 
 class StatusRequestsHandler():
@@ -200,6 +227,7 @@ class StatusRequestsHandler():
 
     async def activate(self, item):
         """Activate status requests for given item."""
+        await self.addr_conn.conn.segment_scan_completed
         # handle variables independently
         if (item in lcn_defs.Var) and (item != lcn_defs.Var.UNKNOWN):
             # wait until we know the software version
@@ -247,7 +275,7 @@ class StatusRequestsHandler():
 
     async def activate_all(self, activate_s0=False):
         """Activate all status requests."""
-        # await self.sw_age_known
+        await self.addr_conn.conn.segment_scan_completed
         for item in list(lcn_defs.OutputPort) + list(lcn_defs.RelayPort) + \
                 list(lcn_defs.BinSensorPort) + list(lcn_defs.LedPort) + \
                 list(lcn_defs.Key) + list(lcn_defs.Var):
@@ -256,7 +284,6 @@ class StatusRequestsHandler():
             if (not activate_s0) and (item in lcn_defs.Var.s0s):
                 continue
             await self.activate(item)
-            # self.loop.create_task(self.activate(item))
 
     async def cancel_all(self):
         """Cancel all status requests."""
@@ -288,15 +315,15 @@ class AbstractConnection(LcnAddr):
 
         self.input_callbacks = []
 
-    def set_serial(self, serial, manu, sw_age, hw_type):
-        """Set the software firmware date.
+    # def set_serial(self, serial, manu, sw_age, hw_type):
+    #     """Set the software firmware date.
 
-        :param     int    swAge:    The firmware date
-        """
-        self._serial = serial
-        self._manu = manu
-        self._sw_age = sw_age
-        self._hw_type = hw_type
+    #     :param     int    swAge:    The firmware date
+    #     """
+    #     self._serial = serial
+    #     self._manu = manu
+    #     self._sw_age = sw_age
+    #     self._hw_type = hw_type
 
     def get_sw_age(self):
         """Return standard sw_age."""
@@ -315,7 +342,7 @@ class AbstractConnection(LcnAddr):
     # ## Methods for handling input objects
     # ##
 
-    def new_input(self, input_obj):
+    def process_input(self, input_obj):
         """Is called by input object's process method.
 
         Method to handle incoming commands for this specific module (status,
@@ -678,7 +705,7 @@ class ModuleConnection(AbstractConnection):
             self.request_curr_pck_command_with_ack_timeout)
 
         self.properties_requests = ModulePropertiesRequestHandler(
-            loop, self, sw_age=sw_age)
+            loop, self, software_serial=sw_age)
         self.status_requests = StatusRequestsHandler(
             loop, self)
 
@@ -699,17 +726,14 @@ class ModuleConnection(AbstractConnection):
 
     async def activate_properties_request_handlers(self):
         """Activate all TimeoutRetryHandlers for property requests."""
-        await self.conn.segment_scan_completed
         await self.properties_requests.activate_all()
 
     async def activate_status_request_handler(self, item):
         """Activate a specific TimeoutRetryHandler for status requests."""
-        await self.conn.segment_scan_completed
         await self.status_requests.activate(item)
 
     async def activate_status_request_handlers(self):
         """Activate all TimeoutRetryHandlers for status requests."""
-        await self.conn.segment_scan_completed
         await self.status_requests.activate_all(
             activate_s0=self.has_s0_enabled)
 
@@ -741,7 +765,7 @@ class ModuleConnection(AbstractConnection):
 
     def get_sw_age(self):
         """Get the LCN module's firmware date."""
-        return self.properties_requests.sw_age
+        return self.properties_requests.serials.software_serial
 
     def get_last_requested_var_without_type_in_response(self):
         """Return the last requested variable without type in response."""
@@ -800,29 +824,23 @@ class ModuleConnection(AbstractConnection):
     # ## End of acknowledge retry logic
     # ##
 
-    # ## method routing
-
-    # pylint: disable=arguments-differ
-    def set_serial(self, *args):
-        return self.properties_requests.set_serial(*args)
-
     # ## properties
 
     @property
     def hardware_serial(self):
-        return self.properties_requests.hw_serial
+        return self.properties_requests.serials.hardware_serial
 
     @property
     def manu(self):
-        return self.properties_requests.manu
+        return self.properties_requests.serials.manu
 
     @property
     def software_serial(self):
-        return self.properties_requests.sw_age
+        return self.properties_requests.serials.software_serial
 
     @property
     def hw_type(self):
-        return self.properties_requests.hw_type
+        return self.properties_requests.serials.hardware_type
 
     @property
     def serial(self):
@@ -834,4 +852,4 @@ class ModuleConnection(AbstractConnection):
 
     @property
     def serial_known(self):
-        return self.properties_requests.serial_known
+        return self.properties_requests.serials.serial_known
