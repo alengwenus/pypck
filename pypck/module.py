@@ -10,6 +10,7 @@ Contributors:
   Tobias Juettner - initial LCN binding for openHAB (Java)
 """
 
+import asyncio
 from collections import deque
 
 from pypck import inputs, lcn_defs
@@ -19,7 +20,7 @@ from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC, TimeoutRetryHandler
 
 
 class SerialRequestHandler():
-    def __init__(self, addr_conn, num_tries=3, timeout_msec=1000,
+    def __init__(self, addr_conn, num_tries=3, timeout_msec=1500,
                  software_serial=None):
         self.addr_conn = addr_conn
         self.loop = addr_conn.loop
@@ -78,6 +79,174 @@ class SerialRequestHandler():
                 'hardware_type': self.hardware_type}
 
 
+class NameCommentRequestHandler():
+    def __init__(self, addr_conn, num_tries=3, timeout_msec=1500):
+        self.addr_conn = addr_conn
+        self.loop = addr_conn.loop
+
+        self._name = [None] * 2
+        self._comment = [None] * 3
+        self._oem_text = [None] * 4
+
+        # Name requests
+        self.name_trhs = []
+        for block_id in range(2):
+            trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
+            trh.set_timeout_callback(
+                lambda failed, block_id=block_id:
+                self.timeout_name(failed, block_id))
+            self.name_trhs.append(trh)
+
+        self.comment_trhs = []
+        for block_id in range(3):
+            trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
+            trh.set_timeout_callback(
+                lambda failed, block_id=block_id:
+                self.timeout_comment(failed, block_id))
+            self.comment_trhs.append(trh)
+
+        self.oem_text_trhs = []
+        for block_id in range(4):
+            trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
+            trh.set_timeout_callback(
+                lambda failed, block_id=block_id:
+                self.timeout_oem_text(failed, block_id))
+            self.oem_text_trhs.append(trh)
+
+        # callback
+        addr_conn.register_for_inputs(self.process_input)
+
+        # futures
+        self.name_known = self.loop.create_future()
+        self.comment_known = self.loop.create_future()
+        self.oem_text_known = self.loop.create_future()
+
+    def process_input(self, inp):
+        if isinstance(inp, inputs.ModNameComment):
+            # Skip if we don't have all necessary bus info yet
+            command = inp.command
+            block_id = inp.block_id
+            text = inp.text
+
+            if command == 'N':
+                self._name[block_id] = text
+                self.cancel_name(block_id)
+                if not self.name_known.done() and \
+                        (None not in self._name):
+                    self.name_known.set_result(self.name)
+                    self.cancel_name()
+
+            elif command == 'K':
+                self._comment[block_id] = text
+                self.cancel_comment(block_id)
+                if not self.comment_known.done() and \
+                        (None not in self._comment):
+                    self.comment_known.set_result(self.comment)
+                    self.cancel_comment()
+
+            elif command == 'O':
+                self._oem_text[block_id] = text
+                self.cancel_oem_text(block_id)
+                if not self.oem_text_known.done() and \
+                        (None not in self._oem_text):
+                    self.oem_text_known.set_result(self.oem_text)
+                    self.cancel_oem_text()
+
+    def timeout_name(self, failed=False, block_id=0):
+        """Is called on serial request timeout."""
+        if not failed:
+            self.addr_conn.send_command(
+                False, PckGenerator.request_name(block_id))
+        elif not self.name_known.done():
+            self.name_known.set_result(self.name)
+
+    def timeout_comment(self, failed=False, block_id=0):
+        """Is called on serial request timeout."""
+        if not failed:
+            self.addr_conn.send_command(
+                False, PckGenerator.request_comment(block_id))
+        elif not self.comment_known.done():
+            self.comment_known.set_result(self.comment)
+
+    def timeout_oem_text(self, failed=False, block_id=0):
+        """Is called on serial request timeout."""
+        if not failed:
+            self.addr_conn.send_command(
+                False, PckGenerator.request_oem_text(block_id))
+        elif not self.oem_text_known.done():
+            self.oem_text_known.set_result(self.oem_text)
+
+    async def request_name(self):
+        self._name = [None] * 2
+        await self.addr_conn.conn.segment_scan_completed
+        self.name_known = self.loop.create_future()
+        for trh in self.name_trhs:
+            trh.activate()
+        return await self.name_known
+
+    async def request_comment(self):
+        self._comment = [None] * 3
+        await self.addr_conn.conn.segment_scan_completed
+        self.comment_known = self.loop.create_future()
+        for trh in self.comment_trhs:
+            trh.activate()
+        return await self.comment_known
+
+    async def request_oem_text(self):
+        self._oem_text = [None] * 4
+        await self.addr_conn.conn.segment_scan_completed
+        self.oem_text_known = self.loop.create_future()
+        for trh in self.oem_text_trhs:
+            trh.activate()
+        return await self.oem_text_known
+
+    async def request(self):
+        return await asyncio.gather(self.request_name(),
+                                    self.request_comment(),
+                                    self.request_oem_text())
+
+    def cancel_name(self, block_id=None):
+        if block_id is None:  # cancel all
+            for trh in self.name_trhs:
+                self.loop.create_task(trh.cancel())
+        else:
+            self.loop.create_task(self.name_trhs[block_id].cancel())
+
+    def cancel_comment(self, block_id=None):
+        if block_id is None:  # cancel all
+            for trh in self.comment_trhs:
+                self.loop.create_task(trh.cancel())
+        else:
+            self.loop.create_task(self.comment_trhs[block_id].cancel())
+
+    def cancel_oem_text(self, block_id=None):
+        if block_id is None:  # cancel all
+            for trh in self.oem_text_trhs:
+                self.loop.create_task(trh.cancel())
+        else:
+            self.loop.create_task(self.oem_text_trhs[block_id].cancel())
+
+    def cancel(self):
+        self.cancel_name()
+        self.cancel_comment()
+        self.cancel_oem_text()
+
+    @property
+    def name(self):
+        return ''.join([block for block in self._name if block])
+
+    @property
+    def comment(self):
+        return ''.join([block for block in self._comment if block])
+
+    @property
+    def oem_text(self):
+        return [block if block else '' for block in self._oem_text]
+        # return {'block{}'.format(idx):text
+        #         for idx, text in enumerate(self._oem_text)}
+#        return ''.join([block for block in self._oem_text if block])
+
+
 class ModulePropertiesRequestHandler():
     """Manages all property requestst for serial number, name, comments, ..."""
     def __init__(self, loop, addr_conn, software_serial=None):
@@ -91,8 +260,12 @@ class ModulePropertiesRequestHandler():
 
         # Serial Number request
         self.serials = SerialRequestHandler(
-            addr_conn, self.settings['NUM_TRIES'], timeout_msec=1000,
+            addr_conn, self.settings['NUM_TRIES'], timeout_msec=1500,
             software_serial=software_serial)
+
+        # NameComment request
+        self.name_comment = NameCommentRequestHandler(
+            addr_conn, self.settings['NUM_TRIES'], timeout_msec=1500)
 
     async def activate_all(self):
         "Activate all properties requests."
@@ -104,6 +277,7 @@ class ModulePropertiesRequestHandler():
     async def cancel_all(self):
         "Cancel all properties requests."
         self.serials.cancel()
+        self.name_comment.cancel()
 
 
 class StatusRequestsHandler():
@@ -180,13 +354,14 @@ class StatusRequestsHandler():
     def request_status_outputs_timeout(self, failed=False, output_port=0):
         """Is called on output status request timeout."""
         if not failed:
-            self.addr_conn.send_command(False, PckGenerator.request_output_status(
-                output_port))
+            self.addr_conn.send_command(
+                False, PckGenerator.request_output_status(output_port))
 
     def request_status_relays_timeout(self, failed=False):
         """Is called on relay status request timeout."""
         if not failed:
-            self.addr_conn.send_command(False, PckGenerator.request_relays_status())
+            self.addr_conn.send_command(
+                False, PckGenerator.request_relays_status())
 
     def request_status_bin_sensors_timeout(self, failed=False):
         """Is called on binary sensor status request timeout."""
@@ -737,6 +912,10 @@ class ModuleConnection(AbstractConnection):
         await self.status_requests.activate_all(
             activate_s0=self.has_s0_enabled)
 
+    async def cancel_properties_request_handlers(self):
+        """Canecl all TimeoutRetryHandlers for status requests."""
+        await self.properties_requests.cancel_all()
+
     async def cancel_status_request_handler(self, item):
         """Cancel a specific TimeoutRetryHandler for status requests."""
         await self.status_requests.cancel(item)
@@ -748,6 +927,7 @@ class ModuleConnection(AbstractConnection):
     async def cancel_timeout_retries(self):
         """Cancel all TimeoutRetryHandlers for firmware/status requests."""
         await self.status_requests.cancel_all()
+        await self.properties_requests.cancel_all()
         await self.request_curr_pck_command_with_ack.cancel()
         self.pck_commands_with_ack.clear()
 
@@ -821,7 +1001,7 @@ class ModuleConnection(AbstractConnection):
                 self, self.conn.local_seg_id, True) + pck)
 
     # ##
-    # ## End of acknowledge retry logic
+    # ## Requests
     # ##
 
     # ## properties
@@ -847,9 +1027,29 @@ class ModuleConnection(AbstractConnection):
         return (self.hardware_serial, self.manu, self.software_serial,
                 self.hw_type)
 
+    @property
+    def name(self):
+        return self.properties_requests.name_comment.name
+
+    @property
+    def comment(self):
+        return self.properties_requests.name_comment.comment
+
+    @property
+    def oem_text(self):
+        return self.properties_requests.name_comment.oem_text
 
     # ## future properties
 
     @property
     def serial_known(self):
         return self.properties_requests.serials.serial_known
+
+    async def request_name(self):
+        return await self.properties_requests.name_comment.request_name()
+
+    async def request_comment(self):
+        return await self.properties_requests.name_comment.request_comment()
+
+    async def request_oem_text(self):
+        return await self.properties_requests.name_comment.request_oem_text()

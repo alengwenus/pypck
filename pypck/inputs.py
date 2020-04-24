@@ -330,6 +330,38 @@ class ModSn(ModInput):
             return [ModSn(addr, serial, manu, sw_age, hw_type)]
 
 
+class ModNameComment(ModInput):
+    """Name or comment received from an LCN module."""
+
+    def __init__(self, physical_source_addr, command, block_id, text):
+        """Construct ModInput object."""
+        super().__init__(physical_source_addr)
+        self.command = command
+        self.block_id = block_id
+        self.text = text
+
+    @staticmethod
+    def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_NAME_COMMENT.match(data)
+        if matcher:
+            addr = LcnAddr(int(matcher.group('seg_id')),
+                           int(matcher.group('mod_id')))
+            command = matcher.group('command')
+            block_id = int(matcher.group('block_id')) - 1
+            text = matcher.group('text')
+            return [ModNameComment(addr, command, block_id, text)]
+
+
 class ModStatusOutput(ModInput):
     """Status of an output-port received from an LCN module."""
 
@@ -705,6 +737,7 @@ class InputParser():
                LicenseError,
                CommandError,
                ModAck,
+               ModNameComment,
                ModSk,
                ModSn,
                ModStatusOutput,

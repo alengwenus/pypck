@@ -61,6 +61,11 @@ class PckParser():
         r'=M(?P<seg_id>\d{3})(?P<mod_id>\d{3}).SN(?P<sn>[0-9|A-F]{10})'
         r'(?P<manu>[0-9|A-F]{2})FW(?P<sw_age>[0-9|A-F]{6})HW(?P<hw_type>\d+)')
 
+    # Pattern to parse module name and comment
+    PATTERN_NAME_COMMENT = re.compile(
+        r'=M(?P<seg_id>\d{3})(?P<mod_id>\d{3}).(?P<command>[NKO])'
+        r'(?P<block_id>\d)(?P<text>.{0,12})')
+
     # Pattern to parse output-port status responses in percent.
     PATTERN_STATUS_OUTPUT_PERCENT = re.compile(
         r':M(?P<seg_id>\d{3})(?P<mod_id>\d{3})A(?P<output_id>\d)'
@@ -221,6 +226,39 @@ class PckGenerator():
         :rtype:    str
         """
         return 'SN'
+
+    @staticmethod
+    def request_name(block_id):
+        """ Generate a name request.
+
+        :return The PCK command (without address header) as text
+        :rtype:    str
+        """
+        if block_id not in [0, 1]:
+            raise ValueError('Invalid block_id.')
+        return 'NMN{:d}'.format(block_id + 1)
+
+    @staticmethod
+    def request_comment(block_id):
+        """ Generate a comment request.
+
+        :return The PCK command (without address header) as text
+        :rtype:    str
+        """
+        if block_id not in [0, 1, 2]:
+            raise ValueError('Invalid block_id.')
+        return 'NMK{:d}'.format(block_id + 1)
+
+    @staticmethod
+    def request_oem_text(block_id):
+        """ Generate an oem text request.
+
+        :return The PCK command (without address header) as text
+        :rtype:    str
+        """
+        if block_id not in [0, 1, 2, 3]:
+            raise ValueError('Invalid block_id.')
+        return 'NMO{:d}'.format(block_id + 1)
 
     @staticmethod
     def request_output_status(output_id):
