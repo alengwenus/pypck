@@ -13,12 +13,11 @@ Contributors:
 import asyncio
 import logging
 
-from pypck import lcn_defs
-from pypck.inputs import InputParser
+from pypck import inputs, lcn_defs
 from pypck.lcn_addr import LcnAddr
 from pypck.module import GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
-from pypck.timeout_retry import TimeoutRetryHandler
+from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC, TimeoutRetryHandler
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -218,7 +217,8 @@ class PchkConnectionManager(PchkConnection):
     def on_successful_login(self):
         """Is called after connection to LCN bus system is established."""
         _LOGGER.debug('{} login successful.'.format(self.connection_id))
-        self.set_lcn_connected(True)
+        self.send_command(PckGenerator.set_operation_mode(
+            self.dim_mode, self.status_mode))
         self.ping.activate()
 
     def on_license_error(self):
@@ -393,13 +393,91 @@ class PchkConnectionManager(PchkConnection):
         This class should be reimplemented in any subclass which evaluates
         recieved messages.
 
-
         :param    str    input:    Input text message
         """
         _LOGGER.debug('from {}: {}'.format(self.connection_id, message))
-        commands = InputParser.parse(message)
-        for command in commands:
-            command.process(self)
+        inps = inputs.InputParser.parse(message)
+
+        for inp in inps:
+            self.process_input(inp)
+
+    def process_input(self, inp):
+        """Process an input command."""
+        # Inputs from Host
+        if isinstance(inp, inputs.AuthUsername):
+            self.send_command(self.username)
+        elif isinstance(inp, inputs.AuthPassword):
+            self.send_command(self.password)
+        elif isinstance(inp, inputs.AuthOk):
+            self.on_auth_ok()
+        elif isinstance(inp, inputs.LcnConnState):
+            if inp.is_lcn_connected:
+                _LOGGER.debug(
+                    '{}: LCN is connected.'.format(self.connection_id))
+                self.set_lcn_connected(True)
+                self.on_successful_login()
+            else:
+                _LOGGER.debug(
+                    '{}: LCN is not connected.'.format(self.connection_id))
+        elif isinstance(inp, inputs.LicenseError):
+            self.on_license_error()
+        elif isinstance(inp, inputs.CommandError):
+            _LOGGER.debug('LCN command error: %s', inp.message)
+            for address_conn in self.address_conns.values():
+                if not address_conn.is_group():
+                    if address_conn.pck_commands_with_ack:
+                        address_conn.pck_commands_with_ack.popleft()
+                    self.loop.create_task(
+                        address_conn.request_curr_pck_command_with_ack.
+                        cancel())
+        elif isinstance(inp, inputs.Unknown):
+            return
+
+        # Inputs from bus
+        if self.is_ready():
+            inp.logical_source_addr = self.physical_to_logical(
+                inp.physical_source_addr)
+            module_conn = self.get_address_conn(inp.logical_source_addr)
+            if isinstance(inp, inputs.ModAck):
+                # Skip if we don't have all necessary bus info yet
+                self.loop.create_task(module_conn.on_ack(
+                    inp.code, DEFAULT_TIMEOUT_MSEC))
+            elif isinstance(inp, inputs.ModSk):
+                if inp.physical_source_addr.seg_id == 0:
+                    self.set_local_seg_id(inp.reported_seg_id)
+                self.loop.create_task(self.status_segment_scan.cancel())
+            elif isinstance(inp, inputs.ModSn):
+                # Skip if we don't have all necessary bus info yet
+                module_conn.set_serial(inp.serial, inp.manu,
+                                       inp.sw_age, inp.hw_type)
+                self.loop.create_task(
+                    module_conn.properties_requests.request_serial_number.
+                    cancel())
+            elif isinstance(inp,
+                            (inputs.ModStatusOutput,
+                             inputs.ModStatusRelays,
+                             inputs.ModStatusBinSensors,
+                             inputs.ModStatusLedsAndLogicOps,
+                             inputs.ModStatusKeyLocks)):
+                # Skip if we don't have all necessary bus info yet
+                module_conn.new_input(inp)
+            elif isinstance(inp, inputs.ModStatusVar):
+                # Skip if we don't have all necessary bus info yet
+                module_conn = self.get_address_conn(inp.logical_source_addr)
+                if inp.orig_var == lcn_defs.Var.UNKNOWN:
+                    inp.var = module_conn.\
+                        get_last_requested_var_without_type_in_response()
+                else:
+                    inp.var = inp.orig_var
+
+                if inp.var != lcn_defs.Var.UNKNOWN:
+                    if module_conn.\
+                        get_last_requested_var_without_type_in_response() == \
+                            inp.var:
+                        module_conn.\
+                            set_last_requested_var_without_type_in_response(
+                                lcn_defs.Var.UNKNOWN)  # Reset
+                module_conn.new_input(inp)
 
     async def cancel_timeout_retries(self):
         """Cancel all TimeoutRetryHandlers."""

@@ -14,8 +14,7 @@ import logging
 
 from pypck import lcn_defs
 from pypck.lcn_addr import LcnAddr
-from pypck.pck_commands import PckGenerator, PckParser
-from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC
+from pypck.pck_commands import PckParser
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,16 +50,6 @@ class Input():
         """
         raise NotImplementedError
 
-    def process(self, conn):
-        """Process the :class:`~pypck.input.Input` instance.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        raise NotImplementedError
-
 
 class ModInput(Input):
     """Parent class of all inputs having an LCN module as its source.
@@ -82,17 +71,6 @@ class ModInput(Input):
         """
         return self.logical_source_addr
 
-    def process(self, conn):
-        """Process instance of of :class:`~pypck.input.ModInput`.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        if conn.is_ready():  # Skip if we don't have all necessary bus info yet
-            self.logical_source_addr = conn.physical_to_logical(
-                self.physical_source_addr)
 
 # ## Plain text inputs
 
@@ -115,16 +93,6 @@ class AuthUsername(Input):
         if data == PckParser.AUTH_USERNAME:
             return [AuthUsername()]
 
-    def process(self, conn):
-        """Process the :class:`~pypck.input.Input` instance.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        conn.send_command(conn.username)
-
 
 class AuthPassword(Input):
     """Authentication password message received from PCHK."""
@@ -144,16 +112,6 @@ class AuthPassword(Input):
         if data == PckParser.AUTH_PASSWORD:
             return [AuthPassword()]
 
-    def process(self, conn):
-        """Process the :class:`~pypck.input.Input` instance.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        conn.send_command(conn.password)
-
 
 class AuthOk(Input):
     """Authentication ok message received from PCHK."""
@@ -172,16 +130,6 @@ class AuthOk(Input):
         """
         if data == PckParser.AUTH_OK:
             return [AuthOk()]
-
-    def process(self, conn):
-        """Process the :class:`~pypck.input.Input` instance.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        conn.on_auth_ok()
 
 
 class LcnConnState(Input):
@@ -221,23 +169,6 @@ class LcnConnState(Input):
             inputs = [LcnConnState(False)]
         return inputs
 
-    def process(self, conn):
-        """Process the :class:`~pypck.input.Input` instance.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        if self.is_lcn_connected:
-            _LOGGER.debug('{}: LCN is connected.'.format(conn.connection_id))
-            conn.on_successful_login()
-            conn.send_command(PckGenerator.set_operation_mode(
-                conn.dim_mode, conn.status_mode))
-        else:
-            _LOGGER.debug('{}: LCN is not connected.'.format(
-                conn.connection_id))
-
 
 class LicenseError(Input):
     """LCN bus connected message received from PCHK."""
@@ -260,16 +191,6 @@ class LicenseError(Input):
         """
         if data == PckParser.LICENSE_ERROR:
             return [LicenseError()]
-
-    def process(self, conn):
-        """Process the :class:`~pypck.input.Input` instance.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        conn.on_license_error()
 
 
 class CommandError(Input):
@@ -296,24 +217,8 @@ class CommandError(Input):
         if matcher:
             return [CommandError(matcher.group('message'))]
 
-    def process(self, conn):
-        """Process the :class:`~pypck.input.Input` instance.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        _LOGGER.debug('LCN command error: %s', self.message)
-        for address_conn in conn.address_conns.values():
-            if not address_conn.is_group():
-                if address_conn.pck_commands_with_ack:
-                    address_conn.pck_commands_with_ack.popleft()
-                conn.loop.create_task(
-                    address_conn.request_curr_pck_command_with_ack.cancel())
 
 # ## Inputs received from modules
-
 
 class ModAck(ModInput):
     """Acknowledge message received from module."""
@@ -355,21 +260,6 @@ class ModAck(ModInput):
                            int(matcher_neg.group('mod_id')))
             return [ModAck(addr, matcher_neg.group('code'))]
 
-    def process(self, conn):
-        """Process instance of of :class:`~pypck.input.ModInput`.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        # Will replace source segment 0 with the local segment id
-        super().process(conn)
-        if conn.is_ready():
-            module_conn = conn.get_address_conn(self.logical_source_addr)
-            conn.loop.create_task(module_conn.on_ack(self.code,
-                                                     DEFAULT_TIMEOUT_MSEC))
-
 
 class ModSk(ModInput):
     """Segment information received from an LCN segment coupler."""
@@ -405,20 +295,6 @@ class ModSk(ModInput):
                            int(matcher.group('mod_id')))
             return [ModSk(addr, int(matcher.group('id')))]
 
-    def process(self, conn):
-        """Process instance of of :class:`~pypck.input.ModInput`.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        if self.physical_source_addr.seg_id == 0:
-            conn.set_local_seg_id(self.reported_seg_id)
-        # Will replace source segment 0 with the local segment id
-        super().process(conn)
-        conn.loop.create_task(conn.status_segment_scan.cancel())
-
 
 class ModSn(ModInput):
     """Serial number and firmware version received from an LCN module."""
@@ -452,23 +328,6 @@ class ModSn(ModInput):
             sw_age = int(matcher.group('sw_age'), 16)
             hw_type = int(matcher.group('hw_type'), 16)
             return [ModSn(addr, serial, manu, sw_age, hw_type)]
-
-    def process(self, conn):
-        """Process instance of of :class:`~pypck.input.ModInput`.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        # Will replace source segment 0 with the local segment id
-        super().process(conn)
-        if conn.is_ready():
-            module_conn = conn.get_address_conn(self.logical_source_addr)
-            module_conn.set_serial(self.serial, self.manu,
-                                   self.sw_age, self.hw_type)
-            conn.loop.create_task(
-                module_conn.properties_requests.request_serial_number.cancel())
 
 
 class ModStatusOutput(ModInput):
@@ -522,20 +381,6 @@ class ModStatusOutput(ModInput):
             return [ModStatusOutput(addr, int(matcher.group('output_id')),
                                     float(matcher.group('value')) / 2.)]
 
-    def process(self, conn):
-        """Process instance of of :class:`~pypck.input.ModInput`.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        # Will replace source segment 0 with the local segment id
-        super().process(conn)
-        if conn.is_ready():
-            module_conn = conn.get_address_conn(self.logical_source_addr)
-            module_conn.new_input(self)
-
 
 class ModStatusRelays(ModInput):
     """Status of 8 relays received from an LCN module."""
@@ -575,20 +420,6 @@ class ModStatusRelays(ModInput):
             return [ModStatusRelays(addr, PckParser.get_boolean_value(
                 int(matcher.group('byte_value'))))]
 
-    def process(self, conn):
-        """Process instance of of :class:`~pypck.input.ModInput`.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        # Will replace source segment 0 with the local segment id
-        super().process(conn)
-        if conn.is_ready():
-            module_conn = conn.get_address_conn(self.logical_source_addr)
-            module_conn.new_input(self)
-
 
 class ModStatusBinSensors(ModInput):
     """Status of 8 binary sensors received from an LCN module."""
@@ -626,20 +457,6 @@ class ModStatusBinSensors(ModInput):
                            int(matcher.group('mod_id')))
             return [ModStatusBinSensors(addr, PckParser.get_boolean_value(
                 int(matcher.group('byte_value'))))]
-
-    def process(self, conn):
-        """Process instance of of :class:`~pypck.input.ModInput`.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        # Will replace source segment 0 with the local segment id
-        super().process(conn)
-        if conn.is_ready():
-            module_conn = conn.get_address_conn(self.logical_source_addr)
-            module_conn.new_input(self)
 
 
 class ModStatusVar(ModInput):
@@ -735,33 +552,6 @@ class ModStatusVar(ModInput):
                 ret.append(ModStatusVar(addr, var, value))
             return ret
 
-    def process(self, conn):
-        """Process instance of of :class:`~pypck.input.ModInput`.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        # Will replace source segment 0 with the local segment id
-        super().process(conn)
-        if conn.is_ready():
-            address_conn = conn.get_address_conn(self.logical_source_addr)
-            if self.orig_var == lcn_defs.Var.UNKNOWN:
-                self.var = address_conn.\
-                    get_last_requested_var_without_type_in_response()
-            else:
-                self.var = self.orig_var
-
-            if self.var != lcn_defs.Var.UNKNOWN:
-                if address_conn.\
-                    get_last_requested_var_without_type_in_response() == \
-                        self.var:
-                    address_conn.\
-                        set_last_requested_var_without_type_in_response(
-                            lcn_defs.Var.UNKNOWN)  # Reset
-            address_conn.new_input(self)
-
 
 class ModStatusLedsAndLogicOps(ModInput):
     """Status of LEDs and logic-operations received from an LCN module.
@@ -824,20 +614,6 @@ class ModStatusLedsAndLogicOps(ModInput):
             return [ModStatusLedsAndLogicOps(addr, states_leds,
                                              states_logic_ops)]
 
-    def process(self, conn):
-        """Process instance of of :class:`~pypck.input.ModInput`.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        # Will replace source segment 0 with the local segment id
-        super().process(conn)
-        if conn.is_ready():
-            address_conn = conn.get_address_conn(self.logical_source_addr)
-            address_conn.new_input(self)
-
 
 class ModStatusKeyLocks(ModInput):
     """Status of locked keys received from an LCN module.
@@ -884,22 +660,8 @@ class ModStatusKeyLocks(ModInput):
                     states.append(PckParser.get_boolean_value(int(state)))
             return [ModStatusKeyLocks(addr, states)]
 
-    def process(self, conn):
-        """Process instance of of :class:`~pypck.input.ModInput`.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
-        # Will replace source segment 0 with the local segment id
-        super().process(conn)
-        if conn.is_ready():
-            module_conn = conn.get_address_conn(self.logical_source_addr)
-            module_conn.new_input(self)
 
 # ## Other inputs
-
 
 class Unknown(Input):
     """Handle all unknown input data."""
@@ -931,15 +693,6 @@ class Unknown(Input):
         :rtype:     str
         """
         return self._data
-
-    def process(self, conn):
-        """Process instance of of :class:`~pypck.input.Input`.
-
-        Trigger further actions.
-
-        :param ~pypck.connection.PchkConnectionManager conn: Connection
-                                                             manager object
-        """
 
 
 class InputParser():
