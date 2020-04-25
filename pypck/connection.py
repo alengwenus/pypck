@@ -182,7 +182,7 @@ class PchkConnectionManager(PchkConnection):
         self.dim_mode = self.settings['DIM_MODE']
         self.status_mode = lcn_defs.OutputPortStatusMode.PERCENT
 
-        self._is_lcn_connected = False
+        self.is_lcn_connected = False
         self.local_seg_id = -1
 
         # Futures for connection status handling.
@@ -218,11 +218,17 @@ class PchkConnectionManager(PchkConnection):
         if exc is not None:  # Connection closed by other side
             self.loop.create_task(self.cancel_timeout_retries())
 
+    def send_command(self, pck, to_host=False):
+        if not self.is_lcn_connected and not to_host:
+            return
+
+        super().send_command(pck)
+
     def on_successful_login(self):
         """Is called after connection to LCN bus system is established."""
         _LOGGER.debug('{} login successful.'.format(self.connection_id))
         self.send_command(PckGenerator.set_operation_mode(
-            self.dim_mode, self.status_mode))
+            self.dim_mode, self.status_mode), to_host=True)
         self.ping.activate()
 
     def on_license_error(self):
@@ -241,27 +247,31 @@ class PchkConnectionManager(PchkConnection):
         :return:       Connection status to LCN bus.
         :rtype:        bool
         """
-        return self.lcn_connected.done()
+        #return self.lcn_connected.done()
+        return self.is_lcn_connected
 
     def set_lcn_connected(self, is_lcn_connected):
         """Set the current connection state to the LCN bus.
 
         :param    bool    is_lcn_connected: Current connection status
         """
-        # self._is_lcn_connected = is_lcn_connected
-        if is_lcn_connected:
+        self.is_lcn_connected = is_lcn_connected
+        if is_lcn_connected and not self.lcn_connected.done():
             self.license_status.set_result(True)
             self.lcn_connected.set_result(True)
             self.loop.create_task(
                 self.scan_segment_couplers(self.settings['SK_NUM_TRIES'],
                                            DEFAULT_TIMEOUT_MSEC))
-        else:
-            # Repeat segment scan on next connect
-            self.local_seg_id = -1
-            self.status_segment_scan.cancel()
-            # While we are disconnected we will miss all status messages.
-            # Clearing our runtime data will give us a fresh start.
-            self.address_conns.clear()
+            return
+
+        # else:
+        #     # TODO:
+        #     # Repeat segment scan on next connect
+        #     self.local_seg_id = -1
+        #     self.status_segment_scan.cancel()
+        #     # While we are disconnected we will miss all status messages.
+        #     # Clearing our runtime data will give us a fresh start.
+        #     self.address_conns.clear()
 
     async def async_connect(self, timeout=30):
         """Establish a connection to PCHK at the given socket.
@@ -401,7 +411,7 @@ class PchkConnectionManager(PchkConnection):
 
         Default is every 10 minutes.
         """
-        self.send_command('^ping{:d}'.format(self.ping_counter))
+        self.send_command('^ping{:d}'.format(self.ping_counter), to_host=True)
         self.ping_counter += 1
 
     def process_message(self, message):
@@ -419,12 +429,15 @@ class PchkConnectionManager(PchkConnection):
             self.process_input(inp)
 
     def process_input(self, inp):
+        self.loop.create_task(self.async_process_input(inp))
+
+    async def async_process_input(self, inp):
         """Process an input command."""
         # Inputs from Host
         if isinstance(inp, inputs.AuthUsername):
-            self.send_command(self.username)
+            self.send_command(self.username, to_host=True)
         elif isinstance(inp, inputs.AuthPassword):
-            self.send_command(self.password)
+            self.send_command(self.password, to_host=True)
         elif isinstance(inp, inputs.AuthOk):
             self.on_auth_ok()
         elif isinstance(inp, inputs.LcnConnState):
@@ -436,6 +449,7 @@ class PchkConnectionManager(PchkConnection):
             else:
                 _LOGGER.debug(
                     '{}: LCN is not connected.'.format(self.connection_id))
+                self.set_lcn_connected(False)
         elif isinstance(inp, inputs.LicenseError):
             self.on_license_error()
         elif isinstance(inp, inputs.CommandError):

@@ -496,16 +496,6 @@ class AbstractConnection(LcnAddr):
 
         self.input_callbacks = []
 
-    # def set_serial(self, serial, manu, sw_age, hw_type):
-    #     """Set the software firmware date.
-
-    #     :param     int    swAge:    The firmware date
-    #     """
-    #     self._serial = serial
-    #     self._manu = manu
-    #     self._sw_age = sw_age
-    #     self._hw_type = hw_type
-
     def get_sw_age(self):
         """Return standard sw_age."""
         return self._sw_age
