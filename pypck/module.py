@@ -43,6 +43,9 @@ class SerialRequestHandler():
         self.serial_known = self.loop.create_future()
 
     def process_input(self, inp):
+        self.loop.create_task(self.async_process_input(inp))
+
+    async def async_process_input(self, inp):
         if isinstance(inp, inputs.ModSn):
             # Skip if we don't have all necessary bus info yet
             self.hardware_serial = inp.serial
@@ -53,7 +56,7 @@ class SerialRequestHandler():
             if not self.serial_known.done():
                 self.serial_known.set_result(self.serial)
 
-            self.cancel()
+            await self.cancel()
 
     def timeout(self, failed=False):
         """Is called on serial request timeout."""
@@ -68,8 +71,8 @@ class SerialRequestHandler():
         self.trh.activate()
         return await self.serial_known
 
-    def cancel(self):
-        self.loop.create_task(self.trh.cancel())
+    async def cancel(self):
+        await self.trh.cancel()
 
     @property
     def serial(self):
@@ -122,6 +125,9 @@ class NameCommentRequestHandler():
         self.oem_text_known = self.loop.create_future()
 
     def process_input(self, inp):
+        self.loop.create_task(self.async_process_input(inp))
+
+    async def async_process_input(self, inp):
         if isinstance(inp, inputs.ModNameComment):
             # Skip if we don't have all necessary bus info yet
             command = inp.command
@@ -130,27 +136,27 @@ class NameCommentRequestHandler():
 
             if command == 'N':
                 self._name[block_id] = text
-                self.cancel_name(block_id)
+                await self.cancel_name(block_id)
                 if not self.name_known.done() and \
                         (None not in self._name):
                     self.name_known.set_result(self.name)
-                    self.cancel_name()
+                    await self.cancel_name()
 
             elif command == 'K':
                 self._comment[block_id] = text
-                self.cancel_comment(block_id)
+                await self.cancel_comment(block_id)
                 if not self.comment_known.done() and \
                         (None not in self._comment):
                     self.comment_known.set_result(self.comment)
-                    self.cancel_comment()
+                    await self.cancel_comment()
 
             elif command == 'O':
                 self._oem_text[block_id] = text
-                self.cancel_oem_text(block_id)
+                await self.cancel_oem_text(block_id)
                 if not self.oem_text_known.done() and \
                         (None not in self._oem_text):
                     self.oem_text_known.set_result(self.oem_text)
-                    self.cancel_oem_text()
+                    await self.cancel_oem_text()
 
     def timeout_name(self, failed=False, block_id=0):
         """Is called on serial request timeout."""
@@ -205,31 +211,31 @@ class NameCommentRequestHandler():
                                     self.request_comment(),
                                     self.request_oem_text())
 
-    def cancel_name(self, block_id=None):
+    async def cancel_name(self, block_id=None):
         if block_id is None:  # cancel all
             for trh in self.name_trhs:
-                self.loop.create_task(trh.cancel())
+                await trh.cancel()
         else:
-            self.loop.create_task(self.name_trhs[block_id].cancel())
+            await self.name_trhs[block_id].cancel()
 
-    def cancel_comment(self, block_id=None):
+    async def cancel_comment(self, block_id=None):
         if block_id is None:  # cancel all
             for trh in self.comment_trhs:
-                self.loop.create_task(trh.cancel())
+                await trh.cancel()
         else:
-            self.loop.create_task(self.comment_trhs[block_id].cancel())
+            await self.comment_trhs[block_id].cancel()
 
-    def cancel_oem_text(self, block_id=None):
+    async def cancel_oem_text(self, block_id=None):
         if block_id is None:  # cancel all
             for trh in self.oem_text_trhs:
-                self.loop.create_task(trh.cancel())
+                await trh.cancel()
         else:
-            self.loop.create_task(self.oem_text_trhs[block_id].cancel())
+            await self.oem_text_trhs[block_id].cancel()
 
-    def cancel(self):
-        self.cancel_name()
-        self.cancel_comment()
-        self.cancel_oem_text()
+    async def cancel(self):
+        await asyncio.gather(self.cancel_name(),
+                             self.cancel_comment(),
+                             self.cancel_oem_text())
 
     @property
     def name(self):
@@ -276,8 +282,8 @@ class ModulePropertiesRequestHandler():
 
     async def cancel_all(self):
         "Cancel all properties requests."
-        self.serials.cancel()
-        self.name_comment.cancel()
+        await self.serials.cancel()
+        await self.name_comment.cancel()
 
 
 class StatusRequestsHandler():

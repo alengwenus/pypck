@@ -198,10 +198,10 @@ class PchkConnectionManager(PchkConnection):
         self.address_conns = {}
         self.segment_coupler_ids = []
 
-        self.status_segment_scan = \
-            TimeoutRetryHandler(loop, self.settings['SK_NUM_TRIES'])
-        self.status_segment_scan.set_timeout_callback(
-            self.segment_scan_timeout)
+        # self.status_segment_scan = \
+        #     TimeoutRetryHandler(loop, self.settings['SK_NUM_TRIES'])
+        # self.status_segment_scan.set_timeout_callback(
+        #     self.segment_scan_timeout)
 
         self.ping = TimeoutRetryHandler(loop, -1,
                                         self.settings['PING_TIMEOUT'])
@@ -252,10 +252,9 @@ class PchkConnectionManager(PchkConnection):
         if is_lcn_connected:
             self.license_status.set_result(True)
             self.lcn_connected.set_result(True)
-            if self.settings['SK_NUM_TRIES'] == 0:
-                self.segment_scan_timeout(True)
-            else:
-                self.status_segment_scan.activate()
+            self.loop.create_task(
+                self.scan_segment_couplers(self.settings['SK_NUM_TRIES'],
+                                           DEFAULT_TIMEOUT_MSEC))
         else:
             # Repeat segment scan on next connect
             self.local_seg_id = -1
@@ -379,24 +378,23 @@ class PchkConnectionManager(PchkConnection):
                 self.loop.create_task(self.send_command_async(
                     '>G{:03d}003!LEER'.format(segment_id)))
 
-    def segment_scan_timeout(self, failed):
-        """Is called if no response from segment coupler was received.
-
-        :param    bool    failed:    True if caller failed to fulfill request
-                                     otherwise False
-        """
-        if failed:
-            if self.local_seg_id == -1:
-                _LOGGER.debug('{}: No segment coupler found.'.format(
-                    self.connection_id))
-                self.segment_coupler_ids.append(0)
-                self.set_local_seg_id(0)
-            if not self.segment_scan_completed.done():
-                self.segment_scan_completed.set_result(True)
-        else:
+    async def scan_segment_couplers(self, num_tries=3, timeout_msec=1500):
+        await self.lcn_connected
+        for idx in range(num_tries):
             self.send_command(PckGenerator.generate_address_header(
                 LcnAddr(3, 3, True), self.local_seg_id, False) +
-                              PckGenerator.segment_coupler_scan())
+                            PckGenerator.segment_coupler_scan())
+            await asyncio.sleep(timeout_msec/1000)
+
+        # No segment coupler expected (num_tries=0)
+        if len(self.segment_coupler_ids) == 0 and self.local_seg_id == -1:
+            _LOGGER.debug('{}: No segment coupler found.'.format(
+                self.connection_id))
+            self.segment_coupler_ids.append(0)
+            self.set_local_seg_id(0)
+
+        if not self.segment_scan_completed.done():
+            self.segment_scan_completed.set_result(True)
 
     def ping_timeout(self, failed):
         """Send a ping command to keep the connection to LCN-PCHK alive.
@@ -497,8 +495,7 @@ class PchkConnectionManager(PchkConnection):
 
     async def cancel_timeout_retries(self):
         """Cancel all TimeoutRetryHandlers."""
-        cancel_coros = [self.status_segment_scan.cancel(),
-                        self.ping.cancel()] + \
+        cancel_coros = [self.ping.cancel()] + \
             [address_conn.cancel_timeout_retries()
              for address_conn in self.address_conns.values()]
 

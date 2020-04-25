@@ -23,13 +23,14 @@ def test_async_connect(monkeypatch, loop, pchk_connection_manager):
     """
     monkeypatch.setattr(pchk_connection_manager, 'connect', Mock())
     pchk_connection_manager.socket_connected.set_result(True)
+    pchk_connection_manager.license_status.set_result(True)
     pchk_connection_manager.lcn_connected.set_result(True)
     pchk_connection_manager.segment_scan_completed.set_result(True)
     loop.run_until_complete(
         pchk_connection_manager.async_connect(timeout=0.5))
     assert pchk_connection_manager.connect.called
 
-# Authentication tests
+# # Authentication tests
 
 
 def test_received_auth_username(pchk_connection_manager):
@@ -53,7 +54,7 @@ def test_received_auth_ok(monkeypatch, pchk_connection_manager):
         encode_pck(PckParser.AUTH_OK))
     assert pchk_connection_manager.on_auth_ok.called
 
-# LCN Connection tests
+# # LCN Connection tests
 
 
 def test_received_lcn_connected(monkeypatch, pchk_connection_manager):
@@ -66,8 +67,6 @@ def test_received_lcn_connected(monkeypatch, pchk_connection_manager):
         encode_pck(PckParser.LCNCONNSTATE_CONNECTED))
     assert pchk_connection_manager.on_successful_login.called
 
-    pchk_connection_manager.send_command.assert_called_with('!OM0P')
-
 
 def test_called_on_successful_login(monkeypatch, pchk_connection_manager):
     """Test workflow after on_successful_login was called.
@@ -76,31 +75,34 @@ def test_called_on_successful_login(monkeypatch, pchk_connection_manager):
     started).
     """
     with monkeypatch.context() as mpc:
+        mpc.setattr(pchk_connection_manager, 'send_command', Mock())
         mpc.setattr(pchk_connection_manager, 'ping', Mock())
-        mpc.setattr(pchk_connection_manager, 'status_segment_scan', Mock())
-        pchk_connection_manager.on_successful_login()
+        pchk_connection_manager.data_received(
+            encode_pck(PckParser.LCNCONNSTATE_CONNECTED))
 
         # assert that lcn_connected future has result set
         assert pchk_connection_manager.lcn_connected.done()
 
+        # assert that operation mode was set correctly
+        pchk_connection_manager.send_command.assert_called_with('!OM0P')
+
         # assert that TimeoutRetryhandlers for ping and segment_scans are
         # activated
         assert pchk_connection_manager.ping.activate.called
-        assert pchk_connection_manager.status_segment_scan.activate.called
 
-# LCN segment scan tests
+# # LCN segment scan tests
 
 
-def test_called_segment_scan(monkeypatch, pchk_connection_manager):
-    """Test workflow after segment_scan completed (not) successful."""
-    monkeypatch.setattr(pchk_connection_manager, 'set_local_seg_id', Mock())
-    # assert that for each timeout a segment scan command is sent
-    pchk_connection_manager.segment_scan_timeout(False)
-    pchk_connection_manager.send_command.assert_called_with('>G003003.SK')
+# def test_called_segment_scan(monkeypatch, pchk_connection_manager):
+#     """Test workflow after segment_scan completed (not) successful."""
+#     monkeypatch.setattr(pchk_connection_manager, 'set_local_seg_id', Mock())
+#     # assert that for each timeout a segment scan command is sent
+#     pchk_connection_manager.segment_scan_timeout(False)
+#     pchk_connection_manager.send_command.assert_called_with('>G003003.SK')
 
-    # assert that if max retries is reached, local segment id is set to 0
-    pchk_connection_manager.segment_scan_timeout(True)
-    pchk_connection_manager.set_local_seg_id.assert_called_with(0)
+#     # assert that if max retries is reached, local segment id is set to 0
+#     pchk_connection_manager.segment_scan_timeout(True)
+#     pchk_connection_manager.set_local_seg_id.assert_called_with(0)
 
 
 def test_received_segment_info(monkeypatch, pchk_connection_manager):
@@ -124,4 +126,3 @@ def test_called_local_seg_id(pchk_connection_manager):
     pchk_connection_manager.set_local_seg_id(7)
 
     assert pchk_connection_manager.local_seg_id == 7
-    assert pchk_connection_manager.segment_scan_completed.done()
