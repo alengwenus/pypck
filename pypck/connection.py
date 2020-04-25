@@ -248,7 +248,10 @@ class PchkConnectionManager(PchkConnection):
         if is_lcn_connected:
             self.license_status.set_result(True)
             self.lcn_connected.set_result(True)
-            self.status_segment_scan.activate(self.segment_scan_timeout)
+            if self.settings['SK_NUM_TRIES'] == 0:
+                self.segment_scan_timeout(True)
+            else:
+                self.status_segment_scan.activate(self.segment_scan_timeout)
         else:
             # Repeat segment scan on next connect
             self.local_seg_id = -1
@@ -302,9 +305,6 @@ class PchkConnectionManager(PchkConnection):
                 address_conn.seg_id = self.local_seg_id
                 self.address_conns[LcnAddr(self.local_seg_id, addr.get_id(),
                                            addr.is_group())] = address_conn
-
-        if not self.segment_scan_completed.done():
-            self.segment_scan_completed.set_result(True)
 
     def physical_to_logical(self, addr):
         """Convert the physical segment id of an address to the logical one.
@@ -364,6 +364,10 @@ class PchkConnectionManager(PchkConnection):
 
         return address_conn
 
+    async def module_scan(self):
+        await self.segment_scan_completed
+
+
     def segment_scan_timeout(self, failed):
         """Is called if no response from segment coupler was received.
 
@@ -371,9 +375,12 @@ class PchkConnectionManager(PchkConnection):
                                      otherwise False
         """
         if failed:
-            _LOGGER.debug('{}: No segment coupler found.'.format(
-                self.connection_id))
-            self.set_local_seg_id(0)
+            if self.local_seg_id == -1:
+                _LOGGER.debug('{}: No segment coupler found.'.format(
+                    self.connection_id))
+                self.set_local_seg_id(0)
+            if not self.segment_scan_completed.done():
+                self.segment_scan_completed.set_result(True)
         else:
             self.send_command(PckGenerator.generate_address_header(
                 LcnAddr(3, 3, True), self.local_seg_id, False) +
@@ -430,11 +437,15 @@ class PchkConnectionManager(PchkConnection):
                     self.loop.create_task(
                         address_conn.request_curr_pck_command_with_ack.
                         cancel())
+        elif isinstance(inp, inputs.ModSk):
+            if inp.physical_source_addr.seg_id == 0:
+                self.set_local_seg_id(inp.reported_seg_id)
+            # self.loop.create_task(self.status_segment_scan.cancel())
         elif isinstance(inp, inputs.Unknown):
             return
 
         # Inputs from bus
-        if self.is_ready():
+        elif self.is_ready():
             inp.logical_source_addr = self.physical_to_logical(
                 inp.physical_source_addr)
             module_conn = self.get_address_conn(inp.logical_source_addr)
@@ -442,10 +453,6 @@ class PchkConnectionManager(PchkConnection):
                 # Skip if we don't have all necessary bus info yet
                 self.loop.create_task(module_conn.on_ack(
                     inp.code, DEFAULT_TIMEOUT_MSEC))
-            elif isinstance(inp, inputs.ModSk):
-                if inp.physical_source_addr.seg_id == 0:
-                    self.set_local_seg_id(inp.reported_seg_id)
-                self.loop.create_task(self.status_segment_scan.cancel())
             elif isinstance(inp,
                             (inputs.ModStatusOutput,
                              inputs.ModStatusRelays,
