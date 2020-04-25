@@ -66,7 +66,7 @@ class SerialRequestHandler():
             self.serial_known.set_result(self.serial)
 
     async def request(self):
-        await self.addr_conn.conn.segment_scan_completed
+        await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.serial_known = self.addr_conn.loop.create_future()
         self.trh.activate()
         return await self.serial_known
@@ -184,7 +184,7 @@ class NameCommentRequestHandler():
 
     async def request_name(self):
         self._name = [None] * 2
-        await self.addr_conn.conn.segment_scan_completed
+        await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.name_known = self.loop.create_future()
         for trh in self.name_trhs:
             trh.activate()
@@ -192,7 +192,7 @@ class NameCommentRequestHandler():
 
     async def request_comment(self):
         self._comment = [None] * 3
-        await self.addr_conn.conn.segment_scan_completed
+        await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.comment_known = self.loop.create_future()
         for trh in self.comment_trhs:
             trh.activate()
@@ -200,7 +200,7 @@ class NameCommentRequestHandler():
 
     async def request_oem_text(self):
         self._oem_text = [None] * 4
-        await self.addr_conn.conn.segment_scan_completed
+        await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.oem_text_known = self.loop.create_future()
         for trh in self.oem_text_trhs:
             trh.activate()
@@ -276,7 +276,7 @@ class ModulePropertiesRequestHandler():
     async def activate_all(self):
         "Activate all properties requests."
         # software_serial is not given externally
-        await self.addr_conn.conn.segment_scan_completed
+        await self.addr_conn.conn.segment_scan_completed_event.wait()
         if self.serials.software_serial == -1:
             self.loop.create_task(self.serials.request())
 
@@ -408,7 +408,7 @@ class StatusRequestsHandler():
 
     async def activate(self, item):
         """Activate status requests for given item."""
-        await self.addr_conn.conn.segment_scan_completed
+        await self.addr_conn.conn.segment_scan_completed_event.wait()
         # handle variables independently
         if (item in lcn_defs.Var) and (item != lcn_defs.Var.UNKNOWN):
             # wait until we know the software version
@@ -513,7 +513,7 @@ class AbstractConnection(LcnAddr):
     # ## Methods for handling input objects
     # ##
 
-    def process_input(self, input_obj):
+    async def async_process_input(self, input_obj):
         """Is called by input object's process method.
 
         Method to handle incoming commands for this specific module (status,
@@ -847,12 +847,12 @@ class GroupConnection(AbstractConnection):
 
     async def activate_status_request_handler(self, item):
         """Activate a specific TimeoutRetryHandler for status requests."""
-        await self.conn.segment_scan_completed
+        await self.conn.segment_scan_completed_event.wait()
 
     async def activate_status_request_handlers(self):
         """Activate all TimeoutRetryHandlers for status requests."""
         # self.request_serial.activate()
-        await self.conn.segment_scan_completed
+        await self.conn.segment_scan_completed_event.wait()
 
 
 class ModuleConnection(AbstractConnection):
@@ -920,8 +920,8 @@ class ModuleConnection(AbstractConnection):
         """Canecl all TimeoutRetryHandlers for status requests."""
         await self.status_requests.cancel_all()
 
-    async def cancel_timeout_retries(self):
-        """Cancel all TimeoutRetryHandlers for firmware/status requests."""
+    async def cancel_requests(self):
+        """Cancel all TimeoutRetryHandlers."""
         await self.status_requests.cancel_all()
         await self.properties_requests.cancel_all()
         await self.request_curr_pck_command_with_ack.cancel()
