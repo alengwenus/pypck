@@ -196,9 +196,13 @@ class PchkConnectionManager(PchkConnection):
         # All ModuleConnection and GroupConnection objects are stored in this
         # dictionary.
         self.address_conns = {}
+        self.segment_coupler_ids = []
 
         self.status_segment_scan = \
             TimeoutRetryHandler(loop, self.settings['SK_NUM_TRIES'])
+        self.status_segment_scan.set_timeout_callback(
+            self.segment_scan_timeout)
+
         self.ping = TimeoutRetryHandler(loop, -1,
                                         self.settings['PING_TIMEOUT'])
         self.ping.set_timeout_callback(self.ping_timeout)
@@ -251,7 +255,7 @@ class PchkConnectionManager(PchkConnection):
             if self.settings['SK_NUM_TRIES'] == 0:
                 self.segment_scan_timeout(True)
             else:
-                self.status_segment_scan.activate(self.segment_scan_timeout)
+                self.status_segment_scan.activate()
         else:
             # Repeat segment scan on next connect
             self.local_seg_id = -1
@@ -364,9 +368,16 @@ class PchkConnectionManager(PchkConnection):
 
         return address_conn
 
-    async def module_scan(self):
+    async def scan_modules(self, num_tries=3, timeout_msec=1500):
         await self.segment_scan_completed
-
+        for idx in range(num_tries):
+            if idx:
+                await asyncio.sleep(timeout_msec / 1000)
+            for segment_id in self.segment_coupler_ids:
+                if segment_id == self.local_seg_id:
+                    segment_id = 0
+                self.loop.create_task(self.send_command_async(
+                    '>G{:03d}003!LEER'.format(segment_id)))
 
     def segment_scan_timeout(self, failed):
         """Is called if no response from segment coupler was received.
@@ -378,6 +389,7 @@ class PchkConnectionManager(PchkConnection):
             if self.local_seg_id == -1:
                 _LOGGER.debug('{}: No segment coupler found.'.format(
                     self.connection_id))
+                self.segment_coupler_ids.append(0)
                 self.set_local_seg_id(0)
             if not self.segment_scan_completed.done():
                 self.segment_scan_completed.set_result(True)
@@ -440,7 +452,9 @@ class PchkConnectionManager(PchkConnection):
         elif isinstance(inp, inputs.ModSk):
             if inp.physical_source_addr.seg_id == 0:
                 self.set_local_seg_id(inp.reported_seg_id)
-            # self.loop.create_task(self.status_segment_scan.cancel())
+            # store reported segment coupler id
+            if inp.reported_seg_id not in self.segment_coupler_ids:
+                self.segment_coupler_ids.append(inp.reported_seg_id)
         elif isinstance(inp, inputs.Unknown):
             return
 
