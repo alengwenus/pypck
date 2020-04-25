@@ -227,9 +227,6 @@ class PchkConnectionManager(PchkConnection):
     def on_successful_login(self):
         """Is called after connection to LCN bus system is established."""
         _LOGGER.debug('{} login successful.'.format(self.connection_id))
-        self.send_command(PckGenerator.set_operation_mode(
-            self.dim_mode, self.status_mode), to_host=True)
-        self.ping.activate()
 
     def on_license_error(self):
         """Is called if a license error occurs during connection."""
@@ -240,6 +237,9 @@ class PchkConnectionManager(PchkConnection):
         """Is called after successful authentication."""
         _LOGGER.debug('{} authorization successful!'.format(
             self.connection_id))
+        self.send_command(PckGenerator.set_operation_mode(
+            self.dim_mode, self.status_mode), to_host=True)
+        self.ping.activate()
 
     def get_lcn_connected(self):
         """Get the connection status to the LCN bus.
