@@ -132,6 +132,25 @@ class AuthOk(Input):
             return [AuthOk()]
 
 
+class AuthFailed(Input):
+    """Authentication failed message received from PCHK."""
+
+    @staticmethod
+    def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        if data == PckParser.AUTH_FAILED:
+            return [AuthFailed()]
+
+
 class LcnConnState(Input):
     """LCN bus connected message received from PCHK."""
 
@@ -733,6 +752,7 @@ class InputParser():
     parsers = [AuthUsername,
                AuthPassword,
                AuthOk,
+               AuthFailed,
                LcnConnState,
                LicenseError,
                CommandError,

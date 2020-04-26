@@ -31,6 +31,9 @@ class PckParser():
     # Authentication at LCN-PCHK succeeded.
     AUTH_OK = 'OK'
 
+    # Authentication at LCN-PCHK failed.
+    AUTH_FAILED = 'Authentification failed.'
+
     # LCN-PK/PKU is connected.
     LCNCONNSTATE_CONNECTED = '$io:#LCN:connected'
 
