@@ -39,8 +39,8 @@ class SerialRequestHandler():
         # callback
         addr_conn.register_for_inputs(self.process_input)
 
-        # futures
-        self.serial_known = self.loop.create_future()
+        # events
+        self.serial_known = asyncio.Event()
 
     def process_input(self, inp):
         self.loop.create_task(self.async_process_input(inp))
@@ -53,8 +53,8 @@ class SerialRequestHandler():
             self.software_serial = inp.sw_age
             self.hardware_type = inp.hw_type
 
-            if not self.serial_known.done():
-                self.serial_known.set_result(self.serial)
+            if not self.serial_known.is_set():
+                self.serial_known.set()
 
             await self.cancel()
 
@@ -63,13 +63,14 @@ class SerialRequestHandler():
         if not failed:
             self.addr_conn.send_command(False, PckGenerator.request_serial())
         else:
-            self.serial_known.set_result(self.serial)
+            self.serial_known.set()
 
     async def request(self):
         await self.addr_conn.conn.segment_scan_completed_event.wait()
-        self.serial_known = self.addr_conn.loop.create_future()
+        self.serial_known.clear()
         self.trh.activate()
-        return await self.serial_known
+        await self.serial_known.wait()
+        return self.serial
 
     async def cancel(self):
         await self.trh.cancel()
@@ -119,10 +120,10 @@ class NameCommentRequestHandler():
         # callback
         addr_conn.register_for_inputs(self.process_input)
 
-        # futures
-        self.name_known = self.loop.create_future()
-        self.comment_known = self.loop.create_future()
-        self.oem_text_known = self.loop.create_future()
+        # events
+        self.name_known = asyncio.Event()
+        self.comment_known = asyncio.Event()
+        self.oem_text_known = asyncio.Event()
 
     def process_input(self, inp):
         self.loop.create_task(self.async_process_input(inp))
@@ -137,25 +138,25 @@ class NameCommentRequestHandler():
             if command == 'N':
                 self._name[block_id] = text
                 await self.cancel_name(block_id)
-                if not self.name_known.done() and \
+                if not self.name_known.is_set() and \
                         (None not in self._name):
-                    self.name_known.set_result(self.name)
+                    self.name_known.set()
                     await self.cancel_name()
 
             elif command == 'K':
                 self._comment[block_id] = text
                 await self.cancel_comment(block_id)
-                if not self.comment_known.done() and \
+                if not self.comment_known.is_set() and \
                         (None not in self._comment):
-                    self.comment_known.set_result(self.comment)
+                    self.comment_known.set()
                     await self.cancel_comment()
 
             elif command == 'O':
                 self._oem_text[block_id] = text
                 await self.cancel_oem_text(block_id)
-                if not self.oem_text_known.done() and \
+                if not self.oem_text_known.is_set() and \
                         (None not in self._oem_text):
-                    self.oem_text_known.set_result(self.oem_text)
+                    self.oem_text_known.set()
                     await self.cancel_oem_text()
 
     def timeout_name(self, failed=False, block_id=0):
@@ -164,7 +165,7 @@ class NameCommentRequestHandler():
             self.addr_conn.send_command(
                 False, PckGenerator.request_name(block_id))
         elif not self.name_known.done():
-            self.name_known.set_result(self.name)
+            self.name_known.set()
 
     def timeout_comment(self, failed=False, block_id=0):
         """Is called on serial request timeout."""
@@ -172,7 +173,7 @@ class NameCommentRequestHandler():
             self.addr_conn.send_command(
                 False, PckGenerator.request_comment(block_id))
         elif not self.comment_known.done():
-            self.comment_known.set_result(self.comment)
+            self.comment_known.set()
 
     def timeout_oem_text(self, failed=False, block_id=0):
         """Is called on serial request timeout."""
@@ -180,31 +181,34 @@ class NameCommentRequestHandler():
             self.addr_conn.send_command(
                 False, PckGenerator.request_oem_text(block_id))
         elif not self.oem_text_known.done():
-            self.oem_text_known.set_result(self.oem_text)
+            self.oem_text_known.set()
 
     async def request_name(self):
         self._name = [None] * 2
         await self.addr_conn.conn.segment_scan_completed_event.wait()
-        self.name_known = self.loop.create_future()
+        self.name_known.clear()
         for trh in self.name_trhs:
             trh.activate()
-        return await self.name_known
+        await self.name_known.wait()
+        return self.name
 
     async def request_comment(self):
         self._comment = [None] * 3
         await self.addr_conn.conn.segment_scan_completed_event.wait()
-        self.comment_known = self.loop.create_future()
+        self.comment_known.clear()
         for trh in self.comment_trhs:
             trh.activate()
-        return await self.comment_known
+        await self.comment_known.wait()
+        return self.comment
 
     async def request_oem_text(self):
         self._oem_text = [None] * 4
         await self.addr_conn.conn.segment_scan_completed_event.wait()
-        self.oem_text_known = self.loop.create_future()
+        self.oem_text_known.clear()
         for trh in self.oem_text_trhs:
             trh.activate()
-        return await self.oem_text_known
+        await self.oem_text_known.wait()
+        return self.oem_text
 
     async def request(self):
         return await asyncio.gather(self.request_name(),
@@ -1039,7 +1043,7 @@ class ModuleConnection(AbstractConnection):
 
     @property
     def serial_known(self):
-        return self.properties_requests.serials.serial_known
+        return self.properties_requests.serials.serial_known.wait()
 
     async def request_name(self):
         return await self.properties_requests.name_comment.request_name()

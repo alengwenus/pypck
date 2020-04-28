@@ -507,7 +507,8 @@ class PchkConnectionManager(PchkConnection):
         """Cancel all TimeoutRetryHandlers."""
         cancel_coros = \
             [address_conn.cancel_requests()
-             for address_conn in self.address_conns.values()]
+             for address_conn in self.address_conns.values()
+             if not address_conn.is_group()]
 
         if cancel_coros:
             await asyncio.wait(cancel_coros)
