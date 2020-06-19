@@ -19,9 +19,8 @@ from pypck.pck_commands import PckGenerator
 from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC, TimeoutRetryHandler
 
 
-class SerialRequestHandler():
-    def __init__(self, addr_conn, num_tries=3, timeout_msec=1500,
-                 software_serial=None):
+class SerialRequestHandler:
+    def __init__(self, addr_conn, num_tries=3, timeout_msec=1500, software_serial=None):
         self.addr_conn = addr_conn
         self.loop = addr_conn.loop
 
@@ -77,13 +76,15 @@ class SerialRequestHandler():
 
     @property
     def serial(self):
-        return {'hardware_serial': self.hardware_serial,
-                'manu': self.manu,
-                'software_serial': self.software_serial,
-                'hardware_type': self.hardware_type}
+        return {
+            "hardware_serial": self.hardware_serial,
+            "manu": self.manu,
+            "software_serial": self.software_serial,
+            "hardware_type": self.hardware_type,
+        }
 
 
-class NameCommentRequestHandler():
+class NameCommentRequestHandler:
     def __init__(self, addr_conn, num_tries=3, timeout_msec=1500):
         self.addr_conn = addr_conn
         self.loop = addr_conn.loop
@@ -97,24 +98,26 @@ class NameCommentRequestHandler():
         for block_id in range(2):
             trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
             trh.set_timeout_callback(
-                lambda failed, block_id=block_id:
-                self.timeout_name(failed, block_id))
+                lambda failed, block_id=block_id: self.timeout_name(failed, block_id)
+            )
             self.name_trhs.append(trh)
 
         self.comment_trhs = []
         for block_id in range(3):
             trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
             trh.set_timeout_callback(
-                lambda failed, block_id=block_id:
-                self.timeout_comment(failed, block_id))
+                lambda failed, block_id=block_id: self.timeout_comment(failed, block_id)
+            )
             self.comment_trhs.append(trh)
 
         self.oem_text_trhs = []
         for block_id in range(4):
             trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
             trh.set_timeout_callback(
-                lambda failed, block_id=block_id:
-                self.timeout_oem_text(failed, block_id))
+                lambda failed, block_id=block_id: self.timeout_oem_text(
+                    failed, block_id
+                )
+            )
             self.oem_text_trhs.append(trh)
 
         # callback
@@ -135,51 +138,45 @@ class NameCommentRequestHandler():
             block_id = inp.block_id
             text = inp.text
 
-            if command == 'N':
-                self._name[block_id] = f'{text:10s}'
+            if command == "N":
+                self._name[block_id] = f"{text:10s}"
                 await self.cancel_name(block_id)
-                if not self.name_known.is_set() and \
-                        (None not in self._name):
+                if not self.name_known.is_set() and (None not in self._name):
                     self.name_known.set()
                     await self.cancel_name()
 
-            elif command == 'K':
-                self._comment[block_id] = f'{text:12s}'
+            elif command == "K":
+                self._comment[block_id] = f"{text:12s}"
                 await self.cancel_comment(block_id)
-                if not self.comment_known.is_set() and \
-                        (None not in self._comment):
+                if not self.comment_known.is_set() and (None not in self._comment):
                     self.comment_known.set()
                     await self.cancel_comment()
 
-            elif command == 'O':
-                self._oem_text[block_id] = f'{text:12s}'
+            elif command == "O":
+                self._oem_text[block_id] = f"{text:12s}"
                 await self.cancel_oem_text(block_id)
-                if not self.oem_text_known.is_set() and \
-                        (None not in self._oem_text):
+                if not self.oem_text_known.is_set() and (None not in self._oem_text):
                     self.oem_text_known.set()
                     await self.cancel_oem_text()
 
     def timeout_name(self, failed=False, block_id=0):
         """Is called on serial request timeout."""
         if not failed:
-            self.addr_conn.send_command(
-                False, PckGenerator.request_name(block_id))
+            self.addr_conn.send_command(False, PckGenerator.request_name(block_id))
         elif not self.name_known.done():
             self.name_known.set()
 
     def timeout_comment(self, failed=False, block_id=0):
         """Is called on serial request timeout."""
         if not failed:
-            self.addr_conn.send_command(
-                False, PckGenerator.request_comment(block_id))
+            self.addr_conn.send_command(False, PckGenerator.request_comment(block_id))
         elif not self.comment_known.done():
             self.comment_known.set()
 
     def timeout_oem_text(self, failed=False, block_id=0):
         """Is called on serial request timeout."""
         if not failed:
-            self.addr_conn.send_command(
-                False, PckGenerator.request_oem_text(block_id))
+            self.addr_conn.send_command(False, PckGenerator.request_oem_text(block_id))
         elif not self.oem_text_known.done():
             self.oem_text_known.set()
 
@@ -211,9 +208,9 @@ class NameCommentRequestHandler():
         return self.oem_text
 
     async def request(self):
-        return await asyncio.gather(self.request_name(),
-                                    self.request_comment(),
-                                    self.request_oem_text())
+        return await asyncio.gather(
+            self.request_name(), self.request_comment(), self.request_oem_text()
+        )
 
     async def cancel_name(self, block_id=None):
         if block_id is None:  # cancel all
@@ -237,28 +234,31 @@ class NameCommentRequestHandler():
             await self.oem_text_trhs[block_id].cancel()
 
     async def cancel(self):
-        await asyncio.gather(self.cancel_name(),
-                             self.cancel_comment(),
-                             self.cancel_oem_text())
+        await asyncio.gather(
+            self.cancel_name(), self.cancel_comment(), self.cancel_oem_text()
+        )
 
     @property
     def name(self):
-        return ''.join([block for block in self._name if block]).strip()
+        return "".join([block for block in self._name if block]).strip()
 
     @property
     def comment(self):
-        return ''.join([block for block in self._comment if block]).strip()
+        return "".join([block for block in self._comment if block]).strip()
 
     @property
     def oem_text(self):
-        return [block.strip() if block else '' for block in self._oem_text]
+        return [block.strip() if block else "" for block in self._oem_text]
         # return {'block{}'.format(idx):text
         #         for idx, text in enumerate(self._oem_text)}
+
+
 #        return ''.join([block for block in self._oem_text if block])
 
 
-class ModulePropertiesRequestHandler():
+class ModulePropertiesRequestHandler:
     """Manages all property requestst for serial number, name, comments, ..."""
+
     def __init__(self, loop, addr_conn, software_serial=None):
         """Construct ModulePropertiesRequestHandler"""
         self.loop = loop
@@ -270,12 +270,16 @@ class ModulePropertiesRequestHandler():
 
         # Serial Number request
         self.serials = SerialRequestHandler(
-            addr_conn, self.settings['NUM_TRIES'], timeout_msec=1500,
-            software_serial=software_serial)
+            addr_conn,
+            self.settings["NUM_TRIES"],
+            timeout_msec=1500,
+            software_serial=software_serial,
+        )
 
         # NameComment request
         self.name_comment = NameCommentRequestHandler(
-            addr_conn, self.settings['NUM_TRIES'], timeout_msec=1500)
+            addr_conn, self.settings["NUM_TRIES"], timeout_msec=1500
+        )
 
     async def activate_all(self):
         "Activate all properties requests."
@@ -290,7 +294,7 @@ class ModulePropertiesRequestHandler():
         await self.name_comment.cancel()
 
 
-class StatusRequestsHandler():
+class StatusRequestsHandler:
     """Manages all status requests for variables, software version, ..."""
 
     def __init__(self, loop, addr_conn):
@@ -301,35 +305,36 @@ class StatusRequestsHandler():
 
         self.activate_backlog = []
 
-        self.last_requested_var_without_type_in_response = \
-            lcn_defs.Var.UNKNOWN
+        self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
 
         # Output-port request status (0..3)
         self.request_status_outputs = []
         for output_port in range(4):
             trh = TimeoutRetryHandler(
-                self.loop, -1,
-                self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC'])
+                self.loop, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+            )
             trh.set_timeout_callback(
-                lambda failed, output_port=output_port:
-                self.request_status_outputs_timeout(failed, output_port))
+                lambda failed, output_port=output_port: self.request_status_outputs_timeout(
+                    failed, output_port
+                )
+            )
             self.request_status_outputs.append(trh)
 
         # Relay request status (all 8)
-        self.request_status_relays = \
-            TimeoutRetryHandler(
-                self.loop, -1,
-                self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC'])
+        self.request_status_relays = TimeoutRetryHandler(
+            self.loop, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+        )
         self.request_status_relays.set_timeout_callback(
-            self.request_status_relays_timeout)
+            self.request_status_relays_timeout
+        )
 
         # Binary-sensors request status (all 8)
-        self.request_status_bin_sensors = \
-            TimeoutRetryHandler(
-                self.loop, -1,
-                self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC'])
+        self.request_status_bin_sensors = TimeoutRetryHandler(
+            self.loop, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+        )
         self.request_status_bin_sensors.set_timeout_callback(
-            self.request_status_bin_sensors_timeout)
+            self.request_status_bin_sensors_timeout
+        )
 
         # Variables request status.
         # Lazy initialization: Will be filled once the firmware version is
@@ -337,64 +342,66 @@ class StatusRequestsHandler():
         self.request_status_vars = {}
         for var in lcn_defs.Var:
             if var != lcn_defs.Var.UNKNOWN:
-                self.request_status_vars[var] = \
-                    TimeoutRetryHandler(
-                        self.loop, -1,
-                        self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC'])
+                self.request_status_vars[var] = TimeoutRetryHandler(
+                    self.loop, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+                )
                 self.request_status_vars[var].set_timeout_callback(
-                    lambda failed, var=var: self.request_status_var_timeout(
-                        failed, var))
+                    lambda failed, var=var: self.request_status_var_timeout(failed, var)
+                )
 
         # LEDs and logic-operations request status (all 12+4).
-        self.request_status_leds_and_logic_ops = \
-            TimeoutRetryHandler(
-                self.loop, -1,
-                self.settings['MAX_STATUS_POLLED_VALUEAGE_MSEC'])
+        self.request_status_leds_and_logic_ops = TimeoutRetryHandler(
+            self.loop, -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
+        )
         self.request_status_leds_and_logic_ops.set_timeout_callback(
-            self.request_status_leds_and_logic_ops_timeout)
+            self.request_status_leds_and_logic_ops_timeout
+        )
 
         # Key lock-states request status (all tables, A-D).
-        self.request_status_locked_keys = \
-            TimeoutRetryHandler(
-                self.loop, -1,
-                self.settings['MAX_STATUS_POLLED_VALUEAGE_MSEC'])
+        self.request_status_locked_keys = TimeoutRetryHandler(
+            self.loop, -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
+        )
         self.request_status_locked_keys.set_timeout_callback(
-            self.request_status_locked_keys_timeout)
+            self.request_status_locked_keys_timeout
+        )
 
     def request_status_outputs_timeout(self, failed=False, output_port=0):
         """Is called on output status request timeout."""
         if not failed:
             self.addr_conn.send_command(
-                False, PckGenerator.request_output_status(output_port))
+                False, PckGenerator.request_output_status(output_port)
+            )
 
     def request_status_relays_timeout(self, failed=False):
         """Is called on relay status request timeout."""
         if not failed:
-            self.addr_conn.send_command(
-                False, PckGenerator.request_relays_status())
+            self.addr_conn.send_command(False, PckGenerator.request_relays_status())
 
     def request_status_bin_sensors_timeout(self, failed=False):
         """Is called on binary sensor status request timeout."""
         if not failed:
             self.addr_conn.send_command(
-                False, PckGenerator.request_bin_sensors_status())
+                False, PckGenerator.request_bin_sensors_status()
+            )
 
     def request_status_var_timeout(self, failed=False, var=None):
         """Is called on variable status request timeout."""
         # Use the chance to remove a failed "typeless variable" request
         if self.last_requested_var_without_type_in_response == var:
-            self.last_requested_var_without_type_in_response = \
-                lcn_defs.Var.UNKNOWN
+            self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
 
         # Detect if we can send immediately or if we have to wait for a
         # "typeless" request first
         has_type_in_response = lcn_defs.Var.has_type_in_response(
-            var, self.addr_conn.software_serial)
-        if has_type_in_response or\
-            (self.last_requested_var_without_type_in_response ==
-             lcn_defs.Var.UNKNOWN):
-            self.addr_conn.send_command(False, PckGenerator.request_var_status(
-                var, self.addr_conn.software_serial))
+            var, self.addr_conn.software_serial
+        )
+        if has_type_in_response or (
+            self.last_requested_var_without_type_in_response == lcn_defs.Var.UNKNOWN
+        ):
+            self.addr_conn.send_command(
+                False,
+                PckGenerator.request_var_status(var, self.addr_conn.software_serial),
+            )
             if not has_type_in_response:
                 self.last_requested_var_without_type_in_response = var
 
@@ -402,13 +409,13 @@ class StatusRequestsHandler():
         """Is called on leds/logical ops status request timeout."""
         if not failed:
             self.addr_conn.send_command(
-                False, PckGenerator.request_leds_and_logic_ops())
+                False, PckGenerator.request_leds_and_logic_ops()
+            )
 
     def request_status_locked_keys_timeout(self, failed=False):
         """Is called on locked keys status request timeout."""
         if not failed:
-            self.addr_conn.send_command(
-                False, PckGenerator.request_key_lock_status())
+            self.addr_conn.send_command(False, PckGenerator.request_key_lock_status())
 
     async def activate(self, item):
         """Activate status requests for given item."""
@@ -418,11 +425,9 @@ class StatusRequestsHandler():
             # wait until we know the software version
             await self.addr_conn.serial_known
             if self.addr_conn.software_serial >= 0x170206:
-                timeout_msec = \
-                    self.settings['MAX_STATUS_EVENTBASED_VALUEAGE_MSEC']
+                timeout_msec = self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
             else:
-                timeout_msec = \
-                    self.settings['MAX_STATUS_POLLED_VALUEAGE_MSEC']
+                timeout_msec = self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
             self.request_status_vars[item].set_timeout_msec(timeout_msec)
             self.request_status_vars[item].activate()
         elif item in lcn_defs.OutputPort:
@@ -443,8 +448,7 @@ class StatusRequestsHandler():
         # handle variables independently
         if (item in lcn_defs.Var) and (item != lcn_defs.Var.UNKNOWN):
             await self.request_status_vars[item].cancel()
-            self.last_requested_var_without_type_in_response = \
-                lcn_defs.Var.UNKNOWN
+            self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
         elif item in lcn_defs.OutputPort:
             await self.request_status_outputs[item.value].cancel()
         elif item in lcn_defs.RelayPort:
@@ -461,9 +465,14 @@ class StatusRequestsHandler():
     async def activate_all(self, activate_s0=False):
         """Activate all status requests."""
         await self.addr_conn.conn.segment_scan_completed
-        for item in list(lcn_defs.OutputPort) + list(lcn_defs.RelayPort) + \
-                list(lcn_defs.BinSensorPort) + list(lcn_defs.LedPort) + \
-                list(lcn_defs.Key) + list(lcn_defs.Var):
+        for item in (
+            list(lcn_defs.OutputPort)
+            + list(lcn_defs.RelayPort)
+            + list(lcn_defs.BinSensorPort)
+            + list(lcn_defs.LedPort)
+            + list(lcn_defs.Key)
+            + list(lcn_defs.Var)
+        ):
             if item == lcn_defs.Var.UNKNOWN:
                 continue
             if (not activate_s0) and (item in lcn_defs.Var.s0s):
@@ -472,9 +481,14 @@ class StatusRequestsHandler():
 
     async def cancel_all(self):
         """Cancel all status requests."""
-        for item in list(lcn_defs.OutputPort) + list(lcn_defs.RelayPort) + \
-                list(lcn_defs.BinSensorPort) + list(lcn_defs.LedPort) + \
-                list(lcn_defs.Key) + list(lcn_defs.Var):
+        for item in (
+            list(lcn_defs.OutputPort)
+            + list(lcn_defs.RelayPort)
+            + list(lcn_defs.BinSensorPort)
+            + list(lcn_defs.LedPort)
+            + list(lcn_defs.Key)
+            + list(lcn_defs.Var)
+        ):
             if item == lcn_defs.Var.UNKNOWN:
                 continue
             await self.cancel(item)
@@ -510,8 +524,12 @@ class AbstractConnection(LcnAddr):
         :param    bool    wants_ack:    Also send a request for acknowledge.
         :param    str     pck:          PCK command (without header).
         """
-        self.conn.send_command(PckGenerator.generate_address_header(
-            self, self.conn.local_seg_id, wants_ack) + pck)
+        self.conn.send_command(
+            PckGenerator.generate_address_header(
+                self, self.conn.local_seg_id, wants_ack
+            )
+            + pck
+        )
 
     # ##
     # ## Methods for handling input objects
@@ -527,8 +545,12 @@ class AbstractConnection(LcnAddr):
             input_callback(input_obj)
 
     def register_for_inputs(self, callback):
-        """Register a function for callback on PCK message received."""
+        """Register a function for callback on PCK message received.
+
+        Returns a function to unregister the callback.
+        """
         self.input_callbacks.append(callback)
+        return lambda callback=callback: self.input_callbacks.remove(callback)
 
     # ##
     # ## Methods for sending PCK commands
@@ -541,8 +563,9 @@ class AbstractConnection(LcnAddr):
         :param    int    percent:      Brightness in percent 0..100
         :param    int    ramp:         Ramp time in milliseconds
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.dim_ouput(output_id, percent, ramp))
+        self.send_command(
+            not self.is_group(), PckGenerator.dim_ouput(output_id, percent, ramp)
+        )
 
     def dim_all_outputs(self, percent, ramp, is1805=False):
         """Send a dim command for all output-ports.
@@ -552,8 +575,9 @@ class AbstractConnection(LcnAddr):
         :param    bool   is1805:     True if the target module's firmware is
                                      180501 or newer, otherwise False
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.dim_all_outputs(percent, ramp, is1805))
+        self.send_command(
+            not self.is_group(), PckGenerator.dim_all_outputs(percent, ramp, is1805)
+        )
 
     def rel_output(self, output_id, percent):
         """Send a command to change the value of an output-port.
@@ -562,8 +586,9 @@ class AbstractConnection(LcnAddr):
         :param     int    percent:      Relative brightness in percent
                                         -100..100
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.rel_output(output_id, percent))
+        self.send_command(
+            not self.is_group(), PckGenerator.rel_output(output_id, percent)
+        )
 
     def toggle_output(self, output_id, ramp):
         """Send a command that toggles a single output-port.
@@ -573,8 +598,9 @@ class AbstractConnection(LcnAddr):
         :param    int    output_id:    Output id 0..3
         :param    int    ramp:         Ramp time in milliseconds
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.toggle_output(output_id, ramp))
+        self.send_command(
+            not self.is_group(), PckGenerator.toggle_output(output_id, ramp)
+        )
 
     def toggle_all_outputs(self, ramp):
         """Generate a command that toggles all output-ports.
@@ -583,8 +609,7 @@ class AbstractConnection(LcnAddr):
 
         :param    int    ramp:        Ramp time in milliseconds
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.toggle_all_outputs(ramp))
+        self.send_command(not self.is_group(), PckGenerator.toggle_all_outputs(ramp))
 
     def control_relays(self, states):
         """Send a command to control relays.
@@ -592,8 +617,7 @@ class AbstractConnection(LcnAddr):
         :param    states:   The 8 modifiers for the relay states as alist
         :type     states:   list(:class:`~pypck.lcn_defs.RelayStateModifier`)
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.control_relays(states))
+        self.send_command(not self.is_group(), PckGenerator.control_relays(states))
 
     def control_motors_relays(self, states):
         """Send a command to control motors via relays.
@@ -601,8 +625,9 @@ class AbstractConnection(LcnAddr):
         :param    states:   The 4 modifiers for the cover states as a list
         :type     states:   list(:class: `~pypck.lcn-defs.MotorStateModifier`)
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.control_motors_relays(states))
+        self.send_command(
+            not self.is_group(), PckGenerator.control_motors_relays(states)
+        )
 
     def control_motors_outputs(self, state, reverse_time=None):
         """Send a command to control a motor via output ports 1+2.
@@ -612,12 +637,14 @@ class AbstractConnection(LcnAddr):
                                                     with FW<190C
         :type     state:   :class: `~pypck.lcn-defs.MotorStateModifier`
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.control_motors_outputs(
-                              state, reverse_time))
+        self.send_command(
+            not self.is_group(),
+            PckGenerator.control_motors_outputs(state, reverse_time),
+        )
 
-    def activate_scene(self, register_id, scene_id,
-                       output_ports=(), relay_ports=(), ramp=None):
+    def activate_scene(
+        self, register_id, scene_id, output_ports=(), relay_ports=(), ramp=None
+    ):
         """Activate the stored states for the given scene.
 
         :param    int                register_id:    Register id 0..9
@@ -628,17 +655,19 @@ class AbstractConnection(LcnAddr):
                                                      as list
         :param    int                ramp:           Ramp value
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.change_scene_register(register_id))
+        self.send_command(
+            not self.is_group(), PckGenerator.change_scene_register(register_id)
+        )
         if output_ports:
-            self.send_command(not self.is_group(),
-                              PckGenerator.activate_scene_output(scene_id,
-                                                                 output_ports,
-                                                                 ramp))
+            self.send_command(
+                not self.is_group(),
+                PckGenerator.activate_scene_output(scene_id, output_ports, ramp),
+            )
         if relay_ports:
-            self.send_command(not self.is_group(),
-                              PckGenerator.activate_scene_relay(scene_id,
-                                                                relay_ports))
+            self.send_command(
+                not self.is_group(),
+                PckGenerator.activate_scene_relay(scene_id, relay_ports),
+            )
 
     def var_abs(self, var, value, unit=lcn_defs.VarUnit.NATIVE, is2013=None):
         """Send a command to set the absolute value to a variable.
@@ -656,21 +685,26 @@ class AbstractConnection(LcnAddr):
             # Absolute commands for variables 1-12 are not supported
             if self.get_id() == 4 and self.is_group():
                 # group 4 are status messages
-                self.send_command(not self.is_group(),
-                                  PckGenerator.update_status_var(
-                                      var, value.to_native()))
+                self.send_command(
+                    not self.is_group(),
+                    PckGenerator.update_status_var(var, value.to_native()),
+                )
             else:
                 # We fake the missing command by using reset and relative
                 # commands.
-                self.send_command(not self.is_group(),
-                                  PckGenerator.var_reset(var, is2013))
-                self.send_command(not self.is_group(),
-                                  PckGenerator.var_rel(
-                                      var, lcn_defs.RelVarRef.CURRENT,
-                                      value.to_native(), is2013))
+                self.send_command(
+                    not self.is_group(), PckGenerator.var_reset(var, is2013)
+                )
+                self.send_command(
+                    not self.is_group(),
+                    PckGenerator.var_rel(
+                        var, lcn_defs.RelVarRef.CURRENT, value.to_native(), is2013
+                    ),
+                )
         else:
-            self.send_command(not self.is_group(),
-                              PckGenerator.var_abs(var, value.to_native()))
+            self.send_command(
+                not self.is_group(), PckGenerator.var_abs(var, value.to_native())
+            )
 
     def var_reset(self, var, is2013=None):
         """Send a command to reset the variable value.
@@ -680,11 +714,16 @@ class AbstractConnection(LcnAddr):
         if is2013 is None:
             is2013 = self.get_sw_age() >= 0x170206
 
-        self.send_command(not self.is_group(),
-                          PckGenerator.var_reset(var, is2013))
+        self.send_command(not self.is_group(), PckGenerator.var_reset(var, is2013))
 
-    def var_rel(self, var, value, unit=lcn_defs.VarUnit.NATIVE,
-                value_ref=lcn_defs.RelVarRef.CURRENT, is2013=None):
+    def var_rel(
+        self,
+        var,
+        value,
+        unit=lcn_defs.VarUnit.NATIVE,
+        value_ref=lcn_defs.RelVarRef.CURRENT,
+        is2013=None,
+    ):
         """Send a command to change the value of a variable.
 
         :param     Var        var:      Variable
@@ -697,9 +736,10 @@ class AbstractConnection(LcnAddr):
 
         if is2013 is None:
             is2013 = self.get_sw_age() >= 0x170206
-        self.send_command(not self.is_group(),
-                          PckGenerator.var_rel(var, value_ref,
-                                               value.to_native(), is2013))
+        self.send_command(
+            not self.is_group(),
+            PckGenerator.var_rel(var, value_ref, value.to_native(), is2013),
+        )
 
     def lock_regulator(self, reg_id, state):
         """Send a command to lock a regulator.
@@ -709,8 +749,9 @@ class AbstractConnection(LcnAddr):
                                             unlocked=False)
         """
         if reg_id != -1:
-            self.send_command(not self.is_group(),
-                              PckGenerator.lock_regulator(reg_id, state))
+            self.send_command(
+                not self.is_group(), PckGenerator.lock_regulator(reg_id, state)
+            )
 
     def control_led(self, led, state):
         """Send a command to control a led.
@@ -718,8 +759,9 @@ class AbstractConnection(LcnAddr):
         :param    LedPort      led:        Led port
         :param    LedStatus    state:      Led status
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.control_led(led.value, state))
+        self.send_command(
+            not self.is_group(), PckGenerator.control_led(led.value, state)
+        )
 
     def send_keys(self, keys, cmd):
         """Send a command to send keys.
@@ -733,8 +775,9 @@ class AbstractConnection(LcnAddr):
             if True in key_states:
                 cmds = [lcn_defs.SendKeyCommand.DONTSEND] * 4
                 cmds[table_id] = cmd
-                self.send_command(not self.is_group(),
-                                  PckGenerator.send_keys(cmds, key_states))
+                self.send_command(
+                    not self.is_group(), PckGenerator.send_keys(cmds, key_states)
+                )
 
     def send_keys_hit_deferred(self, keys, delay_time, delay_unit):
         """Send a command to send keys deferred.
@@ -748,10 +791,12 @@ class AbstractConnection(LcnAddr):
         """
         for table_id, key_states in enumerate(keys):
             if True in key_states:
-                self.send_command(not self.is_group(),
-                                  PckGenerator.send_keys_hit_deferred(
-                                      table_id, delay_time, delay_unit,
-                                      key_states))
+                self.send_command(
+                    not self.is_group(),
+                    PckGenerator.send_keys_hit_deferred(
+                        table_id, delay_time, delay_unit, key_states
+                    ),
+                )
 
     def lock_keys(self, table_id, states):
         """Send a command to lock keys.
@@ -760,8 +805,7 @@ class AbstractConnection(LcnAddr):
         :param    keyLockStateModifier    states:    The 8 modifiers for the
                                                      key lock states as a list
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.lock_keys(table_id, states))
+        self.send_command(not self.is_group(), PckGenerator.lock_keys(table_id, states))
 
     def lock_keys_tab_a_temporary(self, delay_time, delay_unit, states):
         """Send a command to lock keys in table A temporary.
@@ -771,9 +815,10 @@ class AbstractConnection(LcnAddr):
         :param    list(bool) states:        The 8 lock states of the keys as
                                             list (locked=True, unlocked=False)
         """
-        self.send_command(not self.is_group(),
-                          PckGenerator.lock_keys_tab_a_temporary(
-                              delay_time, delay_unit, states))
+        self.send_command(
+            not self.is_group(),
+            PckGenerator.lock_keys_tab_a_temporary(delay_time, delay_unit, states),
+        )
 
     def dyn_text(self, row_id, text):
         """Send dynamic text to a module.
@@ -783,12 +828,13 @@ class AbstractConnection(LcnAddr):
         """
         encoded_text = text.encode(lcn_defs.LCN_ENCODING)
 
-        parts = [encoded_text[12 * p:12 * p + 12] for p in range(5)]
+        parts = [encoded_text[12 * p : 12 * p + 12] for p in range(5)]
         for part_id, part in enumerate(parts):
             if part:
-                self.send_command(not self.is_group(),
-                                  PckGenerator.dyn_text_part(row_id, part_id,
-                                                             part))
+                self.send_command(
+                    not self.is_group(),
+                    PckGenerator.dyn_text_part(row_id, part_id, part),
+                )
 
     def pck(self, pck):
         """Send arbitrary PCK command.
@@ -819,8 +865,13 @@ class GroupConnection(AbstractConnection):
         super().var_abs(var, value, unit, is2013=True)
 
         # for old modules (<0x170206)
-        if var in [lcn_defs.Var.TVAR, lcn_defs.Var.R1VAR, lcn_defs.Var.R2VAR,
-                   lcn_defs.Var.R1VARSETPOINT, lcn_defs.Var.R2VARSETPOINT]:
+        if var in [
+            lcn_defs.Var.TVAR,
+            lcn_defs.Var.R1VAR,
+            lcn_defs.Var.R2VAR,
+            lcn_defs.Var.R1VARSETPOINT,
+            lcn_defs.Var.R2VARSETPOINT,
+        ]:
             super().var_abs(var, value, unit, is2013=False)
 
     def var_reset(self, var, is2013=None):
@@ -829,12 +880,23 @@ class GroupConnection(AbstractConnection):
         :param    Var    var:    Variable
         """
         super().var_reset(var, is2013=True)
-        if var in [lcn_defs.Var.TVAR, lcn_defs.Var.R1VAR, lcn_defs.Var.R2VAR,
-                   lcn_defs.Var.R1VARSETPOINT, lcn_defs.Var.R2VARSETPOINT]:
+        if var in [
+            lcn_defs.Var.TVAR,
+            lcn_defs.Var.R1VAR,
+            lcn_defs.Var.R2VAR,
+            lcn_defs.Var.R1VARSETPOINT,
+            lcn_defs.Var.R2VARSETPOINT,
+        ]:
             super().var_reset(var, is2013=False)
 
-    def var_rel(self, var, value, unit=lcn_defs.VarUnit.NATIVE,
-                value_ref=lcn_defs.RelVarRef.CURRENT, is2013=None):
+    def var_rel(
+        self,
+        var,
+        value,
+        unit=lcn_defs.VarUnit.NATIVE,
+        value_ref=lcn_defs.RelVarRef.CURRENT,
+        is2013=None,
+    ):
         """Send a command to change the value of a variable.
 
         :param     Var        var:      Variable
@@ -843,10 +905,18 @@ class GroupConnection(AbstractConnection):
         :param     VarUnit    unit:     Unit of variable
         """
         super().var_rel(var, value, is2013=True)
-        if var in [lcn_defs.Var.TVAR, lcn_defs.Var.R1VAR, lcn_defs.Var.R2VAR,
-                   lcn_defs.Var.R1VARSETPOINT, lcn_defs.Var.R2VARSETPOINT,
-                   lcn_defs.Var.THRS1, lcn_defs.Var.THRS2, lcn_defs.Var.THRS3,
-                   lcn_defs.Var.THRS4, lcn_defs.Var.THRS5]:
+        if var in [
+            lcn_defs.Var.TVAR,
+            lcn_defs.Var.R1VAR,
+            lcn_defs.Var.R2VAR,
+            lcn_defs.Var.R1VARSETPOINT,
+            lcn_defs.Var.R2VARSETPOINT,
+            lcn_defs.Var.THRS1,
+            lcn_defs.Var.THRS2,
+            lcn_defs.Var.THRS3,
+            lcn_defs.Var.THRS4,
+            lcn_defs.Var.THRS5,
+        ]:
             super().var_rel(var, value, is2013=False)
 
     async def activate_status_request_handler(self, item):
@@ -862,9 +932,16 @@ class GroupConnection(AbstractConnection):
 class ModuleConnection(AbstractConnection):
     """Organizes communication with a specific module or group."""
 
-    def __init__(self, loop, conn, seg_id, mod_id,
-                 activate_status_requests=False, has_s0_enabled=False,
-                 sw_age=None):
+    def __init__(
+        self,
+        loop,
+        conn,
+        seg_id,
+        mod_id,
+        activate_status_requests=False,
+        has_s0_enabled=False,
+        sw_age=None,
+    ):
         """Construct ModuleConnection instance."""
         super().__init__(loop, conn, seg_id, mod_id, False, sw_age=sw_age)
         self.has_s0_enabled = has_s0_enabled
@@ -874,15 +951,17 @@ class ModuleConnection(AbstractConnection):
         # Note that the first one might currently be "in progress".
         self.pck_commands_with_ack = deque()
 
-        self.request_curr_pck_command_with_ack = \
-            TimeoutRetryHandler(loop, conn.settings['NUM_TRIES'])
+        self.request_curr_pck_command_with_ack = TimeoutRetryHandler(
+            loop, conn.settings["NUM_TRIES"]
+        )
         self.request_curr_pck_command_with_ack.set_timeout_callback(
-            self.request_curr_pck_command_with_ack_timeout)
+            self.request_curr_pck_command_with_ack_timeout
+        )
 
         self.properties_requests = ModulePropertiesRequestHandler(
-            loop, self, software_serial=sw_age)
-        self.status_requests = StatusRequestsHandler(
-            loop, self)
+            loop, self, software_serial=sw_age
+        )
+        self.status_requests = StatusRequestsHandler(loop, self)
 
         loop.create_task(self.activate_properties_request_handlers())
         if activate_status_requests:
@@ -909,8 +988,7 @@ class ModuleConnection(AbstractConnection):
 
     async def activate_status_request_handlers(self):
         """Activate all TimeoutRetryHandlers for status requests."""
-        await self.status_requests.activate_all(
-            activate_s0=self.has_s0_enabled)
+        await self.status_requests.activate_all(activate_s0=self.has_s0_enabled)
 
     async def cancel_properties_request_handlers(self):
         """Canecl all TimeoutRetryHandlers for status requests."""
@@ -985,8 +1063,9 @@ class ModuleConnection(AbstractConnection):
 
     def try_process_next_command_with_ack(self):
         """Send the next acknowledged command from the queue."""
-        if self.pck_commands_with_ack and \
-           (not self.request_curr_pck_command_with_ack.is_active()):
+        if self.pck_commands_with_ack and (
+            not self.request_curr_pck_command_with_ack.is_active()
+        ):
             self.request_curr_pck_command_with_ack.activate()
 
     def request_curr_pck_command_with_ack_timeout(self, failed):
@@ -997,8 +1076,10 @@ class ModuleConnection(AbstractConnection):
             self.try_process_next_command_with_ack()
         else:
             pck = self.pck_commands_with_ack[0]
-            self.conn.send_command(PckGenerator.generate_address_header(
-                self, self.conn.local_seg_id, True) + pck)
+            self.conn.send_command(
+                PckGenerator.generate_address_header(self, self.conn.local_seg_id, True)
+                + pck
+            )
 
     # ##
     # ## Requests
@@ -1024,8 +1105,7 @@ class ModuleConnection(AbstractConnection):
 
     @property
     def serial(self):
-        return (self.hardware_serial, self.manu, self.software_serial,
-                self.hw_type)
+        return (self.hardware_serial, self.manu, self.software_serial, self.hw_type)
 
     @property
     def name(self):
