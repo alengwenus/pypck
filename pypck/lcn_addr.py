@@ -11,7 +11,7 @@ Contributors:
 """
 
 
-class LcnAddr():
+class LcnAddr:
     """Represents a LCN address (module or group).
 
     If the segment id is 0, the address object points to modules/groups which
@@ -104,8 +104,12 @@ class LcnAddr():
             #     disabled (valid value)
             # addr_id:
             # 3 = Broadcast, 4 = Status messages, 5..254
-            is_valid = (self.seg_id >= 0) & (self.seg_id <= 128) & \
-                        (self.addr_id >= 3) & (self.addr_id < 254)
+            is_valid = (
+                (self.seg_id >= 0)
+                & (self.seg_id <= 128)
+                & (self.addr_id >= 3)
+                & (self.addr_id < 254)
+            )
         else:
             # seg_id:
             # 0 = Local, 1..2 = Not allowed (but "seen in the wild")
@@ -114,40 +118,48 @@ class LcnAddr():
             # addr_id:
             # 1 = LCN-PRO, 2 = LCN-GVS/LCN-W, 4 = PCHK, 5..254, 255 = Unprog.
             #     (valid, but irrelevant here)
-            is_valid = (self.seg_id >= 0) & (self.seg_id <= 128) & \
-                       (self.addr_id >= 1) & (self.addr_id < 254)
+            is_valid = (
+                (self.seg_id >= 0)
+                & (self.seg_id <= 128)
+                & (self.addr_id >= 1)
+                & (self.addr_id < 254)
+            )
         return is_valid
 
     def __hash__(self):
         """Calculate and return hash value."""
         if self.is_valid():
-            hash_value = (self.is_group() << 9) + \
-                         (reverse_uint8(self.get_id()) << 8) + \
-                         (reverse_uint8(self.get_seg_id()))
+            hash_value = (
+                (self.is_group() << 9)
+                + (reverse_uint8(self.get_id()) << 8)
+                + (reverse_uint8(self.get_seg_id()))
+            )
         else:
             hash_value = -1
         return hash_value
 
     def __eq__(self, obj):
         """Return if instance equals the given object."""
-        return (self.is_group() == obj.is_group()) & \
-               (self.get_seg_id() == obj.get_seg_id()) & \
-               (self.get_id() == obj.get_id())
+        return (
+            (self.is_group() == obj.is_group())
+            & (self.get_seg_id() == obj.get_seg_id())
+            & (self.get_id() == obj.get_id())
+        )
 
 
 # only execute, if not defined before
-if 'REV_UINT8' not in dir():
+if "REV_UINT8" not in dir():
     REV_UINT8 = [0] * 256
     for i in range(256):
         rev = 0
         for j in range(8):
             if i & (1 << j) != 0:
-                rev |= (0x80 >> j)
+                rev |= 0x80 >> j
         REV_UINT8[i] = rev
 
 
 def reverse_uint8(value):
     """Reverse the bit order of the given value."""
     if value < 0 | value > 255:
-        raise ValueError('Invalid value.')
+        raise ValueError("Invalid value.")
     return REV_UINT8[value]

@@ -10,9 +10,8 @@ Contributors:
   Tobias Juettner - initial LCN binding for openHAB (Java)
 """
 
-import logging
-
 import asyncio
+import logging
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_TIMEOUT_MSEC = 3500
 
 
-class TimeoutRetryHandler():
+class TimeoutRetryHandler:
     """Manage timeout and retry logic for an LCN request.
 
     :param           loop:           The asyncio event loop

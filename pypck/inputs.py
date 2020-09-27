@@ -19,7 +19,7 @@ from pypck.pck_commands import PckParser
 _LOGGER = logging.getLogger(__name__)
 
 
-class Input():
+class Input:
     """Parent class for all input data read from LCN-PCHK.
 
     An implementation of :class:`~pypck.input.Input` has to provide easy
@@ -234,10 +234,11 @@ class CommandError(Input):
         """
         matcher = PckParser.PATTERN_COMMAND_ERROR.match(data)
         if matcher:
-            return [CommandError(matcher.group('message'))]
+            return [CommandError(matcher.group("message"))]
 
 
 # ## Inputs received from modules
+
 
 class ModAck(ModInput):
     """Acknowledge message received from module."""
@@ -269,15 +270,17 @@ class ModAck(ModInput):
         """
         matcher_pos = PckParser.PATTERN_ACK_POS.match(data)
         if matcher_pos:
-            addr = LcnAddr(int(matcher_pos.group('seg_id')),
-                           int(matcher_pos.group('mod_id')))
+            addr = LcnAddr(
+                int(matcher_pos.group("seg_id")), int(matcher_pos.group("mod_id"))
+            )
             return [ModAck(addr, -1)]
 
         matcher_neg = PckParser.PATTERN_ACK_NEG.match(data)
         if matcher_neg:
-            addr = LcnAddr(int(matcher_neg.group('seg_id')),
-                           int(matcher_neg.group('mod_id')))
-            return [ModAck(addr, matcher_neg.group('code'))]
+            addr = LcnAddr(
+                int(matcher_neg.group("seg_id")), int(matcher_neg.group("mod_id"))
+            )
+            return [ModAck(addr, matcher_neg.group("code"))]
 
 
 class ModSk(ModInput):
@@ -310,9 +313,8 @@ class ModSk(ModInput):
         """
         matcher = PckParser.PATTERN_SK_RESPONSE.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
-            return [ModSk(addr, int(matcher.group('id')))]
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            return [ModSk(addr, int(matcher.group("id")))]
 
 
 class ModSn(ModInput):
@@ -340,12 +342,11 @@ class ModSn(ModInput):
         """
         matcher = PckParser.PATTERN_SN.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
-            serial = int(matcher.group('sn'), 16)
-            manu = int(matcher.group('manu'), 16)
-            sw_age = int(matcher.group('sw_age'), 16)
-            hw_type = int(matcher.group('hw_type'), 16)
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            serial = int(matcher.group("sn"), 16)
+            manu = int(matcher.group("manu"), 16)
+            sw_age = int(matcher.group("sw_age"), 16)
+            hw_type = int(matcher.group("hw_type"), 16)
             return [ModSn(addr, serial, manu, sw_age, hw_type)]
 
 
@@ -373,11 +374,10 @@ class ModNameComment(ModInput):
         """
         matcher = PckParser.PATTERN_NAME_COMMENT.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
-            command = matcher.group('command')
-            block_id = int(matcher.group('block_id')) - 1
-            text = matcher.group('text')
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            command = matcher.group("command")
+            block_id = int(matcher.group("block_id")) - 1
+            text = matcher.group("text")
             return [ModNameComment(addr, command, block_id, text)]
 
 
@@ -420,17 +420,25 @@ class ModStatusOutput(ModInput):
         """
         matcher = PckParser.PATTERN_STATUS_OUTPUT_PERCENT.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
-            return [ModStatusOutput(addr, int(matcher.group('output_id')) - 1,
-                                    float(matcher.group('percent')))]
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            return [
+                ModStatusOutput(
+                    addr,
+                    int(matcher.group("output_id")) - 1,
+                    float(matcher.group("percent")),
+                )
+            ]
 
         matcher = PckParser.PATTERN_STATUS_OUTPUT_NATIVE.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
-            return [ModStatusOutput(addr, int(matcher.group('output_id')),
-                                    float(matcher.group('value')) / 2.)]
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            return [
+                ModStatusOutput(
+                    addr,
+                    int(matcher.group("output_id")),
+                    float(matcher.group("value")) / 2.0,
+                )
+            ]
 
 
 class ModStatusRelays(ModInput):
@@ -466,10 +474,12 @@ class ModStatusRelays(ModInput):
         """
         matcher = PckParser.PATTERN_STATUS_RELAYS.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
-            return [ModStatusRelays(addr, PckParser.get_boolean_value(
-                int(matcher.group('byte_value'))))]
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            return [
+                ModStatusRelays(
+                    addr, PckParser.get_boolean_value(int(matcher.group("byte_value")))
+                )
+            ]
 
 
 class ModStatusBinSensors(ModInput):
@@ -504,10 +514,12 @@ class ModStatusBinSensors(ModInput):
         """
         matcher = PckParser.PATTERN_STATUS_BINSENSORS.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
-            return [ModStatusBinSensors(addr, PckParser.get_boolean_value(
-                int(matcher.group('byte_value'))))]
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            return [
+                ModStatusBinSensors(
+                    addr, PckParser.get_boolean_value(int(matcher.group("byte_value")))
+                )
+            ]
 
 
 class ModStatusVar(ModInput):
@@ -550,56 +562,50 @@ class ModStatusVar(ModInput):
         """
         matcher = PckParser.PATTERN_STATUS_VAR.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
-            var = lcn_defs.Var.var_id_to_var(int(matcher.group('id')) - 1)
-            value = lcn_defs.VarValue.from_native(int(matcher.group('value')))
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            var = lcn_defs.Var.var_id_to_var(int(matcher.group("id")) - 1)
+            value = lcn_defs.VarValue.from_native(int(matcher.group("value")))
             return [ModStatusVar(addr, var, value)]
 
         matcher = PckParser.PATTERN_STATUS_SETVAR.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
-            var = lcn_defs.Var.set_point_id_to_var(
-                int(matcher.group('id')) - 1)
-            value = lcn_defs.VarValue.from_native(int(matcher.group('value')))
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            var = lcn_defs.Var.set_point_id_to_var(int(matcher.group("id")) - 1)
+            value = lcn_defs.VarValue.from_native(int(matcher.group("value")))
             return [ModStatusVar(addr, var, value)]
 
         matcher = PckParser.PATTERN_STATUS_THRS.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             var = lcn_defs.Var.thrs_id_to_var(
-                int(matcher.group('register_id')) - 1,
-                int(matcher.group('thrs_id')) - 1)
-            value = lcn_defs.VarValue.from_native(int(matcher.group('value')))
+                int(matcher.group("register_id")) - 1, int(matcher.group("thrs_id")) - 1
+            )
+            value = lcn_defs.VarValue.from_native(int(matcher.group("value")))
             return [ModStatusVar(addr, var, value)]
 
         matcher = PckParser.PATTERN_STATUS_S0INPUT.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
-            var = lcn_defs.Var.s0_id_to_var(int(matcher.group('id')) - 1)
-            value = lcn_defs.VarValue.from_native(int(matcher.group('value')))
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            var = lcn_defs.Var.s0_id_to_var(int(matcher.group("id")) - 1)
+            value = lcn_defs.VarValue.from_native(int(matcher.group("value")))
             return [ModStatusVar(addr, var, value)]
 
         matcher = PckParser.PATTERN_VAR_GENERIC.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             var = lcn_defs.Var.UNKNOWN
-            value = lcn_defs.VarValue.from_native(int(matcher.group('value')))
+            value = lcn_defs.VarValue.from_native(int(matcher.group("value")))
             return [ModStatusVar(addr, var, value)]
 
         matcher = PckParser.PATTERN_THRS5.match(data)
         if matcher:
             ret = []
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             for thrs_id in range(5):
-                var = lcn_defs.Var.var_id_to_var(int(matcher.group('id')) - 1)
+                var = lcn_defs.Var.var_id_to_var(int(matcher.group("id")) - 1)
                 value = lcn_defs.VarValue.from_native(
-                    int(matcher.group('value{:d}'.format(thrs_id + 1))))
+                    int(matcher.group("value{:d}".format(thrs_id + 1)))
+                )
                 ret.append(ModStatusVar(addr, var, value))
             return ret
 
@@ -652,18 +658,17 @@ class ModStatusLedsAndLogicOps(ModInput):
         """
         matcher = PckParser.PATTERN_STATUS_LEDSANDLOGICOPS.match(data)
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
 
-            led_states = matcher.group('led_states').upper()
-            states_leds = [lcn_defs.LedStatus(led_state)
-                           for led_state in led_states]
+            led_states = matcher.group("led_states").upper()
+            states_leds = [lcn_defs.LedStatus(led_state) for led_state in led_states]
 
-            logic_op_states = matcher.group('logic_op_states').upper()
-            states_logic_ops = [lcn_defs.LogicOpStatus(logic_op_state)
-                                for logic_op_state in logic_op_states]
-            return [ModStatusLedsAndLogicOps(addr, states_leds,
-                                             states_logic_ops)]
+            logic_op_states = matcher.group("logic_op_states").upper()
+            states_logic_ops = [
+                lcn_defs.LogicOpStatus(logic_op_state)
+                for logic_op_state in logic_op_states
+            ]
+            return [ModStatusLedsAndLogicOps(addr, states_leds, states_logic_ops)]
 
 
 class ModStatusKeyLocks(ModInput):
@@ -703,16 +708,16 @@ class ModStatusKeyLocks(ModInput):
         matcher = PckParser.PATTERN_STATUS_KEYLOCKS.match(data)
         states = []
         if matcher:
-            addr = LcnAddr(int(matcher.group('seg_id')),
-                           int(matcher.group('mod_id')))
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             for i in range(4):
-                state = matcher.group('table{:d}'.format(i))
+                state = matcher.group("table{:d}".format(i))
                 if state is not None:
                     states.append(PckParser.get_boolean_value(int(state)))
             return [ModStatusKeyLocks(addr, states)]
 
 
 # ## Other inputs
+
 
 class Unknown(Input):
     """Handle all unknown input data."""
@@ -746,27 +751,29 @@ class Unknown(Input):
         return self._data
 
 
-class InputParser():
+class InputParser:
     """Parse all input objects for given input data."""
 
-    parsers = [AuthUsername,
-               AuthPassword,
-               AuthOk,
-               AuthFailed,
-               LcnConnState,
-               LicenseError,
-               CommandError,
-               ModAck,
-               ModNameComment,
-               ModSk,
-               ModSn,
-               ModStatusOutput,
-               ModStatusRelays,
-               ModStatusBinSensors,
-               ModStatusVar,
-               ModStatusLedsAndLogicOps,
-               ModStatusKeyLocks,
-               Unknown]
+    parsers = [
+        AuthUsername,
+        AuthPassword,
+        AuthOk,
+        AuthFailed,
+        LcnConnState,
+        LicenseError,
+        CommandError,
+        ModAck,
+        ModNameComment,
+        ModSk,
+        ModSn,
+        ModStatusOutput,
+        ModStatusRelays,
+        ModStatusBinSensors,
+        ModStatusVar,
+        ModStatusLedsAndLogicOps,
+        ModStatusKeyLocks,
+        Unknown,
+    ]
 
     @staticmethod
     def parse(data):

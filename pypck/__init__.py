@@ -10,8 +10,14 @@ Contributors:
   Tobias Juettner - initial LCN binding for openHAB (Java)
 """
 
-from pypck import (connection, inputs, lcn_addr, lcn_defs, module,
-                   pck_commands, timeout_retry)
+from pypck import (
+    connection,
+    inputs,
+    lcn_addr,
+    lcn_defs,
+    module,
+    pck_commands,
+    timeout_retry,
+)
 
-__all__ = [connection, inputs, lcn_addr, lcn_defs, module, pck_commands,
-           timeout_retry]
+__all__ = [connection, inputs, lcn_addr, lcn_defs, module, pck_commands, timeout_retry]
