@@ -121,9 +121,10 @@ class PchkConnection:
 
         :param    str    pck:    PCK command
         """
-        _LOGGER.debug("to {}: {}".format(self.connection_id, pck))
-        self.writer.write((pck + PckGenerator.TERMINATION).encode())
-        await self.writer.drain()
+        if not self.writer.is_closing():
+            _LOGGER.debug("to {}: {}".format(self.connection_id, pck))
+            self.writer.write((pck + PckGenerator.TERMINATION).encode())
+            await self.writer.drain()
 
     async def process_message(self, message):
         """Is called when a new text message is received from the PCHK server.
@@ -200,16 +201,16 @@ class PchkConnectionManager(PchkConnection):
         self.dim_mode = self.settings["DIM_MODE"]
         self.status_mode = lcn_defs.OutputPortStatusMode.PERCENT
 
-        self.is_lcn_connected = False
+        self.is_lcn_connected = True
         self.local_seg_id = 0
+
+        self.event_handler = self.default_event_handler
 
         # Events
         self.segment_scan_completed_event = asyncio.Event()
 
         # Futures (for connection procedure and exception handling)
-        self.license_error_future = asyncio.Future()
         self.authentication_completed_future = asyncio.Future()
-        self.lcn_connected_on_login_future = asyncio.Future()
 
         # All modules/groups from or to a communication occurs are represented
         # by a unique ModuleConnection or GroupConnection object.
@@ -228,23 +229,23 @@ class PchkConnectionManager(PchkConnection):
         if success:
             _LOGGER.debug("{} authorization successful!".format(self.connection_id))
             self.authentication_completed_future.set_result(True)
-            await self.async_send_command(
-                PckGenerator.set_operation_mode(self.dim_mode, self.status_mode),
-                to_host=True,
-            )
-            self.ping_task = self.loop.create_task(self.ping())
         else:
             _LOGGER.debug("{} authorization failed!".format(self.connection_id))
             self.authentication_completed_future.set_exception(PchkAuthenticationError)
 
-    def on_license_error(self):
+    async def on_license_error(self):
         """Is called if a license error occurs during connection."""
         _LOGGER.debug("{}: License Error.".format(self.connection_id))
-        self.license_error_future.set_exception(PchkLicenseError())
+        await self.event_handler("license-error")
 
-    def on_successful_login(self):
+    async def on_successful_login(self):
         """Is called after connection to LCN bus system is established."""
         _LOGGER.debug("{} login successful.".format(self.connection_id))
+        await self.async_send_command(
+            PckGenerator.set_operation_mode(self.dim_mode, self.status_mode),
+            to_host=True,
+        )
+        self.ping_task = self.loop.create_task(self.ping())
 
     async def lcn_connection_status_changed(self, is_lcn_connected):
         """Set the current connection state to the LCN bus.
@@ -252,14 +253,13 @@ class PchkConnectionManager(PchkConnection):
         :param    bool    is_lcn_connected: Current connection status
         """
         self.is_lcn_connected = is_lcn_connected
-        # only touch future the first time connection status changes (login)
-        if not self.lcn_connected_on_login_future.done():
-            if is_lcn_connected:
-                self.lcn_connected_on_login_future.set_result(True)
-            else:
-                self.lcn_connected_on_login_future.set_exception(
-                    PchkLcnNotConnectedError
-                )
+        await self.event_handler("lcn-connection-status-changed")
+        if is_lcn_connected:
+            _LOGGER.debug("{}: LCN is connected.".format(self.connection_id))
+            await self.event_handler("lcn-connected")
+        else:
+            _LOGGER.debug("{}: LCN is not connected.".format(self.connection_id))
+            await self.event_handler("lcn-disconnected")
 
     async def async_connect(self, timeout=30):
         """Establish a connection to PCHK at the given socket.
@@ -271,12 +271,7 @@ class PchkConnectionManager(PchkConnection):
         :param    int    timeout:    Timeout in seconds
         """
         done, pending = await asyncio.wait(
-            [
-                super().async_connect(),
-                self.authentication_completed_future,
-                self.license_error_future,
-                self.lcn_connected_on_login_future,
-            ],
+            [super().async_connect(), self.authentication_completed_future],
             timeout=timeout,
             return_when=asyncio.FIRST_EXCEPTION,
         )
@@ -287,17 +282,6 @@ class PchkConnectionManager(PchkConnection):
             and self.authentication_completed_future.exception()
         ):
             raise self.authentication_completed_future.exception()
-
-        # check if license error occured
-        if self.license_error_future.done() and self.license_error_future.exception():
-            raise self.license_error_future.exception()
-
-        # wait for lcn bus connected
-        if (
-            self.lcn_connected_on_login_future.done()
-            and self.lcn_connected_on_login_future.exception()
-        ):
-            raise self.lcn_connected_on_login_future.exception()
 
         if pending:
             for task in pending:
@@ -458,19 +442,13 @@ class PchkConnectionManager(PchkConnection):
             await self.async_send_command(self.password, to_host=True)
         elif isinstance(inp, inputs.AuthOk):
             await self.on_auth(True)
+            await self.on_successful_login()
         elif isinstance(inp, inputs.AuthFailed):
             await self.on_auth(False)
         elif isinstance(inp, inputs.LcnConnState):
-            self.license_error_future.set_result(True)
-            if inp.is_lcn_connected:
-                _LOGGER.debug("{}: LCN is connected.".format(self.connection_id))
-                await self.lcn_connection_status_changed(True)
-                self.on_successful_login()
-            else:
-                _LOGGER.debug("{}: LCN is not connected.".format(self.connection_id))
-                await self.lcn_connection_status_changed(False)
+            await self.lcn_connection_status_changed(inp.is_lcn_connected)
         elif isinstance(inp, inputs.LicenseError):
-            self.on_license_error()
+            await self.on_license_error()
         elif isinstance(inp, inputs.CommandError):
             _LOGGER.debug("LCN command error: %s", inp.message)
             for address_conn in self.address_conns.values():
@@ -542,3 +520,20 @@ class PchkConnectionManager(PchkConnection):
 
         if cancel_coros:
             await asyncio.wait(cancel_coros)
+
+    def set_event_handler(self, coro):
+        if coro is None:
+            self.event_handler = self.default_event_handler
+        else:
+            self.event_handler = coro
+
+    async def default_event_handler(self, event):
+        if event == "license-error":
+            await self.async_close()
+            raise PchkLicenseError()
+        elif event == "lcn-connected":
+            pass
+        elif event == "lcn-disconnected":
+            pass
+        elif event == "lcn-connection-status-changed":
+            pass
