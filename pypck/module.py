@@ -97,27 +97,19 @@ class NameCommentRequestHandler:
         self.name_trhs = []
         for block_id in range(2):
             trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
-            trh.set_timeout_callback(
-                lambda failed, block_id=block_id: self.timeout_name(failed, block_id)
-            )
+            trh.set_timeout_callback(self.timeout_name, block_id=block_id)
             self.name_trhs.append(trh)
 
         self.comment_trhs = []
         for block_id in range(3):
             trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
-            trh.set_timeout_callback(
-                lambda failed, block_id=block_id: self.timeout_comment(failed, block_id)
-            )
+            trh.set_timeout_callback(self.timeout_comment, block_id=block_id)
             self.comment_trhs.append(trh)
 
         self.oem_text_trhs = []
         for block_id in range(4):
             trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
-            trh.set_timeout_callback(
-                lambda failed, block_id=block_id: self.timeout_oem_text(
-                    failed, block_id
-                )
-            )
+            trh.set_timeout_callback(self.timeout_oem_text, block_id=block_id)
             self.oem_text_trhs.append(trh)
 
         # callback
@@ -252,8 +244,7 @@ class NameCommentRequestHandler:
         # return {'block{}'.format(idx):text
         #         for idx, text in enumerate(self._oem_text)}
 
-
-#        return ''.join([block for block in self._oem_text if block])
+        # return ''.join([block for block in self._oem_text if block])
 
 
 class ModulePropertiesRequestHandler:
@@ -306,6 +297,7 @@ class StatusRequestsHandler:
         self.activate_backlog = []
 
         self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
+        self.last_var_response_without_type_received = asyncio.Future()
 
         # Output-port request status (0..3)
         self.request_status_outputs = []
@@ -313,11 +305,7 @@ class StatusRequestsHandler:
             trh = TimeoutRetryHandler(
                 self.loop, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
             )
-            trh.set_timeout_callback(
-                lambda failed, output_port=output_port: self.request_status_outputs_timeout(
-                    failed, output_port
-                )
-            )
+            trh.set_timeout_callback(self.request_status_outputs_timeout, output_port)
             self.request_status_outputs.append(trh)
 
         # Relay request status (all 8)
@@ -346,7 +334,7 @@ class StatusRequestsHandler:
                     self.loop, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
                 )
                 self.request_status_vars[var].set_timeout_callback(
-                    lambda failed, var=var: self.request_status_var_timeout(failed, var)
+                    self.request_status_var_timeout, var=var
                 )
 
         # LEDs and logic-operations request status (all 12+4).
@@ -384,7 +372,7 @@ class StatusRequestsHandler:
                 False, PckGenerator.request_bin_sensors_status()
             )
 
-    def request_status_var_timeout(self, failed=False, var=None):
+    async def request_status_var_timeout(self, failed=False, var=None):
         """Is called on variable status request timeout."""
         # Use the chance to remove a failed "typeless variable" request
         if self.last_requested_var_without_type_in_response == var:

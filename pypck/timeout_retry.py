@@ -37,6 +37,8 @@ class TimeoutRetryHandler:
         self.num_tries = num_tries
         self.timeout_msec = timeout_msec
         self._timeout_callback = None
+        self._timeout_args = []
+        self._timeout_kwargs = {}
         self.timeout_loop_task = None
 
     def set_timeout_msec(self, timeout_msec):
@@ -46,23 +48,22 @@ class TimeoutRetryHandler:
         """
         self.timeout_msec = timeout_msec
 
-    def set_timeout_callback(self, timeout_callback):
+    def set_timeout_callback(self, timeout_callback, *timeout_args, **timeout_kwargs):
         """Timeout_callback function is called, if timeout expires.
 
         Function has to take one argument:
         Returns failed state (True if failed)
         """
         self._timeout_callback = timeout_callback
+        self._timeout_args = timeout_args
+        self._timeout_kwargs = timeout_kwargs
 
-    def activate(self, timeout_callback=None):
+    def activate(self):
         """Schedule the next activation."""
-        self.loop.create_task(self.async_activate(timeout_callback))
+        self.loop.create_task(self.async_activate())
 
-    async def async_activate(self, timeout_callback=None):
+    async def async_activate(self):
         """Clean start of next timeout_loop."""
-        if timeout_callback is not None:
-            self.set_timeout_callback(timeout_callback)
-
         if self.is_active():
             await self.cancel()
         self.timeout_loop_task = self.loop.create_task(self.timeout_loop())
@@ -89,7 +90,14 @@ class TimeoutRetryHandler:
     async def on_timeout(self, failed=False):
         """Is called on timeout of TimeoutRetryHandler."""
         if self._timeout_callback is not None:
-            self._timeout_callback(failed)
+            if asyncio.iscoroutinefunction(self._timeout_callback):
+                await self._timeout_callback(
+                    failed, *self._timeout_args, **self._timeout_kwargs
+                )
+            else:
+                self._timeout_callback(
+                    failed, *self._timeout_args, **self._timeout_kwargs
+                )
 
     async def timeout_loop(self):
         """Timeout / retry loop."""
