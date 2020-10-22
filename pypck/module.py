@@ -297,7 +297,7 @@ class StatusRequestsHandler:
         self.activate_backlog = []
 
         self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
-        self.last_var_response_without_type_received = asyncio.Future()
+        self.last_var_lock = asyncio.Lock()
 
         # Output-port request status (0..3)
         self.request_status_outputs = []
@@ -374,24 +374,24 @@ class StatusRequestsHandler:
 
     async def request_status_var_timeout(self, failed=False, var=None):
         """Is called on variable status request timeout."""
-        # Use the chance to remove a failed "typeless variable" request
-        if self.last_requested_var_without_type_in_response == var:
-            self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
 
         # Detect if we can send immediately or if we have to wait for a
-        # "typeless" request first
+        # "typeless" response first
         has_type_in_response = lcn_defs.Var.has_type_in_response(
             var, self.addr_conn.software_serial
         )
-        if has_type_in_response or (
-            self.last_requested_var_without_type_in_response == lcn_defs.Var.UNKNOWN
-        ):
-            self.addr_conn.send_command(
-                False,
-                PckGenerator.request_var_status(var, self.addr_conn.software_serial),
-            )
-            if not has_type_in_response:
-                self.last_requested_var_without_type_in_response = var
+        if not has_type_in_response:
+            # Use the chance to remove a failed "typeless variable" request
+            try:
+                await asyncio.wait_for(self.last_var_lock.acquire(), timeout=3.0)
+            except asyncio.TimeoutError:
+                pass
+            self.last_requested_var_without_type_in_response = var
+
+        # Send variable request
+        self.addr_conn.send_command(
+            False, PckGenerator.request_var_status(var, self.addr_conn.software_serial),
+        )
 
     def request_status_leds_and_logic_ops_timeout(self, failed=False):
         """Is called on leds/logical ops status request timeout."""

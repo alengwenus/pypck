@@ -496,18 +496,18 @@ class PchkConnectionManager(PchkConnection):
                     inp.var = (
                         module_conn.get_last_requested_var_without_type_in_response()
                     )
+
+                    module_conn.set_last_requested_var_without_type_in_response(
+                        lcn_defs.Var.UNKNOWN
+                    )
+
+                    if module_conn.status_requests.last_var_lock.locked():
+                        module_conn.status_requests.last_var_lock.release()
+
                 else:
                     # Response with variable type (%Msssaaa.Avvvwww)
                     inp.var = inp.orig_var
 
-                if inp.var != lcn_defs.Var.UNKNOWN:
-                    if (
-                        module_conn.get_last_requested_var_without_type_in_response()
-                        == inp.var
-                    ):
-                        module_conn.set_last_requested_var_without_type_in_response(
-                            lcn_defs.Var.UNKNOWN
-                        )  # Reset
                 await module_conn.async_process_input(inp)
             else:
                 await module_conn.async_process_input(inp)
