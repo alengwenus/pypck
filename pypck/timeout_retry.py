@@ -55,12 +55,16 @@ class TimeoutRetryHandler:
         self._timeout_callback = timeout_callback
 
     def activate(self, timeout_callback=None):
-        """Schedule the next request."""
-        if self.is_active():
-            self.loop.create_task(self.cancel())
+        """Schedule the next activation."""
+        self.loop.create_task(self.async_activate(timeout_callback))
+
+    async def async_activate(self, timeout_callback=None):
+        """Clean start of next timeout_loop."""
         if timeout_callback is not None:
             self.set_timeout_callback(timeout_callback)
 
+        if self.is_active():
+            await self.cancel()
         self.timeout_loop_task = self.loop.create_task(self.timeout_loop())
 
     async def done(self):

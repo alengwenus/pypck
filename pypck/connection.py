@@ -492,10 +492,12 @@ class PchkConnectionManager(PchkConnection):
                 # Skip if we don't have all necessary bus info yet
                 module_conn = self.get_address_conn(inp.logical_source_addr)
                 if inp.orig_var == lcn_defs.Var.UNKNOWN:
+                    # Response without type (%Msssaaa.wwwww)
                     inp.var = (
                         module_conn.get_last_requested_var_without_type_in_response()
                     )
                 else:
+                    # Response with variable type (%Msssaaa.Avvvwww)
                     inp.var = inp.orig_var
 
                 if inp.var != lcn_defs.Var.UNKNOWN:
