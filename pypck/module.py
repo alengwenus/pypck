@@ -294,8 +294,6 @@ class StatusRequestsHandler:
         self.addr_conn = addr_conn
         self.settings = addr_conn.conn.settings
 
-        self.activate_backlog = []
-
         self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
         self.last_var_lock = asyncio.Lock()
 
@@ -352,6 +350,23 @@ class StatusRequestsHandler:
         self.request_status_locked_keys.set_timeout_callback(
             self.request_status_locked_keys_timeout
         )
+
+    def preprocess_modstatusvar(self, inp):
+        """Fill typeless response with last requested variable type."""
+        # Skip if we don't have all necessary bus info yet
+        if inp.orig_var == lcn_defs.Var.UNKNOWN:
+            # Response without type (%Msssaaa.wwwww)
+            inp.var = self.last_requested_var_without_type_in_response
+
+            self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
+
+            if self.last_var_lock.locked():
+                self.last_var_lock.release()
+        else:
+            # Response with variable type (%Msssaaa.Avvvwww)
+            inp.var = inp.orig_var
+
+        return inp
 
     def request_status_outputs_timeout(self, failed=False, output_port=0):
         """Is called on output status request timeout."""
@@ -523,14 +538,14 @@ class AbstractConnection(LcnAddr):
     # ## Methods for handling input objects
     # ##
 
-    async def async_process_input(self, input_obj):
+    async def async_process_input(self, inp):
         """Is called by input object's process method.
 
         Method to handle incoming commands for this specific module (status,
         toggle_output, switch_relays, ...)
         """
         for input_callback in self.input_callbacks:
-            input_callback(input_obj)
+            input_callback(inp)
 
     def register_for_inputs(self, callback):
         """Register a function for callback on PCK message received.
@@ -1013,14 +1028,6 @@ class ModuleConnection(AbstractConnection):
         """Get the LCN module's firmware date."""
         return self.properties_requests.serials.software_serial
 
-    def get_last_requested_var_without_type_in_response(self):
-        """Return the last requested variable without type in response."""
-        return self.status_requests.last_requested_var_without_type_in_response
-
-    def set_last_requested_var_without_type_in_response(self, var):
-        """Set the last requested variable without type in response."""
-        self.status_requests.last_requested_var_without_type_in_response = var
-
     # ##
     # ## Retry logic if an acknowledge is requested
     # ##
@@ -1068,6 +1075,18 @@ class ModuleConnection(AbstractConnection):
                 PckGenerator.generate_address_header(self, self.conn.local_seg_id, True)
                 + pck
             )
+
+    async def async_process_input(self, inp):
+        """Is called by input object's process method.
+
+        Method to handle incoming commands for this specific module (status,
+        toggle_output, switch_relays, ...)
+        """
+        # handle typeless variable responses
+        if isinstance(inp, inputs.ModStatusVar):
+            inp = self.status_requests.preprocess_modstatusvar(inp)
+
+        await super().async_process_input(inp)
 
     # ##
     # ## Requests

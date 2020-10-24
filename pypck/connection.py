@@ -476,39 +476,6 @@ class PchkConnectionManager(PchkConnection):
                 self.loop.create_task(
                     module_conn.on_ack(inp.code, DEFAULT_TIMEOUT_MSEC)
                 )
-            elif isinstance(
-                inp,
-                (
-                    inputs.ModStatusOutput,
-                    inputs.ModStatusRelays,
-                    inputs.ModStatusBinSensors,
-                    inputs.ModStatusLedsAndLogicOps,
-                    inputs.ModStatusKeyLocks,
-                ),
-            ):
-                # Skip if we don't have all necessary bus info yet
-                await module_conn.async_process_input(inp)
-            elif isinstance(inp, inputs.ModStatusVar):
-                # Skip if we don't have all necessary bus info yet
-                module_conn = self.get_address_conn(inp.logical_source_addr)
-                if inp.orig_var == lcn_defs.Var.UNKNOWN:
-                    # Response without type (%Msssaaa.wwwww)
-                    inp.var = (
-                        module_conn.get_last_requested_var_without_type_in_response()
-                    )
-
-                    module_conn.set_last_requested_var_without_type_in_response(
-                        lcn_defs.Var.UNKNOWN
-                    )
-
-                    if module_conn.status_requests.last_var_lock.locked():
-                        module_conn.status_requests.last_var_lock.release()
-
-                else:
-                    # Response with variable type (%Msssaaa.Avvvwww)
-                    inp.var = inp.orig_var
-
-                await module_conn.async_process_input(inp)
             else:
                 await module_conn.async_process_input(inp)
 
