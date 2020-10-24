@@ -155,21 +155,21 @@ class NameCommentRequestHandler:
         """Is called on serial request timeout."""
         if not failed:
             self.addr_conn.send_command(False, PckGenerator.request_name(block_id))
-        elif not self.name_known.done():
+        else:
             self.name_known.set()
 
     def timeout_comment(self, failed=False, block_id=0):
         """Is called on serial request timeout."""
         if not failed:
             self.addr_conn.send_command(False, PckGenerator.request_comment(block_id))
-        elif not self.comment_known.done():
+        else:
             self.comment_known.set()
 
     def timeout_oem_text(self, failed=False, block_id=0):
         """Is called on serial request timeout."""
         if not failed:
             self.addr_conn.send_command(False, PckGenerator.request_oem_text(block_id))
-        elif not self.oem_text_known.done():
+        else:
             self.oem_text_known.set()
 
     async def request_name(self):
@@ -816,7 +816,7 @@ class AbstractConnection(LcnAddr):
         """
         encoded_text = text.encode(lcn_defs.LCN_ENCODING)
 
-        parts = [encoded_text[12 * p : 12 * p + 12] for p in range(5)]
+        parts = [encoded_text[12 * p:12 * p + 12] for p in range(5)]
         for part_id, part in enumerate(parts):
             if part:
                 self.send_command(
