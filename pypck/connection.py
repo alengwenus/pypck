@@ -169,9 +169,7 @@ class PchkConnectionManager(PchkConnection):
     >>> loop = asyncio.get_event_loop()
     >>> connection = PchkConnectionManager(loop, '10.1.2.3', 4114,
                                            'lcn', 'lcn')
-    >>> connection.connect()
-    >>> loop.run_forever()
-    >>> loop.close()
+    >>> await connection.async_connect()
     """
 
     def __init__(
@@ -206,11 +204,11 @@ class PchkConnectionManager(PchkConnection):
 
         self.event_handler = self.default_event_handler
 
-        # Events
+        # Events, Futures, Locks for synchronization
         self.segment_scan_completed_event = asyncio.Event()
-
-        # Futures (for connection procedure and exception handling)
         self.authentication_completed_future = asyncio.Future()
+        self.module_serial_number_received = asyncio.Lock()
+        self.segment_coupler_response_received = asyncio.Lock()
 
         # All modules/groups from or to a communication occurs are represented
         # by a unique ModuleConnection or GroupConnection object.
@@ -380,21 +378,53 @@ class PchkConnectionManager(PchkConnection):
 
         return address_conn
 
-    async def scan_modules(self, num_tries=3, timeout_msec=1500):
+    async def scan_modules(self, num_tries=3, timeout_msec=3000):
+        """Scan for modules on the bus.
+
+        This is a convenience coroutine which handles all the logic when
+        scanning modules on the bus. Because of heavy bus traffic, not all
+        modules might respond to a scan command immediately.
+        The coroutine will make 'num_tries' attempts to send a scan command
+        and waits 'timeout_msec' after the last module response before
+        proceeding to the next try.
+
+        :param      int     num_tries:      Scan attempts (default=3)
+        :param      int     timeout_msec:   Timeout in msec for each try
+                                            (default=3000)
+        """
         segment_coupler_ids = (
             self.segment_coupler_ids if self.segment_coupler_ids else [0]
         )
+
         for idx in range(num_tries):
-            if idx:
-                await asyncio.sleep(timeout_msec / 1000)
             for segment_id in segment_coupler_ids:
                 if segment_id == self.local_seg_id:
                     segment_id = 0
                 await self.async_send_command(">G{:03d}003!LEER".format(segment_id))
 
+            # Wait loop which is extended on every serial number received
+            while True:
+                try:
+                    await asyncio.wait_for(
+                        self.module_serial_number_received.acquire(),
+                        timeout_msec / 1000)
+                except asyncio.TimeoutError:
+                    break
+
     async def scan_segment_couplers(self, num_tries=3, timeout_msec=1500):
-        if not self.is_lcn_connected:
-            raise PchkLcnNotConnectedError()
+        """Scan for segment couplers on the bus.
+
+        This is a convenience coroutine which handles all the logic when
+        scanning segment couplers on the bus. Because of heavy bus traffic,
+        not all segment couplers might respond to a scan command immediately.
+        The coroutine will make 'num_tries' attempts to send a scan command
+        and waits 'timeout_msec' after the last segment coupler response
+        before proceeding to the next try.
+
+        :param      int     num_tries:      Scan attempts (default=3)
+        :param      int     timeout_msec:   Timeout in msec for each try
+                                            (default=3000)
+        """
         for idx in range(num_tries):
             await self.async_send_command(
                 PckGenerator.generate_address_header(
@@ -402,7 +432,15 @@ class PchkConnectionManager(PchkConnection):
                 )
                 + PckGenerator.segment_coupler_scan()
             )
-            await asyncio.sleep(timeout_msec / 1000)
+
+            # Wait loop which is extended on every segment coupler response
+            while True:
+                try:
+                    await asyncio.wait_for(
+                        self.segment_coupler_response_received.acquire(),
+                        timeout_msec / 1000)
+                except asyncio.TimeoutError:
+                    break
 
         # No segment coupler expected (num_tries=0)
         if len(self.segment_coupler_ids) == 0:
@@ -461,6 +499,8 @@ class PchkConnectionManager(PchkConnection):
         elif isinstance(inp, inputs.ModSk):
             if inp.physical_source_addr.seg_id == 0:
                 self.set_local_seg_id(inp.reported_seg_id)
+            if self.segment_coupler_response_received.locked():
+                self.segment_coupler_response_received.release()
             # store reported segment coupler id
             if inp.reported_seg_id not in self.segment_coupler_ids:
                 self.segment_coupler_ids.append(inp.reported_seg_id)
@@ -471,13 +511,11 @@ class PchkConnectionManager(PchkConnection):
         elif self.is_ready():
             inp.logical_source_addr = self.physical_to_logical(inp.physical_source_addr)
             module_conn = self.get_address_conn(inp.logical_source_addr)
-            if isinstance(inp, inputs.ModAck):
-                # Skip if we don't have all necessary bus info yet
-                self.loop.create_task(
-                    module_conn.on_ack(inp.code, DEFAULT_TIMEOUT_MSEC)
-                )
-            else:
-                await module_conn.async_process_input(inp)
+            if isinstance(inp, inputs.ModSn):
+                if self.module_serial_number_received.locked():
+                    self.module_serial_number_received.release()
+
+            await module_conn.async_process_input(inp)
 
     async def cancel_requests(self):
         """Cancel all TimeoutRetryHandlers."""

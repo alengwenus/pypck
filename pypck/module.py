@@ -46,7 +46,6 @@ class SerialRequestHandler:
 
     async def async_process_input(self, inp):
         if isinstance(inp, inputs.ModSn):
-            # Skip if we don't have all necessary bus info yet
             self.hardware_serial = inp.serial
             self.manu = inp.manu
             self.software_serial = inp.sw_age
@@ -125,7 +124,6 @@ class NameCommentRequestHandler:
 
     async def async_process_input(self, inp):
         if isinstance(inp, inputs.ModNameComment):
-            # Skip if we don't have all necessary bus info yet
             command = inp.command
             block_id = inp.block_id
             text = inp.text
@@ -353,7 +351,6 @@ class StatusRequestsHandler:
 
     def preprocess_modstatusvar(self, inp):
         """Fill typeless response with last requested variable type."""
-        # Skip if we don't have all necessary bus info yet
         if inp.orig_var == lcn_defs.Var.UNKNOWN:
             # Response without type (%Msssaaa.wwwww)
             inp.var = self.last_requested_var_without_type_in_response
@@ -1082,6 +1079,9 @@ class ModuleConnection(AbstractConnection):
         Method to handle incoming commands for this specific module (status,
         toggle_output, switch_relays, ...)
         """
+        if isinstance(inp, inputs.ModAck):
+            self.loop.create_task(self.on_ack(inp.code, DEFAULT_TIMEOUT_MSEC))
+            return
         # handle typeless variable responses
         if isinstance(inp, inputs.ModStatusVar):
             inp = self.status_requests.preprocess_modstatusvar(inp)
