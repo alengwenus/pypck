@@ -207,6 +207,7 @@ class PchkConnectionManager(PchkConnection):
         # Events, Futures, Locks for synchronization
         self.segment_scan_completed_event = asyncio.Event()
         self.authentication_completed_future = asyncio.Future()
+        self.license_error_future = asyncio.Future()
         self.module_serial_number_received = asyncio.Lock()
         self.segment_coupler_response_received = asyncio.Lock()
 
@@ -227,6 +228,10 @@ class PchkConnectionManager(PchkConnection):
         if success:
             _LOGGER.debug("{} authorization successful!".format(self.connection_id))
             self.authentication_completed_future.set_result(True)
+            # Try to set the PCHK decimal mode
+            await self.async_send_command(
+                PckGenerator.set_dec_mode(),
+                to_host=True)
         else:
             _LOGGER.debug("{} authorization failed!".format(self.connection_id))
             self.authentication_completed_future.set_exception(PchkAuthenticationError)
@@ -234,7 +239,7 @@ class PchkConnectionManager(PchkConnection):
     async def on_license_error(self):
         """Is called if a license error occurs during connection."""
         _LOGGER.debug("{}: License Error.".format(self.connection_id))
-        await self.event_handler("license-error")
+        self.license_error_future.set_exception(PchkLicenseError())
 
     async def on_successful_login(self):
         """Is called after connection to LCN bus system is established."""
@@ -269,7 +274,11 @@ class PchkConnectionManager(PchkConnection):
         :param    int    timeout:    Timeout in seconds
         """
         done, pending = await asyncio.wait(
-            [super().async_connect(), self.authentication_completed_future],
+            [
+                super().async_connect(),
+                self.authentication_completed_future,
+                self.license_error_future,
+            ],
             timeout=timeout,
             return_when=asyncio.FIRST_EXCEPTION,
         )
@@ -280,6 +289,10 @@ class PchkConnectionManager(PchkConnection):
             and self.authentication_completed_future.exception()
         ):
             raise self.authentication_completed_future.exception()
+
+        # check if license error occured
+        if self.license_error_future.done() and self.license_error_future.exception():
+            raise self.license_error_future.exception()
 
         if pending:
             for task in pending:
@@ -480,13 +493,15 @@ class PchkConnectionManager(PchkConnection):
             await self.async_send_command(self.password, to_host=True)
         elif isinstance(inp, inputs.AuthOk):
             await self.on_auth(True)
-            await self.on_successful_login()
         elif isinstance(inp, inputs.AuthFailed):
             await self.on_auth(False)
         elif isinstance(inp, inputs.LcnConnState):
             await self.lcn_connection_status_changed(inp.is_lcn_connected)
         elif isinstance(inp, inputs.LicenseError):
             await self.on_license_error()
+        elif isinstance(inp, inputs.DecModeSet):
+            self.license_error_future.set_result(True)
+            await self.on_successful_login()
         elif isinstance(inp, inputs.CommandError):
             _LOGGER.debug("LCN command error: %s", inp.message)
             for address_conn in self.address_conns.values():
@@ -535,10 +550,7 @@ class PchkConnectionManager(PchkConnection):
             self.event_handler = coro
 
     async def default_event_handler(self, event):
-        if event == "license-error":
-            await self.async_close()
-            raise PchkLicenseError()
-        elif event == "lcn-connected":
+        if event == "lcn-connected":
             pass
         elif event == "lcn-disconnected":
             pass

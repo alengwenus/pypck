@@ -40,6 +40,9 @@ class PckParser:
     # LCN-PK/PKU is disconnected.
     LCNCONNSTATE_DISCONNECTED = "$io:#LCN:disconnected"
 
+    # Decimal mode set
+    DEC_MODE_SET = "(dec-mode)"
+
     # License Error
     LICENSE_ERROR = "$err:(license?)"
 
@@ -180,6 +183,11 @@ class PckGenerator:
         :rtype:    str
         """
         return "^ping{:d}".format(counter)
+
+    @staticmethod
+    def set_dec_mode():
+        """Generate PCK command to set used number system to decimal."""
+        return "!CHD"
 
     @staticmethod
     def set_operation_mode(dim_mode, status_mode):

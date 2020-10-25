@@ -192,10 +192,6 @@ class LcnConnState(Input):
 class LicenseError(Input):
     """LCN bus connected message received from PCHK."""
 
-    def __init__(self):
-        """Construct Input object."""
-        super().__init__()
-
     @staticmethod
     def try_parse(data):
         """Try to parse the given input text.
@@ -210,6 +206,25 @@ class LicenseError(Input):
         """
         if data == PckParser.LICENSE_ERROR:
             return [LicenseError()]
+
+
+class DecModeSet(Input):
+    """Decimal mode set received from PCHK."""
+
+    @staticmethod
+    def try_parse(data):
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        if data == PckParser.DEC_MODE_SET:
+            return [DecModeSet()]
 
 
 class CommandError(Input):
@@ -761,6 +776,7 @@ class InputParser:
         AuthFailed,
         LcnConnState,
         LicenseError,
+        DecModeSet,
         CommandError,
         ModAck,
         ModNameComment,
