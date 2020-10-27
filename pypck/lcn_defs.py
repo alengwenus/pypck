@@ -1075,9 +1075,9 @@ class LedStatus(Enum):
 class LogicOpStatus(Enum):
     """Possible states for LCN logic-operations."""
 
-    NOT = "N"
-    OR = "T"  # Note: Actually not correct since AND won't be OR also
-    AND = "V"
+    NONE = "N"
+    SOME = "T"  # Note: Actually not correct since AND won't be OR also
+    ALL = "V"
 
 
 class TimeUnit(Enum):
