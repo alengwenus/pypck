@@ -31,9 +31,8 @@ class TimeoutRetryHandler:
 
     """
 
-    def __init__(self, loop, num_tries=3, timeout_msec=DEFAULT_TIMEOUT_MSEC):
+    def __init__(self, num_tries=3, timeout_msec=DEFAULT_TIMEOUT_MSEC):
         """Construct TimeoutRetryHandler."""
-        self.loop = loop
         self.num_tries = num_tries
         self.timeout_msec = timeout_msec
         self._timeout_callback = None
@@ -60,13 +59,13 @@ class TimeoutRetryHandler:
 
     def activate(self):
         """Schedule the next activation."""
-        self.loop.create_task(self.async_activate())
+        asyncio.create_task(self.async_activate())
 
     async def async_activate(self):
         """Clean start of next timeout_loop."""
         if self.is_active():
             await self.cancel()
-        self.timeout_loop_task = self.loop.create_task(self.timeout_loop())
+        self.timeout_loop_task = asyncio.create_task(self.timeout_loop())
 
     async def done(self):
         """Signal the completion of the TimeoutRetryHandler."""

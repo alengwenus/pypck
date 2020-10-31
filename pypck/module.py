@@ -22,7 +22,6 @@ from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC, TimeoutRetryHandler
 class SerialRequestHandler:
     def __init__(self, addr_conn, num_tries=3, timeout_msec=1500, software_serial=None):
         self.addr_conn = addr_conn
-        self.loop = addr_conn.loop
 
         self.hardware_serial = -1
         self.manu = -1
@@ -32,7 +31,7 @@ class SerialRequestHandler:
         self.hardware_type = -1
 
         # Serial Number request
-        self.trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
+        self.trh = TimeoutRetryHandler(num_tries, timeout_msec)
         self.trh.set_timeout_callback(self.timeout)
 
         # callback
@@ -42,7 +41,7 @@ class SerialRequestHandler:
         self.serial_known = asyncio.Event()
 
     def process_input(self, inp):
-        self.loop.create_task(self.async_process_input(inp))
+        asyncio.create_task(self.async_process_input(inp))
 
     async def async_process_input(self, inp):
         if isinstance(inp, inputs.ModSn):
@@ -86,7 +85,6 @@ class SerialRequestHandler:
 class NameCommentRequestHandler:
     def __init__(self, addr_conn, num_tries=3, timeout_msec=1500):
         self.addr_conn = addr_conn
-        self.loop = addr_conn.loop
 
         self._name = [None] * 2
         self._comment = [None] * 3
@@ -95,19 +93,19 @@ class NameCommentRequestHandler:
         # Name requests
         self.name_trhs = []
         for block_id in range(2):
-            trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
+            trh = TimeoutRetryHandler(num_tries, timeout_msec)
             trh.set_timeout_callback(self.timeout_name, block_id=block_id)
             self.name_trhs.append(trh)
 
         self.comment_trhs = []
         for block_id in range(3):
-            trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
+            trh = TimeoutRetryHandler(num_tries, timeout_msec)
             trh.set_timeout_callback(self.timeout_comment, block_id=block_id)
             self.comment_trhs.append(trh)
 
         self.oem_text_trhs = []
         for block_id in range(4):
-            trh = TimeoutRetryHandler(self.loop, num_tries, timeout_msec)
+            trh = TimeoutRetryHandler(num_tries, timeout_msec)
             trh.set_timeout_callback(self.timeout_oem_text, block_id=block_id)
             self.oem_text_trhs.append(trh)
 
@@ -120,7 +118,7 @@ class NameCommentRequestHandler:
         self.oem_text_known = asyncio.Event()
 
     def process_input(self, inp):
-        self.loop.create_task(self.async_process_input(inp))
+        asyncio.create_task(self.async_process_input(inp))
 
     async def async_process_input(self, inp):
         if isinstance(inp, inputs.ModNameComment):
@@ -248,9 +246,8 @@ class NameCommentRequestHandler:
 class ModulePropertiesRequestHandler:
     """Manages all property requestst for serial number, name, comments, ..."""
 
-    def __init__(self, loop, addr_conn, software_serial=None):
+    def __init__(self, addr_conn, software_serial=None):
         """Construct ModulePropertiesRequestHandler"""
-        self.loop = loop
 
         self.addr_conn = addr_conn
         self.settings = addr_conn.conn.settings
@@ -275,7 +272,7 @@ class ModulePropertiesRequestHandler:
         # software_serial is not given externally
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         if self.serials.software_serial == -1:
-            self.loop.create_task(self.serials.request())
+            asyncio.create_task(self.serials.request())
 
     async def cancel_all(self):
         "Cancel all properties requests."
@@ -286,9 +283,8 @@ class ModulePropertiesRequestHandler:
 class StatusRequestsHandler:
     """Manages all status requests for variables, software version, ..."""
 
-    def __init__(self, loop, addr_conn):
+    def __init__(self, addr_conn):
         """Construct StatusRequestHandler instance."""
-        self.loop = loop
         self.addr_conn = addr_conn
         self.settings = addr_conn.conn.settings
 
@@ -299,14 +295,14 @@ class StatusRequestsHandler:
         self.request_status_outputs = []
         for output_port in range(4):
             trh = TimeoutRetryHandler(
-                self.loop, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+                -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
             )
             trh.set_timeout_callback(self.request_status_outputs_timeout, output_port)
             self.request_status_outputs.append(trh)
 
         # Relay request status (all 8)
         self.request_status_relays = TimeoutRetryHandler(
-            self.loop, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+            -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
         )
         self.request_status_relays.set_timeout_callback(
             self.request_status_relays_timeout
@@ -314,7 +310,7 @@ class StatusRequestsHandler:
 
         # Binary-sensors request status (all 8)
         self.request_status_bin_sensors = TimeoutRetryHandler(
-            self.loop, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+            -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
         )
         self.request_status_bin_sensors.set_timeout_callback(
             self.request_status_bin_sensors_timeout
@@ -327,7 +323,7 @@ class StatusRequestsHandler:
         for var in lcn_defs.Var:
             if var != lcn_defs.Var.UNKNOWN:
                 self.request_status_vars[var] = TimeoutRetryHandler(
-                    self.loop, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+                    -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
                 )
                 self.request_status_vars[var].set_timeout_callback(
                     self.request_status_var_timeout, var=var
@@ -335,7 +331,7 @@ class StatusRequestsHandler:
 
         # LEDs and logic-operations request status (all 12+4).
         self.request_status_leds_and_logic_ops = TimeoutRetryHandler(
-            self.loop, -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
+            -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
         )
         self.request_status_leds_and_logic_ops.set_timeout_callback(
             self.request_status_leds_and_logic_ops_timeout
@@ -343,7 +339,7 @@ class StatusRequestsHandler:
 
         # Key lock-states request status (all tables, A-D).
         self.request_status_locked_keys = TimeoutRetryHandler(
-            self.loop, -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
+            -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
         )
         self.request_status_locked_keys.set_timeout_callback(
             self.request_status_locked_keys_timeout
@@ -500,9 +496,8 @@ class AbstractConnection(LcnAddr):
     Sends status requests to the connection and handles status responses.
     """
 
-    def __init__(self, loop, conn, seg_id, addr_id, is_group, sw_age=None):
+    def __init__(self, conn, seg_id, addr_id, is_group, sw_age=None):
         """Construct AbstractConnection instance."""
-        self.loop = loop
         self.conn = conn
         super().__init__(seg_id=seg_id, addr_id=addr_id, is_group=is_group)
 
@@ -850,9 +845,9 @@ class GroupConnection(AbstractConnection):
     It is assumed that all modules within this group are newer than FW170206
     """
 
-    def __init__(self, loop, conn, seg_id, grp_id, sw_age=0x170206):
+    def __init__(self, conn, seg_id, grp_id, sw_age=0x170206):
         """Construct GroupConnection instance."""
-        super().__init__(loop, conn, seg_id, grp_id, True, sw_age=sw_age)
+        super().__init__(conn, seg_id, grp_id, True, sw_age=sw_age)
 
     def var_abs(self, var, value, unit=lcn_defs.VarUnit.NATIVE, is2013=None):
         """Send a command to set the absolute value to a variable.
@@ -934,7 +929,6 @@ class ModuleConnection(AbstractConnection):
 
     def __init__(
         self,
-        loop,
         conn,
         seg_id,
         mod_id,
@@ -943,7 +937,7 @@ class ModuleConnection(AbstractConnection):
         sw_age=None,
     ):
         """Construct ModuleConnection instance."""
-        super().__init__(loop, conn, seg_id, mod_id, False, sw_age=sw_age)
+        super().__init__(conn, seg_id, mod_id, False, sw_age=sw_age)
         self.has_s0_enabled = has_s0_enabled
 
         # List of queued PCK commands to be acknowledged by the LCN module.
@@ -952,20 +946,20 @@ class ModuleConnection(AbstractConnection):
         self.pck_commands_with_ack = deque()
 
         self.request_curr_pck_command_with_ack = TimeoutRetryHandler(
-            loop, conn.settings["NUM_TRIES"]
+            conn.settings["NUM_TRIES"]
         )
         self.request_curr_pck_command_with_ack.set_timeout_callback(
             self.request_curr_pck_command_with_ack_timeout
         )
 
         self.properties_requests = ModulePropertiesRequestHandler(
-            loop, self, software_serial=sw_age
+            self, software_serial=sw_age
         )
-        self.status_requests = StatusRequestsHandler(loop, self)
+        self.status_requests = StatusRequestsHandler(self)
 
-        loop.create_task(self.activate_properties_request_handlers())
+        asyncio.create_task(self.activate_properties_request_handlers())
         if activate_status_requests:
-            loop.create_task(self.activate_status_request_handlers())
+            asyncio.create_task(self.activate_status_request_handlers())
 
     def send_command(self, wants_ack, pck):
         """Send a command to the module represented by this class.
@@ -1080,7 +1074,7 @@ class ModuleConnection(AbstractConnection):
         toggle_output, switch_relays, ...)
         """
         if isinstance(inp, inputs.ModAck):
-            self.loop.create_task(self.on_ack(inp.code, DEFAULT_TIMEOUT_MSEC))
+            asyncio.create_task(self.on_ack(inp.code, DEFAULT_TIMEOUT_MSEC))
             return
         # handle typeless variable responses
         if isinstance(inp, inputs.ModStatusVar):

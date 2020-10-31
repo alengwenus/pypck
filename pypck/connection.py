@@ -17,7 +17,7 @@ from pypck import inputs, lcn_defs
 from pypck.lcn_addr import LcnAddr
 from pypck.module import GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
-from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC, TimeoutRetryHandler
+from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -77,9 +77,8 @@ class PchkConnection:
     :class:`~PchkConnectionManager`.
     """
 
-    def __init__(self, loop, server_addr, port, connection_id="PCHK"):
+    def __init__(self, server_addr, port, connection_id="PCHK"):
         """Construct PchkConnection."""
-        self.loop = loop
         self.server_addr = server_addr
         self.port = port
         self.connection_id = connection_id
@@ -90,15 +89,13 @@ class PchkConnection:
         )
 
         address = self.writer.get_extra_info("peername")
-        _LOGGER.debug(
-            "{} server connected at {}:{}".format(self.connection_id, *address)
-        )
+        _LOGGER.debug("%d server connected at %s:%s", self.connection_id, *address)
 
         # main read loop
-        self.read_data_loop_task = self.loop.create_task(self.read_data_loop())
+        self.read_data_loop_task = asyncio.create_task(self.read_data_loop())
 
     def connect(self):
-        self.loop.create_task(self.async_connect())
+        asyncio.create_task(self.async_connect())
 
     async def read_data_loop(self):
         """Is called when some data is received."""
@@ -106,15 +103,15 @@ class PchkConnection:
             try:
                 data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
             except asyncio.IncompleteReadError:
-                _LOGGER.debug("Connection to {} lost".format(self.connection_id))
+                _LOGGER.debug("Connection to %s lost", self.connection_id)
                 await self.async_close()
                 return
 
             message = data.decode().split(PckGenerator.TERMINATION)[0]
-            self.loop.create_task(self.process_message(message))
+            await self.process_message(message)
 
     def send_command(self, pck, **kwargs):
-        self.loop.create_task(self.async_send_command(pck, **kwargs))
+        asyncio.create_task(self.async_send_command(pck, **kwargs))
 
     async def async_send_command(self, pck):
         """Send a PCK command to the PCHK server.
@@ -122,7 +119,7 @@ class PchkConnection:
         :param    str    pck:    PCK command
         """
         if not self.writer.is_closing():
-            _LOGGER.debug("to {}: {}".format(self.connection_id, pck))
+            _LOGGER.debug("to %s: %s", self.connection_id, pck)
             self.writer.write((pck + PckGenerator.TERMINATION).encode())
             await self.writer.drain()
 
@@ -134,7 +131,7 @@ class PchkConnection:
 
         :param    str    input:    Input text message
         """
-        _LOGGER.debug("from {}: {}".format(self.connection_id, message))
+        _LOGGER.debug("from %s: %s", self.connection_id, message)
 
     async def async_close(self):
         """Close the active connection."""
@@ -183,7 +180,7 @@ class PchkConnectionManager(PchkConnection):
         connection_id="PCHK",
     ):
         """Construct PchkConnectionManager."""
-        super().__init__(loop, server_addr, port, connection_id)
+        super().__init__(server_addr, port, connection_id)
 
         self.username = username
         self.password = password
@@ -226,29 +223,29 @@ class PchkConnectionManager(PchkConnection):
     async def on_auth(self, success):
         """Is called after successful authentication."""
         if success:
-            _LOGGER.debug("{} authorization successful!".format(self.connection_id))
+            _LOGGER.debug("%s authorization successful!", self.connection_id)
             self.authentication_completed_future.set_result(True)
             # Try to set the PCHK decimal mode
             await self.async_send_command(
                 PckGenerator.set_dec_mode(),
                 to_host=True)
         else:
-            _LOGGER.debug("{} authorization failed!".format(self.connection_id))
+            _LOGGER.debug("%s authorization failed!", self.connection_id)
             self.authentication_completed_future.set_exception(PchkAuthenticationError)
 
     async def on_license_error(self):
         """Is called if a license error occurs during connection."""
-        _LOGGER.debug("{}: License Error.".format(self.connection_id))
+        _LOGGER.debug("%s: License Error.", self.connection_id)
         self.license_error_future.set_exception(PchkLicenseError())
 
     async def on_successful_login(self):
         """Is called after connection to LCN bus system is established."""
-        _LOGGER.debug("{} login successful.".format(self.connection_id))
+        _LOGGER.debug("%s login successful.", self.connection_id)
         await self.async_send_command(
             PckGenerator.set_operation_mode(self.dim_mode, self.status_mode),
             to_host=True,
         )
-        self.ping_task = self.loop.create_task(self.ping())
+        self.ping_task = asyncio.create_task(self.ping())
 
     async def lcn_connection_status_changed(self, is_lcn_connected):
         """Set the current connection state to the LCN bus.
@@ -258,10 +255,10 @@ class PchkConnectionManager(PchkConnection):
         self.is_lcn_connected = is_lcn_connected
         await self.event_handler("lcn-connection-status-changed")
         if is_lcn_connected:
-            _LOGGER.debug("{}: LCN is connected.".format(self.connection_id))
+            _LOGGER.debug("%s: LCN is connected.", self.connection_id)
             await self.event_handler("lcn-connected")
         else:
-            _LOGGER.debug("{}: LCN is not connected.".format(self.connection_id))
+            _LOGGER.debug("%s: LCN is not connected.", self.connection_id)
             await self.event_handler("lcn-disconnected")
 
     async def async_connect(self, timeout=30):
@@ -311,7 +308,7 @@ class PchkConnectionManager(PchkConnection):
         await super().async_close()
         await cancel(self.ping_task)
         await self.cancel_requests()
-        _LOGGER.debug("Connection to {} closed.".format(self.connection_id))
+        _LOGGER.debug("Connection to %s closed.", self.connection_id)
 
     def set_local_seg_id(self, local_seg_id):
         """Set the local segment id.
@@ -380,11 +377,11 @@ class PchkConnectionManager(PchkConnection):
         if address_conn is None:
             if addr.is_group():
                 address_conn = GroupConnection(
-                    self.loop, self, addr.seg_id, addr.addr_id
+                    self, addr.seg_id, addr.addr_id
                 )
             else:
                 address_conn = ModuleConnection(
-                    self.loop, self, addr.seg_id, addr.addr_id
+                    self, addr.seg_id, addr.addr_id
                 )
 
             self.address_conns[addr] = address_conn
@@ -457,7 +454,7 @@ class PchkConnectionManager(PchkConnection):
 
         # No segment coupler expected (num_tries=0)
         if len(self.segment_coupler_ids) == 0:
-            _LOGGER.debug("{}: No segment coupler found.".format(self.connection_id))
+            _LOGGER.debug("%s: No segment coupler found.", self.connection_id)
 
         self.segment_scan_completed_event.set()
 
@@ -474,7 +471,7 @@ class PchkConnectionManager(PchkConnection):
         """Is called when a new text message is received from the PCHK server.
 
         This class should be reimplemented in any subclass which evaluates
-        recieved messages.
+        received messages.
 
         :param    str    input:    Input text message
         """
@@ -508,7 +505,7 @@ class PchkConnectionManager(PchkConnection):
                 if not address_conn.is_group():
                     if address_conn.pck_commands_with_ack:
                         address_conn.pck_commands_with_ack.popleft()
-                    self.loop.create_task(
+                    asyncio.create_task(
                         address_conn.request_curr_pck_command_with_ack.cancel()
                     )
         elif isinstance(inp, inputs.ModSk):
