@@ -1,128 +1,71 @@
 """Connection tests."""
-from unittest.mock import Mock
+# from unittest.mock import Mock
 
-from pypck.pck_commands import PckParser
-from tests.conftest import PASSWORD, USERNAME, encode_pck
+import asyncio
 
-# Socket connection tests
+import pytest
+from pypck.connection import (
+    PchkAuthenticationError,
+    PchkConnectionManager,
+    PchkLicenseError
+)
 
-
-def test_called_connection_made(pchk_connection_manager):
-    """Test if socket_connected future is done.
-
-    Connection to socket is already established.
-    """
-    pchk_connection_manager.connect()
-    assert pchk_connection_manager.socket_connected.done()
+from .conftest import HOST, PASSWORD, PORT, USERNAME
 
 
-def test_async_connect(monkeypatch, loop, pchk_connection_manager):
-    """Tests if async_connect coroutine continues.
-
-    All connection futures are done previously.
-    """
-    monkeypatch.setattr(pchk_connection_manager, 'connect', Mock())
-    pchk_connection_manager.socket_connected.set_result(True)
-    pchk_connection_manager.license_status.set_result(True)
-    pchk_connection_manager.lcn_connected.set_result(True)
-    pchk_connection_manager.segment_scan_completed.set_result(True)
-    loop.run_until_complete(
-        pchk_connection_manager.async_connect(timeout=0.5))
-    assert pchk_connection_manager.connect.called
-
-# # Authentication tests
+@pytest.mark.asyncio
+async def test_close_without_connect():
+    """Test closing of PchkConnectionManager without connecting."""
+    loop = None
+    pcm = PchkConnectionManager(
+        loop, HOST, PORT, USERNAME, PASSWORD,
+        settings={'SK_NUM_TRIES': 0})
+    await pcm.async_close()
 
 
-def test_received_auth_username(pchk_connection_manager):
-    """Test username authentication workflow."""
-    pchk_connection_manager.data_received(
-        encode_pck(PckParser.AUTH_USERNAME))
-    pchk_connection_manager.send_command.assert_called_with(USERNAME)
+@pytest.mark.asyncio
+async def test_authenticate(pchk_server):
+    """Test authentication procedure."""
+    loop = None
+    pcm = PchkConnectionManager(
+        loop, HOST, PORT, USERNAME, PASSWORD,
+        settings={'SK_NUM_TRIES': 0})
+    await pcm.async_connect()
+    await pcm.async_close()
 
 
-def test_received_auth_password(pchk_connection_manager):
-    """Test password authentication workflow."""
-    pchk_connection_manager.data_received(
-        encode_pck(PckParser.AUTH_PASSWORD))
-    pchk_connection_manager.send_command.assert_called_with(PASSWORD)
+@pytest.mark.asyncio
+async def test_authentication_error(pchk_server):
+    """Test wrong login credentials."""
+    loop = None
+    pcm = PchkConnectionManager(
+        loop, HOST, PORT, USERNAME, 'wrong_password',
+        settings={'SK_NUM_TRIES': 0})
+    with pytest.raises(PchkAuthenticationError):
+        await pcm.async_connect()
+    await pcm.async_close()
 
 
-def test_received_auth_ok(monkeypatch, pchk_connection_manager):
-    """Test authentication ok workflow."""
-    monkeypatch.setattr(pchk_connection_manager, 'on_auth_ok', Mock())
-    pchk_connection_manager.data_received(
-        encode_pck(PckParser.AUTH_OK))
-    assert pchk_connection_manager.on_auth_ok.called
+@pytest.mark.asyncio
+async def test_license_error(pchk_server, pypck_client):
+    """Test license error."""
+    pchk_server.set_license_error(True)
 
-# # LCN Connection tests
-
-
-def test_received_lcn_connected(monkeypatch, pchk_connection_manager):
-    """Test if correct workflow is done.
-
-    LCN connected message is already received.
-    """
-    monkeypatch.setattr(pchk_connection_manager, 'on_successful_login', Mock())
-    pchk_connection_manager.data_received(
-        encode_pck(PckParser.LCNCONNSTATE_CONNECTED))
-    assert pchk_connection_manager.on_successful_login.called
+    with pytest.raises(PchkLicenseError):
+        await pypck_client.async_connect()
 
 
-def test_called_on_successful_login(monkeypatch, pchk_connection_manager):
-    """Test workflow after on_successful_login was called.
+@pytest.mark.asyncio
+async def test_segment_coupler_search(pchk_server, pypck_client):
+    """Test license error."""
+    await pypck_client.async_connect()
+    await pypck_client.scan_segment_couplers(3, 0)
 
-    (E.g. lcn_connected future is done, ping procedure started, segment scan
-    started).
-    """
-    with monkeypatch.context() as mpc:
-        mpc.setattr(pchk_connection_manager, 'send_command', Mock())
-        mpc.setattr(pchk_connection_manager, 'ping', Mock())
-        pchk_connection_manager.data_received(
-            encode_pck(PckParser.LCNCONNSTATE_CONNECTED))
-
-        # assert that lcn_connected future has result set
-        assert pchk_connection_manager.lcn_connected.done()
-
-        # assert that operation mode was set correctly
-        pchk_connection_manager.send_command.assert_called_with('!OM0P')
-
-        # assert that TimeoutRetryhandlers for ping and segment_scans are
-        # activated
-        assert pchk_connection_manager.ping.activate.called
-
-# # LCN segment scan tests
+    assert await pchk_server.received(b'>G003003.SK')
+    assert await pchk_server.received(b'>G003003.SK')
+    assert await pchk_server.received(b'>G003003.SK')
 
 
-# def test_called_segment_scan(monkeypatch, pchk_connection_manager):
-#     """Test workflow after segment_scan completed (not) successful."""
-#     monkeypatch.setattr(pchk_connection_manager, 'set_local_seg_id', Mock())
-#     # assert that for each timeout a segment scan command is sent
-#     pchk_connection_manager.segment_scan_timeout(False)
-#     pchk_connection_manager.send_command.assert_called_with('>G003003.SK')
-
-#     # assert that if max retries is reached, local segment id is set to 0
-#     pchk_connection_manager.segment_scan_timeout(True)
-#     pchk_connection_manager.set_local_seg_id.assert_called_with(0)
-
-
-def test_received_segment_info(monkeypatch, pchk_connection_manager):
-    """Test if local segment id is about to set.
-
-    Appropriate PCK command was received previously.
-    """
-    monkeypatch.setattr(pchk_connection_manager, 'set_local_seg_id', Mock())
-    pck = '=M000005.SK7'
-    pchk_connection_manager.data_received(encode_pck(pck))
-
-    # assert that local segment id is set properly
-    pchk_connection_manager.set_local_seg_id.assert_called_with(7)
-
-
-def test_called_local_seg_id(pchk_connection_manager):
-    """Test if local segment id was set correctly.
-
-    Set_local_seg_id was called previously.
-    """
-    pchk_connection_manager.set_local_seg_id(7)
-
-    assert pchk_connection_manager.local_seg_id == 7
+# @pytest.mark.asyncio
+# async def test_authenticate(pchk_server, pypck_client):
+#     await pypck_client.async_connect()

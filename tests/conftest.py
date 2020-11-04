@@ -1,14 +1,17 @@
 """Core testing functionality."""
 
 import asyncio
-from unittest.mock import Mock
 
+import pytest
 from pypck.connection import PchkConnectionManager
 from pypck.pck_commands import PckGenerator
 
-import pytest
+from .fake_pchk import PchkServer
 
-IP_ADDRESS = '127.0.0.1'
+# from unittest.mock import Mock
+
+
+HOST = '127.0.0.1'
 PORT = 4114
 USERNAME = 'lcn_username'
 PASSWORD = 'lcn_password'
@@ -20,42 +23,20 @@ def encode_pck(pck):
 
 
 @pytest.fixture
-def loop():
-    """Set up an event loop."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+async def pchk_server():
+    """Create a fake PchkServer and run."""
+    ps = PchkServer(host=HOST, port=PORT, username=USERNAME, password=PASSWORD)
+    await ps.run()
+    yield ps
+    await ps.stop()
 
 
 @pytest.fixture
-def pchk_connection_manager(monkeypatch, loop):
-    """Set up a PchkConnectionManager instace."""
-    pchk_connection_manager = PchkConnectionManager(loop,
-                                                    IP_ADDRESS,
-                                                    PORT,
-                                                    USERNAME,
-                                                    PASSWORD)
-
-    transport = Mock()
-    transport.get_extra_info = Mock(return_value=(IP_ADDRESS,
-                                                  PORT))
-
-    def mock_connect():
-        """Mock the connection_made method."""
-        pchk_connection_manager.connection_made(transport)
-
-    monkeypatch.setattr(pchk_connection_manager, 'connect', mock_connect)
-    monkeypatch.setattr(pchk_connection_manager, 'send_command', Mock())
-
-    yield pchk_connection_manager
-
-    loop.run_until_complete(pchk_connection_manager.async_close())
-
-
-@pytest.fixture
-def connection_is_ready(pchk_connection_manager):
-    """Set the PchkConnectionManager connection to fully established."""
-    pchk_connection_manager.socket_connected.set_result(True)
-    pchk_connection_manager.license_status.set_result(True)
-    pchk_connection_manager.lcn_connected.set_result(True)
-    pchk_connection_manager.segment_scan_completed.set_result(True)
+async def pypck_client():
+    """Create a PchkConnectionManager for testing."""
+    loop = None
+    pcm = PchkConnectionManager(
+        loop, HOST, PORT, USERNAME, PASSWORD,
+        settings={'SK_NUM_TRIES': 0})
+    yield pcm
+    await pcm.async_close()
