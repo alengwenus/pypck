@@ -768,8 +768,8 @@ class PckGenerator:
         ret = "TV"
         try:
             ret += PckGenerator.TABLE_NAMES[table_id]
-        except IndexError:
-            raise ValueError("Wrong table_id.")
+        except IndexError as exc:
+            raise ValueError("Wrong table_id.") from exc
 
         ret += "{:03d}".format(time)
         if time_unit == lcn_defs.TimeUnit.SECONDS:
@@ -820,8 +820,8 @@ class PckGenerator:
             raise ValueError("Bad table_id or states.")
         try:
             ret = "TX{:s}".format(PckGenerator.TABLE_NAMES[table_id])
-        except IndexError:
-            raise ValueError("Wrong table_id.")
+        except IndexError as exc:
+            raise ValueError("Wrong table_id.") from exc
 
         for state in states:
             ret += state.value
@@ -975,4 +975,3 @@ class PckGenerator:
         for port in relay_ports:
             relays_mask[port.value] = "1"
         return "SZA0{:03d}{:s}".format(scene_id, "".join(relays_mask))
-

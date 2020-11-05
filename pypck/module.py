@@ -258,13 +258,15 @@ class ModulePropertiesRequestHandler:
         self.serials = SerialRequestHandler(
             addr_conn,
             self.settings["NUM_TRIES"],
-            timeout_msec=1500,
+            timeout_msec=self.settings["DEFAULT_TIMEOUT_MSEC"],
             software_serial=software_serial,
         )
 
         # NameComment request
         self.name_comment = NameCommentRequestHandler(
-            addr_conn, self.settings["NUM_TRIES"], timeout_msec=1500
+            addr_conn,
+            self.settings["NUM_TRIES"],
+            timeout_msec=self.settings["DEFAULT_TIMEOUT_MSEC"],
         )
 
     async def activate_all(self):
@@ -823,7 +825,7 @@ class AbstractConnection(LcnAddr):
         """
         encoded_text = text.encode(lcn_defs.LCN_ENCODING)
 
-        parts = [encoded_text[12 * p:12 * p + 12] for p in range(5)]
+        parts = [encoded_text[12 * p : 12 * p + 12] for p in range(5)]
         for part_id, part in enumerate(parts):
             if part:
                 self.send_command(
@@ -946,7 +948,7 @@ class ModuleConnection(AbstractConnection):
         self.pck_commands_with_ack = deque()
 
         self.request_curr_pck_command_with_ack = TimeoutRetryHandler(
-            conn.settings["NUM_TRIES"]
+            conn.settings["NUM_TRIES"], conn.settings["DEFAULT_TIMEOUT_MSEC"]
         )
         self.request_curr_pck_command_with_ack.set_timeout_callback(
             self.request_curr_pck_command_with_ack_timeout

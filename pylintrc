@@ -46,7 +46,7 @@ score=yes
 #reports=no
 
 [FORMAT]
-max-line-length=79
+max-line-length=88
 expected-line-ending-format=LF
 
 [EXCEPTIONS]

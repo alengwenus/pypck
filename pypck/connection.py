@@ -17,7 +17,6 @@ from pypck import inputs, lcn_defs
 from pypck.lcn_addr import LcnAddr
 from pypck.module import GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
-from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -82,12 +81,13 @@ class PchkConnection:
         self.server_addr = server_addr
         self.port = port
         self.connection_id = connection_id
+        self.reader = None
+        self.writer = None
 
     async def async_connect(self):
         self.reader, self.writer = await asyncio.open_connection(
             self.server_addr, self.port
         )
-
         address = self.writer.get_extra_info("peername")
         _LOGGER.debug("%d server connected at %s:%s", self.connection_id, *address)
 
@@ -105,6 +105,8 @@ class PchkConnection:
             except asyncio.IncompleteReadError:
                 _LOGGER.debug("Connection to %s lost", self.connection_id)
                 await self.async_close()
+                return
+            except asyncio.CancelledError:
                 return
 
             message = data.decode().split(PckGenerator.TERMINATION)[0]
@@ -135,9 +137,11 @@ class PchkConnection:
 
     async def async_close(self):
         """Close the active connection."""
-        await cancel(self.read_data_loop_task)
-        self.writer.close()
-        await self.writer.wait_closed()
+        if self.read_data_loop_task:
+            await cancel(self.read_data_loop_task)
+        if self.writer:
+            self.writer.close()
+            await self.writer.wait_closed()
 
 
 class PchkConnectionManager(PchkConnection):
@@ -201,6 +205,10 @@ class PchkConnectionManager(PchkConnection):
 
         self.event_handler = self.default_event_handler
 
+        # Tasks
+        self.ping_task = None
+        self.read_data_loop_task = None
+
         # Events, Futures, Locks for synchronization
         self.segment_scan_completed_event = asyncio.Event()
         self.authentication_completed_future = asyncio.Future()
@@ -226,9 +234,7 @@ class PchkConnectionManager(PchkConnection):
             _LOGGER.debug("%s authorization successful!", self.connection_id)
             self.authentication_completed_future.set_result(True)
             # Try to set the PCHK decimal mode
-            await self.async_send_command(
-                PckGenerator.set_dec_mode(),
-                to_host=True)
+            await self.async_send_command(PckGenerator.set_dec_mode(), to_host=True)
         else:
             _LOGGER.debug("%s authorization failed!", self.connection_id)
             self.authentication_completed_future.set_exception(PchkAuthenticationError)
@@ -280,16 +286,11 @@ class PchkConnectionManager(PchkConnection):
             return_when=asyncio.FIRST_EXCEPTION,
         )
 
-        # check if authentication successful
-        if (
-            self.authentication_completed_future.done()
-            and self.authentication_completed_future.exception()
-        ):
-            raise self.authentication_completed_future.exception()
-
-        # check if license error occured
-        if self.license_error_future.done() and self.license_error_future.exception():
-            raise self.license_error_future.exception()
+        # Raise any exception which occurs
+        # (ConnectionRefusedError, PchkAuthenticationError, PchkLicenseError)
+        for awaitable in done:
+            if awaitable.exception():
+                raise awaitable.exception()
 
         if pending:
             for task in pending:
@@ -300,13 +301,14 @@ class PchkConnectionManager(PchkConnection):
 
         # start segment scan
         await self.scan_segment_couplers(
-            self.settings["SK_NUM_TRIES"], DEFAULT_TIMEOUT_MSEC
+            self.settings["SK_NUM_TRIES"], self.settings["DEFAULT_TIMEOUT_MSEC"]
         )
 
     async def async_close(self):
         """Close the active connection."""
         await super().async_close()
-        await cancel(self.ping_task)
+        if self.ping_task:
+            await cancel(self.ping_task)
         await self.cancel_requests()
         _LOGGER.debug("Connection to %s closed.", self.connection_id)
 
@@ -376,13 +378,9 @@ class PchkConnectionManager(PchkConnection):
         address_conn = self.address_conns.get(addr, None)
         if address_conn is None:
             if addr.is_group():
-                address_conn = GroupConnection(
-                    self, addr.seg_id, addr.addr_id
-                )
+                address_conn = GroupConnection(self, addr.seg_id, addr.addr_id)
             else:
-                address_conn = ModuleConnection(
-                    self, addr.seg_id, addr.addr_id
-                )
+                address_conn = ModuleConnection(self, addr.seg_id, addr.addr_id)
 
             self.address_conns[addr] = address_conn
 
@@ -406,7 +404,7 @@ class PchkConnectionManager(PchkConnection):
             self.segment_coupler_ids if self.segment_coupler_ids else [0]
         )
 
-        for idx in range(num_tries):
+        for _ in range(num_tries):
             for segment_id in segment_coupler_ids:
                 if segment_id == self.local_seg_id:
                     segment_id = 0
@@ -417,7 +415,8 @@ class PchkConnectionManager(PchkConnection):
                 try:
                     await asyncio.wait_for(
                         self.module_serial_number_received.acquire(),
-                        timeout_msec / 1000)
+                        timeout_msec / 1000,
+                    )
                 except asyncio.TimeoutError:
                     break
 
@@ -435,7 +434,7 @@ class PchkConnectionManager(PchkConnection):
         :param      int     timeout_msec:   Timeout in msec for each try
                                             (default=3000)
         """
-        for idx in range(num_tries):
+        for _ in range(num_tries):
             await self.async_send_command(
                 PckGenerator.generate_address_header(
                     LcnAddr(3, 3, True), self.local_seg_id, False
@@ -448,7 +447,8 @@ class PchkConnectionManager(PchkConnection):
                 try:
                     await asyncio.wait_for(
                         self.segment_coupler_response_received.acquire(),
-                        timeout_msec / 1000)
+                        timeout_msec / 1000,
+                    )
                 except asyncio.TimeoutError:
                     break
 
@@ -541,12 +541,14 @@ class PchkConnectionManager(PchkConnection):
             await asyncio.wait(cancel_coros)
 
     def set_event_handler(self, coro):
+        """Set the event handler for specific LCN events."""
         if coro is None:
             self.event_handler = self.default_event_handler
         else:
             self.event_handler = coro
 
     async def default_event_handler(self, event):
+        """Default event handler for specific LCN events."""
         if event == "lcn-connected":
             pass
         elif event == "lcn-disconnected":

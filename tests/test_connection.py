@@ -14,36 +14,31 @@ from .conftest import HOST, PASSWORD, PORT, USERNAME
 
 
 @pytest.mark.asyncio
-async def test_close_without_connect():
+async def test_close_without_connect(pypck_client):
     """Test closing of PchkConnectionManager without connecting."""
-    loop = None
-    pcm = PchkConnectionManager(
-        loop, HOST, PORT, USERNAME, PASSWORD,
-        settings={'SK_NUM_TRIES': 0})
-    await pcm.async_close()
+    await pypck_client.async_close()
 
 
 @pytest.mark.asyncio
-async def test_authenticate(pchk_server):
+async def test_authenticate(pchk_server, pypck_client):
     """Test authentication procedure."""
-    loop = None
-    pcm = PchkConnectionManager(
-        loop, HOST, PORT, USERNAME, PASSWORD,
-        settings={'SK_NUM_TRIES': 0})
-    await pcm.async_connect()
-    await pcm.async_close()
+    await pypck_client.async_connect()
 
 
 @pytest.mark.asyncio
-async def test_authentication_error(pchk_server):
+async def test_port_error(pchk_server, pypck_client):
+    """Test wrong port."""
+    pypck_client.port = 55555
+    with pytest.raises(ConnectionRefusedError):
+        await pypck_client.async_connect()
+
+
+@pytest.mark.asyncio
+async def test_authentication_error(pchk_server, pypck_client):
     """Test wrong login credentials."""
-    loop = None
-    pcm = PchkConnectionManager(
-        loop, HOST, PORT, USERNAME, 'wrong_password',
-        settings={'SK_NUM_TRIES': 0})
+    pypck_client.password = 'wrong_password'
     with pytest.raises(PchkAuthenticationError):
-        await pcm.async_connect()
-    await pcm.async_close()
+        await pypck_client.async_connect()
 
 
 @pytest.mark.asyncio
@@ -56,16 +51,9 @@ async def test_license_error(pchk_server, pypck_client):
 
 
 @pytest.mark.asyncio
-async def test_segment_coupler_search(pchk_server, pypck_client):
-    """Test license error."""
-    await pypck_client.async_connect()
-    await pypck_client.scan_segment_couplers(3, 0)
-
-    assert await pchk_server.received(b'>G003003.SK')
-    assert await pchk_server.received(b'>G003003.SK')
-    assert await pchk_server.received(b'>G003003.SK')
+async def test_timeout_error(pchk_server, pypck_client):
+    """Test timeout when connecting."""
+    with pytest.raises(TimeoutError):
+        await pypck_client.async_connect(timeout=0)
 
 
-# @pytest.mark.asyncio
-# async def test_authenticate(pchk_server, pypck_client):
-#     await pypck_client.async_connect()

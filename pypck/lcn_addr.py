@@ -151,11 +151,9 @@ class LcnAddr:
 if "REV_UINT8" not in dir():
     REV_UINT8 = [0] * 256
     for i in range(256):
-        rev = 0
         for j in range(8):
             if i & (1 << j) != 0:
-                rev |= 0x80 >> j
-        REV_UINT8[i] = rev
+                REV_UINT8[i] |= 0x80 >> j
 
 
 def reverse_uint8(value):
