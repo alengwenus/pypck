@@ -144,4 +144,3 @@ async def test_module_sn_response(pchk_server, pypck_client):
     assert module.manu == 1
     assert module.software_serial == 0x190B11
     assert module.hw_type == 15
-

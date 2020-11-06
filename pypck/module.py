@@ -281,7 +281,7 @@ class ModulePropertiesRequestHandler:
         self.addr_conn = addr_conn
         self.settings = addr_conn.conn.settings
 
-        # addr_conn.register_for_inputs(self.process_input)
+        self.serial_request_task = None
 
         # Serial Number request
         self.serials = SerialRequestHandler(
@@ -303,10 +303,11 @@ class ModulePropertiesRequestHandler:
         # software_serial is not given externally
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         if self.serials.software_serial == -1:
-            asyncio.create_task(self.serials.request())
+            self.serial_request_task = asyncio.create_task(self.serials.request())
 
     async def cancel_all(self):
         """Cancel all properties requests."""
+        await self.serial_request_task.cancel()
         await self.serials.cancel()
         await self.name_comment.cancel()
 
