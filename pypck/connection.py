@@ -40,6 +40,7 @@ class PchkLicenseError(Exception):
     """Exception which is raised if a license error occured."""
 
     def __init__(self, message=None):
+        """Initialize instance."""
         if message is None:
             message = (
                 "Maximum number of connections was reached. An "
@@ -52,6 +53,7 @@ class PchkAuthenticationError(Exception):
     """Exception which is raised if authentication failed."""
 
     def __init__(self, message=None):
+        """Initialize instance."""
         if message is None:
             message = "Authentication failed."
         super().__init__(message)
@@ -61,6 +63,7 @@ class PchkLcnNotConnectedError(Exception):
     """Exception which is raised if there is no connection to the LCN bus."""
 
     def __init__(self, message=None):
+        """Initialize instance."""
         if message is None:
             message = "LCN not connected."
         super().__init__(message)
@@ -238,6 +241,10 @@ class PchkConnectionManager(PchkConnection):
         self.segment_coupler_ids = []
 
     async def async_send_command(self, pck, to_host=False):
+        """Send a PCK command to the PCHK server.
+
+        :param    str    pck:    PCK command
+        """
         if not self.is_lcn_connected and not to_host:
             return
         await super().async_send_command(pck)
@@ -473,7 +480,7 @@ class PchkConnectionManager(PchkConnection):
         self.segment_scan_completed_event.set()
 
     async def ping(self):
-        """Send pings"""
+        """Send pings."""
         while not self.writer.is_closing():
             await self.async_send_command(
                 "^ping{:d}".format(self.ping_counter), to_host=True
@@ -562,7 +569,7 @@ class PchkConnectionManager(PchkConnection):
             self.event_handler = coro
 
     async def default_event_handler(self, event):
-        """Default event handler for specific LCN events."""
+        """Handle events for specific LCN events."""
         if event == "lcn-connected":
             pass
         elif event == "lcn-disconnected":

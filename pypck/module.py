@@ -23,6 +23,7 @@ class SerialRequestHandler:
     """Request handler to request serial number information from module."""
 
     def __init__(self, addr_conn, num_tries=3, timeout_msec=1500, software_serial=None):
+        """Initialize class instance."""
         self.addr_conn = addr_conn
 
         self.hardware_serial = -1
@@ -96,6 +97,7 @@ class NameCommentRequestHandler:
     """Request handler to request name, comment and OEM text of a module."""
 
     def __init__(self, addr_conn, num_tries=3, timeout_msec=1500):
+        """Initialize class instance."""
         self.addr_conn = addr_conn
 
         self._name = [None] * 2
@@ -275,8 +277,7 @@ class ModulePropertiesRequestHandler:
     """Manages all property requestst for serial number, name, comments, ..."""
 
     def __init__(self, addr_conn, software_serial=None):
-        """Construct ModulePropertiesRequestHandler"""
-
+        """Construct ModulePropertiesRequestHandler."""
         self.addr_conn = addr_conn
         self.settings = addr_conn.conn.settings
 
@@ -298,14 +299,14 @@ class ModulePropertiesRequestHandler:
         )
 
     async def activate_all(self):
-        "Activate all properties requests."
+        """Activate all properties requests."""
         # software_serial is not given externally
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         if self.serials.software_serial == -1:
             asyncio.create_task(self.serials.request())
 
     async def cancel_all(self):
-        "Cancel all properties requests."
+        """Cancel all properties requests."""
         await self.serials.cancel()
         await self.name_comment.cancel()
 
@@ -412,7 +413,6 @@ class StatusRequestsHandler:
 
     async def request_status_var_timeout(self, failed=False, var=None):
         """Is called on variable status request timeout."""
-
         # Detect if we can send immediately or if we have to wait for a
         # "typeless" response first
         has_type_in_response = lcn_defs.Var.has_type_in_response(
