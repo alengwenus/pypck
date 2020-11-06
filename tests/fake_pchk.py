@@ -116,13 +116,13 @@ class PchkServer:
             await self.process_data(data)
 
     async def process_data(self, data):
-        self.data_received.append(data)
+        self.data_received.append(data.decode())
         if data == b"!CHD":
             self.writer.write(b"(dec-mode)" + self.separator)
             await self.writer.drain()
 
     async def send_message(self, message):
-        self.writer.write(message.encode() + self.separator)
+        self.writer.write(message + self.separator)
 
     async def received(self, message, timeout=5, remove=True):
         async def receive_loop(data, remove):

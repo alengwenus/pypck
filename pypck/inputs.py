@@ -361,7 +361,7 @@ class ModSn(ModInput):
             serial = int(matcher.group("sn"), 16)
             manu = int(matcher.group("manu"), 16)
             sw_age = int(matcher.group("sw_age"), 16)
-            hw_type = int(matcher.group("hw_type"), 16)
+            hw_type = int(matcher.group("hw_type"))
             return [ModSn(addr, serial, manu, sw_age, hw_type)]
 
 
