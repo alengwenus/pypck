@@ -20,6 +20,8 @@ from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC, TimeoutRetryHandler
 
 
 class SerialRequestHandler:
+    """Request handler to request serial number information from module."""
+
     def __init__(self, addr_conn, num_tries=3, timeout_msec=1500, software_serial=None):
         self.addr_conn = addr_conn
 
@@ -41,9 +43,14 @@ class SerialRequestHandler:
         self.serial_known = asyncio.Event()
 
     def process_input(self, inp):
+        """Create a task to process the input object concurrently."""
         asyncio.create_task(self.async_process_input(inp))
 
     async def async_process_input(self, inp):
+        """Process incoming input object.
+
+        Method to handle incoming commands for this specific request handler.
+        """
         if isinstance(inp, inputs.ModSn):
             self.hardware_serial = inp.serial
             self.manu = inp.manu
@@ -63,6 +70,7 @@ class SerialRequestHandler:
             self.serial_known.set()
 
     async def request(self):
+        """Request serial number."""
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.serial_known.clear()
         self.trh.activate()
@@ -70,10 +78,12 @@ class SerialRequestHandler:
         return self.serial
 
     async def cancel(self):
+        """Cancel serial number request."""
         await self.trh.cancel()
 
     @property
     def serial(self):
+        """Return serial numbers of a module."""
         return {
             "hardware_serial": self.hardware_serial,
             "manu": self.manu,
@@ -83,6 +93,8 @@ class SerialRequestHandler:
 
 
 class NameCommentRequestHandler:
+    """Request handler to request name, comment and OEM text of a module."""
+
     def __init__(self, addr_conn, num_tries=3, timeout_msec=1500):
         self.addr_conn = addr_conn
 
@@ -118,9 +130,14 @@ class NameCommentRequestHandler:
         self.oem_text_known = asyncio.Event()
 
     def process_input(self, inp):
+        """Create a task to process the input object concurrently."""
         asyncio.create_task(self.async_process_input(inp))
 
     async def async_process_input(self, inp):
+        """Process incoming input object.
+
+        Method to handle incoming commands for this specific request handler.
+        """
         if isinstance(inp, inputs.ModNameComment):
             command = inp.command
             block_id = inp.block_id
@@ -169,6 +186,7 @@ class NameCommentRequestHandler:
             self.oem_text_known.set()
 
     async def request_name(self):
+        """Request name from a module."""
         self._name = [None] * 2
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.name_known.clear()
@@ -178,6 +196,7 @@ class NameCommentRequestHandler:
         return self.name
 
     async def request_comment(self):
+        """Request comments from a module."""
         self._comment = [None] * 3
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.comment_known.clear()
@@ -187,6 +206,7 @@ class NameCommentRequestHandler:
         return self.comment
 
     async def request_oem_text(self):
+        """Request OEM text from a module."""
         self._oem_text = [None] * 4
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.oem_text_known.clear()
@@ -196,11 +216,13 @@ class NameCommentRequestHandler:
         return self.oem_text
 
     async def request(self):
+        """Request name, comments and OEM text from a module."""
         return await asyncio.gather(
             self.request_name(), self.request_comment(), self.request_oem_text()
         )
 
     async def cancel_name(self, block_id=None):
+        """Cancel name request task."""
         if block_id is None:  # cancel all
             for trh in self.name_trhs:
                 await trh.cancel()
@@ -208,6 +230,7 @@ class NameCommentRequestHandler:
             await self.name_trhs[block_id].cancel()
 
     async def cancel_comment(self, block_id=None):
+        """Cancel comment request task."""
         if block_id is None:  # cancel all
             for trh in self.comment_trhs:
                 await trh.cancel()
@@ -215,6 +238,7 @@ class NameCommentRequestHandler:
             await self.comment_trhs[block_id].cancel()
 
     async def cancel_oem_text(self, block_id=None):
+        """Cancel OEM text request task."""
         if block_id is None:  # cancel all
             for trh in self.oem_text_trhs:
                 await trh.cancel()
@@ -222,20 +246,24 @@ class NameCommentRequestHandler:
             await self.oem_text_trhs[block_id].cancel()
 
     async def cancel(self):
+        """Cancel all name, comment and OEM text request tasks."""
         await asyncio.gather(
             self.cancel_name(), self.cancel_comment(), self.cancel_oem_text()
         )
 
     @property
     def name(self):
+        """Return stored name."""
         return "".join([block for block in self._name if block]).strip()
 
     @property
     def comment(self):
+        """Return stored comment."""
         return "".join([block for block in self._comment if block]).strip()
 
     @property
     def oem_text(self):
+        """Return stored OEM text."""
         return [block.strip() if block else "" for block in self._oem_text]
         # return {'block{}'.format(idx):text
         #         for idx, text in enumerate(self._oem_text)}
@@ -1092,47 +1120,59 @@ class ModuleConnection(AbstractConnection):
 
     @property
     def hardware_serial(self):
+        """Return hardware serial of module."""
         return self.properties_requests.serials.hardware_serial
 
     @property
     def manu(self):
+        """Return manufacturing of module."""
         return self.properties_requests.serials.manu
 
     @property
     def software_serial(self):
+        """Return software serial of module."""
         return self.properties_requests.serials.software_serial
 
     @property
     def hw_type(self):
+        """Return hardware type of module."""
         return self.properties_requests.serials.hardware_type
 
     @property
     def serial(self):
+        """Return serials number information."""
         return (self.hardware_serial, self.manu, self.software_serial, self.hw_type)
 
     @property
     def name(self):
+        """Retrun stored name."""
         return self.properties_requests.name_comment.name
 
     @property
     def comment(self):
+        """Return stored comments."""
         return self.properties_requests.name_comment.comment
 
     @property
     def oem_text(self):
+        """Return stored OEM text."""
         return self.properties_requests.name_comment.oem_text
 
     # ## future properties
 
     @property
     def serial_known(self):
+        """Check if serials have already been received from module."""
         return self.properties_requests.serials.serial_known.wait()
 
     async def request_name(self):
+        """Request module name."""
         return await self.properties_requests.name_comment.request_name()
 
     async def request_comment(self):
+        """Request comments from a module."""
         return await self.properties_requests.name_comment.request_comment()
 
     async def request_oem_text(self):
+        """Request OEM text from a module."""
         return await self.properties_requests.name_comment.request_oem_text()
