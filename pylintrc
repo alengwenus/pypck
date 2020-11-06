@@ -15,10 +15,12 @@
 # logging-format-interpolation - ensure maintainability of future logging versions
 # no-self-use - an abstract method does not necessarily use self
 # redefined-outer-name - fixtures in tests rely on redifinitions
+# arguments-differ - acceptable if parameters are only added in a subclass
 
 disable=
   abstract-class-little-used,
   abstract-method,
+  arguments-differ,
   cyclic-import,
   duplicate-code,
   global-statement,
