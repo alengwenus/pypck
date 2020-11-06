@@ -1,7 +1,5 @@
 """Segment coupler tests"""
 
-import asyncio
-
 import pytest
 
 

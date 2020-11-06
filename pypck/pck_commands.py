@@ -250,7 +250,7 @@ class PckGenerator:
 
     @staticmethod
     def request_name(block_id):
-        """ Generate a name request.
+        """Generate a name request.
 
         :return The PCK command (without address header) as text
         :rtype:    str
@@ -261,7 +261,7 @@ class PckGenerator:
 
     @staticmethod
     def request_comment(block_id):
-        """ Generate a comment request.
+        """Generate a comment request.
 
         :return The PCK command (without address header) as text
         :rtype:    str
@@ -272,7 +272,7 @@ class PckGenerator:
 
     @staticmethod
     def request_oem_text(block_id):
-        """ Generate an oem text request.
+        """Generate an oem text request.
 
         :return The PCK command (without address header) as text
         :rtype:    str

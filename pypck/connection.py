@@ -25,6 +25,10 @@ SOCKET_CLOSED = -2
 
 
 async def cancel(task):
+    """Cancel a task.
+
+    Wait for cancellation completed but do not propagate a possible CancelledError.
+    """
     task.cancel()
     try:
         await task
@@ -33,6 +37,8 @@ async def cancel(task):
 
 
 class PchkLicenseError(Exception):
+    """Exception which is raised if a license error occured."""
+
     def __init__(self, message=None):
         if message is None:
             message = (
@@ -43,6 +49,8 @@ class PchkLicenseError(Exception):
 
 
 class PchkAuthenticationError(Exception):
+    """Exception which is raised if authentication failed."""
+
     def __init__(self, message=None):
         if message is None:
             message = "Authentication failed."
@@ -50,6 +58,8 @@ class PchkAuthenticationError(Exception):
 
 
 class PchkLcnNotConnectedError(Exception):
+    """Exception which is raised if there is no connection to the LCN bus."""
+
     def __init__(self, message=None):
         if message is None:
             message = "LCN not connected."
@@ -83,8 +93,10 @@ class PchkConnection:
         self.connection_id = connection_id
         self.reader = None
         self.writer = None
+        self.read_data_loop_task = None
 
     async def async_connect(self):
+        """Connect to a PCHK server (no authentication or license error check)."""
         self.reader, self.writer = await asyncio.open_connection(
             self.server_addr, self.port
         )
@@ -95,6 +107,7 @@ class PchkConnection:
         self.read_data_loop_task = asyncio.create_task(self.read_data_loop())
 
     def connect(self):
+        """Create a task to connect to a PCHK server concurrently."""
         asyncio.create_task(self.async_connect())
 
     async def read_data_loop(self):
@@ -113,6 +126,7 @@ class PchkConnection:
             await self.process_message(message)
 
     def send_command(self, pck, **kwargs):
+        """Create a task to send a command to the PCHK server concurrently."""
         asyncio.create_task(self.async_send_command(pck, **kwargs))
 
     async def async_send_command(self, pck):

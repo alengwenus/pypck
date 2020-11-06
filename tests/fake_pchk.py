@@ -2,10 +2,10 @@
 
 import asyncio
 
-HOST = '127.0.0.1'
+HOST = "127.0.0.1"
 PORT = 4114
-USERNAME = 'lcn_username'
-PASSWORD = 'lcn_password'
+USERNAME = "lcn_username"
+PASSWORD = "lcn_password"
 
 READ_TIMEOUT = -1
 SOCKET_CLOSED = -2
@@ -13,13 +13,11 @@ SEPARATOR = b"\n"
 
 
 async def readuntil_timeout(reader, separator, timeout):
-    '''Read from socket with timeout.'''
+    """Read from socket with timeout."""
     try:
-        data = await asyncio.wait_for(
-            reader.readuntil(separator),
-            timeout)
+        data = await asyncio.wait_for(reader.readuntil(separator), timeout)
         data = data.split(separator)[0]
-        data = data.split(b'\r')[0]     # remove CR if present
+        data = data.split(b"\r")[0]  # remove CR if present
     except asyncio.TimeoutError:
         data = READ_TIMEOUT
     except asyncio.IncompleteReadError:
@@ -27,9 +25,8 @@ async def readuntil_timeout(reader, separator, timeout):
     return data
 
 
-class PchkServer():
-    def __init__(self, host=HOST, port=PORT,
-                 username=USERNAME, password=PASSWORD):
+class PchkServer:
+    def __init__(self, host=HOST, port=PORT, username=USERNAME, password=PASSWORD):
         self.host = host
         self.port = port
         self.username = username
@@ -42,9 +39,9 @@ class PchkServer():
         self.writer = None
 
     async def run(self):
-        print('Starting server...')
         self.server = await asyncio.start_server(
-            self.client_connected, host=self.host, port=self.port)
+            self.client_connected, host=self.host, port=self.port
+        )
 
     async def stop(self):
         if self.server and self.server.is_serving():
@@ -69,11 +66,11 @@ class PchkServer():
         self.license_error = license_error
 
     async def authentication(self):
-        self.writer.write(b'LCN-PCK/IP 1.0' + self.separator)
+        self.writer.write(b"LCN-PCK/IP 1.0" + self.separator)
         await self.writer.drain()
 
         # Ask for username
-        self.writer.write(b'Username:' + self.separator)
+        self.writer.write(b"Username:" + self.separator)
         await self.writer.drain()
 
         # Read username input
@@ -84,7 +81,7 @@ class PchkServer():
         login_username = data.decode()
 
         # Ask for password
-        self.writer.write(b'Password:' + self.separator)
+        self.writer.write(b"Password:" + self.separator)
         await self.writer.drain()
 
         # Read password input
@@ -93,17 +90,16 @@ class PchkServer():
             return False
 
         login_password = data.decode()
-        if (login_username == self.username and
-                login_password == self.password):
-            self.writer.write(b'OK' + self.separator)
+        if login_username == self.username and login_password == self.password:
+            self.writer.write(b"OK" + self.separator)
             await self.writer.drain()
         else:
-            self.writer.write(b'Authentification failed.' + self.separator)
+            self.writer.write(b"Authentification failed." + self.separator)
             await self.writer.drain()
             return False
 
         if self.license_error:
-            self.writer.write(b'$err:(license?)' + self.separator)
+            self.writer.write(b"$err:(license?)" + self.separator)
             return False
 
         return True
@@ -121,8 +117,8 @@ class PchkServer():
 
     async def process_data(self, data):
         self.data_received.append(data)
-        if data == b'!CHD':
-            self.writer.write(b'(dec-mode)' + self.separator)
+        if data == b"!CHD":
+            self.writer.write(b"(dec-mode)" + self.separator)
             await self.writer.drain()
 
     async def send_message(self, message):
@@ -136,13 +132,7 @@ class PchkServer():
                 self.data_received.remove(data)
 
         try:
-            await asyncio.wait_for(
-                receive_loop(message, remove),
-                timeout=timeout)
+            await asyncio.wait_for(receive_loop(message, remove), timeout=timeout)
             return True
         except asyncio.TimeoutError:
             return False
-
-
-
-
