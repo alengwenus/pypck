@@ -13,7 +13,6 @@ Contributors:
 import math
 import re
 from enum import Enum, auto
-from itertools import product
 
 LCN_ENCODING = "utf-8"
 PATTERN_SPLIT_PORT_PIN = re.compile(r"(?P<port>[a-zA-Z]+)(?P<pin>\d+)")
@@ -111,18 +110,44 @@ class BinSensorPort(Enum):
     BINSENSOR8 = 7
 
 
-# Keys
-# pylint: disable=invalid-name
-Key = Enum(
-    "Key",
-    " ".join(
-        [
-            "{:s}{:d}".format(t[0], t[1])
-            for t in product(["A", "B", "C", "D"], range(1, 9))
-        ]
-    ),
-    module=__name__,
-)
+class Key(Enum):
+    """Keys of LCN module."""
+
+    A1 = 0
+    A2 = 1
+    A3 = 2
+    A4 = 3
+    A5 = 4
+    A6 = 5
+    A7 = 6
+    A8 = 7
+
+    B1 = 8
+    B2 = 9
+    B3 = 10
+    B4 = 11
+    B5 = 12
+    B6 = 13
+    B7 = 14
+    B8 = 15
+
+    C1 = 16
+    C2 = 17
+    C3 = 18
+    C4 = 19
+    C5 = 20
+    C6 = 21
+    C7 = 22
+    C8 = 23
+
+    D1 = 24
+    D2 = 25
+    D3 = 26
+    D4 = 27
+    D5 = 28
+    D6 = 29
+    D7 = 30
+    D8 = 31
 
 
 class OutputPortDimMode(Enum):
@@ -194,6 +219,7 @@ def ramp_value_to_time(ramp_value):
     :returns: The ramp time in milliseconds.
     :rtype: int
     """
+    # pylint: disable=invalid-name
     if not 0 <= ramp_value <= 250:
         raise ValueError("Ramp value has to be in range 0..250.")
 
@@ -548,7 +574,7 @@ class Var(Enum):
 
 
 # Helper list to get var by numeric id.
-Var.variables = [
+Var.variables = [  # type: ignore
     Var.VAR1ORTVAR,
     Var.VAR2ORR1VAR,
     Var.VAR3ORR2VAR,
@@ -564,10 +590,10 @@ Var.variables = [
 ]
 
 # Helper list to get set-point var by numeric id.
-Var.set_points = [Var.R1VARSETPOINT, Var.R2VARSETPOINT]
+Var.set_points = [Var.R1VARSETPOINT, Var.R2VARSETPOINT]  # type: ignore
 
 # Helper list to get threshold var by numeric id.
-Var.thresholds = [
+Var.thresholds = [  # type: ignore
     [Var.THRS1, Var.THRS2, Var.THRS3, Var.THRS4, Var.THRS5],
     [Var.THRS2_1, Var.THRS2_2, Var.THRS2_3, Var.THRS2_4],
     [Var.THRS3_1, Var.THRS3_2, Var.THRS3_3, Var.THRS3_4],
@@ -575,7 +601,12 @@ Var.thresholds = [
 ]
 
 # Helper list to get S0-input var by numeric id.
-Var.s0s = [Var.S0INPUT1, Var.S0INPUT2, Var.S0INPUT3, Var.S0INPUT4]
+Var.s0s = [  # type: ignore
+    Var.S0INPUT1,
+    Var.S0INPUT2,
+    Var.S0INPUT3,
+    Var.S0INPUT4,
+]
 
 
 class VarUnit(Enum):
@@ -662,6 +693,7 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
+        # pylint: disable=invalid-name
         if unit == VarUnit.NATIVE:
             var_value = VarValue.from_native(int(v))
         elif unit == VarUnit.CELSIUS:
@@ -699,6 +731,7 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
+        # pylint: disable=invalid-name
         return VarValue(n)
 
     @staticmethod
@@ -713,6 +746,7 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
+        # pylint: disable=invalid-name
         n = int(round(c * 10))
         return VarValue(n + 1000 if is_abs else n)
 
@@ -728,6 +762,7 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
+        # pylint: disable=invalid-name
         if is_abs:
             k -= 273.15
 
@@ -746,6 +781,7 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
+        # pylint: disable=invalid-name
         if is_abs:
             f -= 32
 
@@ -787,6 +823,7 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
+        # pylint: disable=invalid-name
         return VarValue(int(round(p)))
 
     @staticmethod
@@ -800,6 +837,7 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
+        # pylint: disable=invalid-name
         return VarValue(int(round(p)))
 
     @staticmethod
@@ -813,6 +851,7 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
+        # pylint: disable=invalid-name
         return VarValue(int(round(ms * 10)))
 
     @staticmethod
@@ -824,6 +863,7 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
+        # pylint: disable=invalid-name
         return VarValue(int(round(v * 400)))
 
     @staticmethod
@@ -835,6 +875,7 @@ class VarValue:
         :return: The variable value (never null)
         :rtype:    VarValue
         """
+        # pylint: disable=invalid-name
         return VarValue(int(round(a * 100)))
 
     @staticmethod
@@ -849,6 +890,7 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:     VarValue
         """
+        # pylint: disable=invalid-name
         n = int(round(d * 10))
         return VarValue(n + 1000 if is_abs else n)
 
@@ -861,6 +903,7 @@ class VarValue:
         :return:    The variable value
         :rtype:     VarValue
         """
+        # pylint: disable=invalid-name
         v = VarValue(
             self.native_value & 0x7FFF
             if is_lockable_regulator_source
@@ -1099,6 +1142,7 @@ class TimeUnit(Enum):
         :return:    TimeUnit enum
         :rtype:    TimeUnit
         """
+        # pylint: disable=invalid-name
         time_unit = time_unit.upper()
         if time_unit in ["SECONDS", "SECOND", "SEC", "S"]:
             tu = TimeUnit.SECONDS
