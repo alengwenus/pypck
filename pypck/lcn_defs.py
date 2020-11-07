@@ -13,12 +13,13 @@ Contributors:
 import math
 import re
 from enum import Enum, auto
+from typing import Tuple, Union, Dict, Any
 
 LCN_ENCODING = "utf-8"
 PATTERN_SPLIT_PORT_PIN = re.compile(r"(?P<port>[a-zA-Z]+)(?P<pin>\d+)")
 
 
-def split_port_pin(portpin):
+def split_port_pin(portpin: str) -> Tuple[str, int]:
     """Split the port and the pin from the given input string.
 
     :param    str    portpin:    Input string
@@ -176,7 +177,7 @@ class OutputPortStatusMode(Enum):
     NATIVE = auto()  # 0..200 steps (since LCN-PCHK 2.3)
 
 
-def time_to_ramp_value(time_msec):
+def time_to_ramp_value(time_msec: int) -> int:
     """Convert the given time into an LCN ramp value.
 
     :param    int    time_msec:    The time in milliseconds.
@@ -205,13 +206,14 @@ def time_to_ramp_value(time_msec):
     elif time_msec < 6000:
         ret = 9
     else:
-        ret = (time_msec / 1000 - 6) / 2 + 10
-        if ret >= 250:
-            ret = 250
-    return int(ret)
+        ramp = (time_msec / 1000 - 6) / 2 + 10
+        if ramp >= 250:
+            ramp = 250
+        ret = int(ramp)
+    return ret
 
 
-def ramp_value_to_time(ramp_value):
+def ramp_value_to_time(ramp_value: int) -> int:
     """Convert the given LCN ramp value into a time.
 
     :param    int    ramp_value:    The LCN ramp value (0..250).
@@ -278,7 +280,7 @@ class Var(Enum):
     S0INPUT4 = auto()  # LCN-BU4LJVarValue
 
     @staticmethod
-    def var_id_to_var(var_id):
+    def var_id_to_var(var_id: int) -> "Var":
         """Translate a given id into a variable type.
 
         :param    int    varId:    The variable id (0..11)
@@ -286,12 +288,12 @@ class Var(Enum):
         :returns: The translated variable enum.
         :rtype: Var
         """
-        if (var_id < 0) or (var_id >= len(Var.variables)):
+        if (var_id < 0) or (var_id >= len(Var.variables)):  # type: ignore
             raise ValueError("Bad var_id.")
-        return Var.variables[var_id]
+        return Var.variables[var_id]  # type: ignore
 
     @staticmethod
-    def set_point_id_to_var(set_point_id):
+    def set_point_id_to_var(set_point_id: int) -> "Var":
         """Translate a given id into a LCN set-point variable type.
 
         :param     int    set_point_id:    Set-point id 0..1
@@ -299,12 +301,12 @@ class Var(Enum):
         :return: The translated var
         :rtype:  Var
         """
-        if (set_point_id < 0) or (set_point_id >= len(Var.set_points)):
+        if (set_point_id < 0) or (set_point_id >= len(Var.set_points)):  # type: ignore
             raise ValueError("Bad set_point_id.")
-        return Var.set_points[set_point_id]
+        return Var.set_points[set_point_id]  # type: ignore
 
     @staticmethod
-    def thrs_id_to_var(register_id, thrs_id):
+    def thrs_id_to_var(register_id: int, thrs_id: int) -> "Var":
         """Translate given ids into a LCN threshold variable type.
 
         :param    int    register_id:    Register id 0..3
@@ -316,15 +318,15 @@ class Var(Enum):
         """
         if (
             (register_id < 0)
-            or (register_id >= len(Var.thresholds))
+            or (register_id >= len(Var.thresholds))  # type: ignore
             or (thrs_id < 0)
             or (thrs_id >= (5 if (register_id == 0) else 4))
         ):
             raise ValueError("Bad register_id and/or thrs_id.")
-        return Var.thresholds[register_id][thrs_id]
+        return Var.thresholds[register_id][thrs_id]  # type: ignore
 
     @staticmethod
-    def s0_id_to_var(s0_id):
+    def s0_id_to_var(s0_id: int) -> "Var":
         """Translate a given id into a LCN S0-input variable type.
 
         :param     int    s0_id:     S0 id 0..3
@@ -332,12 +334,12 @@ class Var(Enum):
         :return:    The translated var
         :rtype:     Var
         """
-        if (s0_id < 0) or (s0_id >= len(Var.s0s)):
+        if (s0_id < 0) or (s0_id >= len(Var.s0s)):  # type: ignore
             raise ValueError("Bad s0_id.")
-        return Var.s0s[s0_id]
+        return Var.s0s[s0_id]  # type: ignore
 
     @staticmethod
-    def to_var_id(var):
+    def to_var_id(var: "Var") -> int:
         """Translate a given variable type into a variable id.
 
         :param     Var    var:    The variable type to translate
@@ -374,7 +376,7 @@ class Var(Enum):
         return var_id
 
     @staticmethod
-    def to_set_point_id(var):
+    def to_set_point_id(var: "Var") -> int:
         """Translate a given variable type into a set-point id.
 
         :param     Var    var:     The variable type to translate
@@ -391,7 +393,7 @@ class Var(Enum):
         return set_point_id
 
     @staticmethod
-    def to_thrs_register_id(var):
+    def to_thrs_register_id(var: "Var") -> int:
         """Translate a given variable type into a threshold register id.
 
         :param    Var    var:    The variable type to translate
@@ -412,7 +414,7 @@ class Var(Enum):
         return thrs_register_id
 
     @staticmethod
-    def to_thrs_id(var):
+    def to_thrs_id(var: "Var") -> int:
         """Translate a given variable type into a threshold id.
 
         :param    Var    var:    The variable type to translate
@@ -435,7 +437,7 @@ class Var(Enum):
         return thrs_id
 
     @staticmethod
-    def to_s0_id(var):
+    def to_s0_id(var: "Var") -> int:
         """Translate a given variable type into an S0-input id.
 
         :param    Var    var:    The variable type to translate
@@ -456,7 +458,7 @@ class Var(Enum):
         return s0_id
 
     @staticmethod
-    def is_lockable_regulator_source(var):
+    def is_lockable_regulator_source(var: "Var") -> bool:
         """Check if the the given variable type is lockable.
 
         :param    Var    var:    The variable type to check
@@ -467,7 +469,7 @@ class Var(Enum):
         return var in [Var.R1VARSETPOINT, Var.R2VARSETPOINT]
 
     @staticmethod
-    def use_lcn_special_values(var):
+    def use_lcn_special_values(var: "Var") -> bool:
         """Check if the given variable type uses special values.
 
         Examples for special values: 'No value yet', 'sensor defective' etc.
@@ -480,7 +482,7 @@ class Var(Enum):
         return var not in [Var.S0INPUT1, Var.S0INPUT2, Var.S0INPUT3, Var.S0INPUT4]
 
     @staticmethod
-    def has_type_in_response(var, sw_age):
+    def has_type_in_response(var: "Var", sw_age: int) -> bool:
         """Module-generation check.
 
         Check if the given variable type would receive a typed response if
@@ -505,7 +507,7 @@ class Var(Enum):
         return True
 
     @staticmethod
-    def is_event_based(var, sw_age):
+    def is_event_based(var: "Var", sw_age: int) -> bool:
         """Module-generation check.
 
         Check if the given variable type automatically sends status-updates
@@ -523,7 +525,7 @@ class Var(Enum):
         return sw_age >= 0x170206
 
     @staticmethod
-    def should_poll_status_after_command(var, is2013):
+    def should_poll_status_after_command(var: "Var", is2013: bool) -> bool:
         """Module-generation check.
 
         Check if the target LCN module would automatically send status-updates
@@ -542,7 +544,7 @@ class Var(Enum):
             return False
 
         # Thresholds since 170206 will send status-messages on every change
-        if is2013 and (Var.to_thrs_register_id(var != -1)):
+        if is2013 and (Var.to_thrs_register_id(var) != -1):
             return False
 
         # Others:
@@ -555,7 +557,7 @@ class Var(Enum):
         return True
 
     @staticmethod
-    def should_poll_status_after_regulator_lock(sw_age, lock_state):
+    def should_poll_status_after_regulator_lock(sw_age: int, lock_state: int) -> bool:
         """Module-generation check.
 
         Check if the target LCN module would automatically send status-updates
@@ -626,7 +628,7 @@ class VarUnit(Enum):
     DEGREE = u"\u00b0"  # Used for angles,
 
     @staticmethod
-    def parse(unit):
+    def parse(unit: str) -> "VarUnit":
         """Parse the given unit string and return VarUnit.
 
         :param    str    unit:    The input unit
@@ -672,16 +674,16 @@ class VarValue:
     :param    int    native_value:    The native value
     """
 
-    def __init__(self, native_value):
+    def __init__(self, native_value: int):
         """Construct with native LCN value."""
         self.native_value = native_value
 
-    def is_locked_regulator(self):
+    def is_locked_regulator(self) -> bool:
         """Return if regulator is locked."""
         return (self.native_value & 0x8000) != 0
 
     @staticmethod
-    def from_var_unit(v, unit, is_abs):
+    def from_var_unit(v: float, unit: VarUnit, is_abs: bool) -> "VarValue":
         """Create a variable value from any input.
 
         :param    float    v:       The input value
@@ -723,7 +725,7 @@ class VarValue:
         return var_value
 
     @staticmethod
-    def from_native(n):
+    def from_native(n: int) -> "VarValue":
         """Create a variable value from native input.
 
         :param    int    n:    The input value
@@ -735,7 +737,7 @@ class VarValue:
         return VarValue(n)
 
     @staticmethod
-    def from_celsius(c, is_abs=True):
+    def from_celsius(c: float, is_abs: bool = True) -> "VarValue":
         """Create a variable value from Celsius input.
 
         :param    float    c:        The input value
@@ -751,7 +753,7 @@ class VarValue:
         return VarValue(n + 1000 if is_abs else n)
 
     @staticmethod
-    def from_kelvin(k, is_abs=True):
+    def from_kelvin(k: float, is_abs: bool = True) -> "VarValue":
         """Create a variable value from Kelvin input.
 
         :param    float    k:        The input value
@@ -770,7 +772,7 @@ class VarValue:
         return VarValue(n + 1000 if is_abs else n)
 
     @staticmethod
-    def from_fahrenheit(f, is_abs=True):
+    def from_fahrenheit(f: float, is_abs: bool = True) -> "VarValue":
         """Create a variable value from Fahrenheit input.
 
         :param    float    f:        The input value
@@ -789,7 +791,7 @@ class VarValue:
         return VarValue(n + 1000 if is_abs else n)
 
     @staticmethod
-    def from_lux_t(lux):
+    def from_lux_t(lux: float) -> "VarValue":
         """Create a variable value from lx input.
 
         Target must be connected to T-port.
@@ -802,7 +804,7 @@ class VarValue:
         return VarValue(int(round(math.log(lux) - 1.689646994) / 0.010380664))
 
     @staticmethod
-    def from_lux_i(lux):
+    def from_lux_i(lux: float) -> "VarValue":
         """Create a variable value from lx input.
 
         Target must be connected to I-port.
@@ -815,7 +817,7 @@ class VarValue:
         return VarValue(int(round(math.log(lux) * 100)))
 
     @staticmethod
-    def from_percent(p):
+    def from_percent(p: float) -> "VarValue":
         """Create a variable value from % input.
 
         :param    float    p:    The input value
@@ -827,7 +829,7 @@ class VarValue:
         return VarValue(int(round(p)))
 
     @staticmethod
-    def from_ppm(p):
+    def from_ppm(p: float) -> "VarValue":
         """Create a variable value from ppm input.
 
         Used for CO2 sensors.
@@ -841,7 +843,7 @@ class VarValue:
         return VarValue(int(round(p)))
 
     @staticmethod
-    def from_meters_per_second(ms):
+    def from_meters_per_second(ms: float) -> "VarValue":
         """Create a variable value from m/s input.
 
         Used for LCN-WIH wind speed.
@@ -855,7 +857,7 @@ class VarValue:
         return VarValue(int(round(ms * 10)))
 
     @staticmethod
-    def from_volt(v):
+    def from_volt(v: float) -> "VarValue":
         """Create a variable value from V input.
 
         :param    float    v:    The input value
@@ -867,7 +869,7 @@ class VarValue:
         return VarValue(int(round(v * 400)))
 
     @staticmethod
-    def from_ampere(a):
+    def from_ampere(a: float) -> "VarValue":
         """Create a variable value from A input.
 
         :param    float    a:    The input value
@@ -879,7 +881,7 @@ class VarValue:
         return VarValue(int(round(a * 100)))
 
     @staticmethod
-    def from_degree(d, is_abs=True):
+    def from_degree(d: float, is_abs: bool = True) -> "VarValue":
         """Create a variable value from degree (angle) input.
 
         :param    float    d:        The input value
@@ -894,14 +896,16 @@ class VarValue:
         n = int(round(d * 10))
         return VarValue(n + 1000 if is_abs else n)
 
-    def to_var_unit(self, unit, is_lockable_regulator_source=False):
+    def to_var_unit(
+        self, unit: VarUnit, is_lockable_regulator_source: bool = False
+    ) -> Union[int, float]:
         """Convert the given unit to a VarValue.
 
         :param    VarUnit    unit:    The variable unit
         :param    bool       is_lockable_regulator_source:  Is lockable source
 
         :return:    The variable value
-        :rtype:     VarValue
+        :rtype:     Union[int,float]
         """
         # pylint: disable=invalid-name
         v = VarValue(
@@ -911,34 +915,32 @@ class VarValue:
         )
 
         if unit == VarUnit.NATIVE:
-            var_value = v.to_native()
-        elif unit == VarUnit.CELSIUS:
-            var_value = v.to_celsius()
-        elif unit == VarUnit.KELVIN:
-            var_value = v.to_kelvin()
-        elif unit == VarUnit.FAHRENHEIT:
-            var_value = v.to_fahrenheit()
-        elif unit == VarUnit.LUX_T:
-            var_value = v.to_lux_t()
-        elif unit == VarUnit.LUX_I:
-            var_value = v.to_lux_i()
-        elif unit == VarUnit.METERPERSECOND:
-            var_value = v.to_meters_per_second()
-        elif unit == VarUnit.PERCENT:
-            var_value = v.to_percent()
-        elif unit == VarUnit.PPM:
-            var_value = v.to_ppm()
-        elif unit == VarUnit.VOLT:
-            var_value = v.to_volt()
-        elif unit == VarUnit.AMPERE:
-            var_value = v.to_ampere()
-        elif unit == VarUnit.DEGREE:
-            var_value = v.to_degree()
-        else:
-            raise ValueError("Wrong unit.")
-        return var_value
+            return v.to_native()
+        if unit == VarUnit.CELSIUS:
+            return v.to_celsius()
+        if unit == VarUnit.KELVIN:
+            return v.to_kelvin()
+        if unit == VarUnit.FAHRENHEIT:
+            return v.to_fahrenheit()
+        if unit == VarUnit.LUX_T:
+            return v.to_lux_t()
+        if unit == VarUnit.LUX_I:
+            return v.to_lux_i()
+        if unit == VarUnit.METERPERSECOND:
+            return v.to_meters_per_second()
+        if unit == VarUnit.PERCENT:
+            return v.to_percent()
+        if unit == VarUnit.PPM:
+            return v.to_ppm()
+        if unit == VarUnit.VOLT:
+            return v.to_volt()
+        if unit == VarUnit.AMPERE:
+            return v.to_ampere()
+        if unit == VarUnit.DEGREE:
+            return v.to_degree()
+        raise ValueError("Wrong unit.")
 
-    def to_native(self):
+    def to_native(self) -> int:
         """Convert to native value.
 
         :return:    The converted value
@@ -946,7 +948,7 @@ class VarValue:
         """
         return self.native_value
 
-    def to_celsius(self):
+    def to_celsius(self) -> float:
         """Convert to Celsius value.
 
         :return:    The converted value
@@ -954,7 +956,7 @@ class VarValue:
         """
         return (self.native_value - 1000) / 10.0
 
-    def to_kelvin(self):
+    def to_kelvin(self) -> float:
         """Convert to Kelvin value.
 
         :return:    The converted value
@@ -962,7 +964,7 @@ class VarValue:
         """
         return (self.native_value - 1000) / 10.0 + 273.15
 
-    def to_fahrenheit(self):
+    def to_fahrenheit(self) -> float:
         """Convert to Fahrenheit value.
 
         :return:    The converted value
@@ -970,7 +972,7 @@ class VarValue:
         """
         return (self.native_value - 1000) * 0.18 + 32.0
 
-    def to_lux_t(self):
+    def to_lux_t(self) -> float:
         """Convert to lx value.
 
         Source must be connected to T-port.
@@ -980,7 +982,7 @@ class VarValue:
         """
         return math.exp(0.010380664 * self.native_value + 1.689646994)
 
-    def to_lux_i(self):
+    def to_lux_i(self) -> float:
         """Convert to lx value.
 
         Source must be connected to I-port.
@@ -990,7 +992,7 @@ class VarValue:
         """
         return math.exp(self.native_value / 100)
 
-    def to_percent(self):
+    def to_percent(self) -> int:
         """Convert to % value.
 
         :return:    The converted value
@@ -998,7 +1000,7 @@ class VarValue:
         """
         return self.native_value
 
-    def to_ppm(self):
+    def to_ppm(self) -> int:
         """Convert to ppm value.
 
         :return:    The converted value
@@ -1006,7 +1008,7 @@ class VarValue:
         """
         return self.native_value
 
-    def to_meters_per_second(self):
+    def to_meters_per_second(self) -> float:
         """Convert to m/s value.
 
         :return:    The converted value
@@ -1014,7 +1016,7 @@ class VarValue:
         """
         return self.native_value / 10.0
 
-    def to_volt(self):
+    def to_volt(self) -> float:
         """Convert to V value.
 
         :return:    The converted value
@@ -1022,7 +1024,7 @@ class VarValue:
         """
         return self.native_value / 400.0
 
-    def to_ampere(self):
+    def to_ampere(self) -> float:
         """Convert to A value.
 
         :return:    The converted value
@@ -1030,7 +1032,7 @@ class VarValue:
         """
         return self.native_value / 100.0
 
-    def to_degree(self):
+    def to_degree(self) -> float:
         """Convert to degree value.
 
         :return:    The converted value
@@ -1039,8 +1041,11 @@ class VarValue:
         return (self.native_value - 1000) / 10.0
 
     def to_var_unit_string(
-        self, unit, is_lockable_regulator_source=False, use_lcn_special_values=False
-    ):
+        self,
+        unit: VarUnit,
+        is_lockable_regulator_source: bool = False,
+        use_lcn_special_values: bool = False,
+    ) -> str:
         """Convert the given unit into a string representation.
 
         :param    VarUnit    unit:    The input unit
@@ -1132,7 +1137,7 @@ class TimeUnit(Enum):
     DAYS = "D"
 
     @staticmethod
-    def parse(time_unit):
+    def parse(time_unit: str) -> "TimeUnit":
         """Parse the given time_unit into a time unit.
 
         It supports several alternative terms.
@@ -1217,7 +1222,7 @@ class KeyLockStateModifier(Enum):
     NOCHANGE = "-"
 
 
-default_connection_settings = {
+default_connection_settings: Dict[str, Any] = {
     "NUM_TRIES": 3,  # Total number of request to sent before going into
     # failed-state.
     "SK_NUM_TRIES": 3,  # Total number of segment coupler scan tries
