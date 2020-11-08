@@ -307,7 +307,8 @@ class ModulePropertiesRequestHandler:
 
     async def cancel_all(self):
         """Cancel all properties requests."""
-        await self.serial_request_task.cancel()
+        self.serial_request_task.cancel()
+        await self.serial_request_task
         await self.serials.cancel()
         await self.name_comment.cancel()
 

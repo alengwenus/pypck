@@ -5,7 +5,6 @@ import asynctest
 import pytest
 from pypck.connection import PchkAuthenticationError, PchkLicenseError
 from pypck.lcn_addr import LcnAddr
-from pypck.module import ModuleConnection
 
 
 @pytest.mark.asyncio
@@ -59,7 +58,7 @@ async def test_lcn_connected(pchk_server, pypck_client):
 
     pypck_client.event_handler = asynctest.CoroutineMock()
     await pypck_client.async_connect()
-    await pchk_server.send_message(b"$io:#LCN:connected")
+    await pchk_server.send_message("$io:#LCN:connected")
     await pypck_client.received("$io:#LCN:connected")
 
     pypck_client.event_handler.assert_has_awaits(
@@ -75,7 +74,7 @@ async def test_lcn_disconnected(pchk_server, pypck_client):
     """Test lcn disconnected event."""
     pypck_client.event_handler = asynctest.CoroutineMock()
     await pypck_client.async_connect()
-    await pchk_server.send_message(b"$io:#LCN:disconnected")
+    await pchk_server.send_message("$io:#LCN:disconnected")
     await pypck_client.received("$io:#LCN:disconnected")
 
     pypck_client.event_handler.assert_has_awaits(
@@ -83,6 +82,21 @@ async def test_lcn_disconnected(pchk_server, pypck_client):
             asynctest.mock.call("lcn-connection-status-changed"),
             asynctest.mock.call("lcn-disconnected"),
         ]
+    )
+
+
+@pytest.mark.asyncio
+async def test_connection_lost(pchk_server, pypck_client):
+    """Test pchk server connection close."""
+    pypck_client.event_handler = asynctest.CoroutineMock()
+    await pypck_client.async_connect()
+
+    await pchk_server.stop()
+    # ensure that pypck_client is about to be closed
+    await pypck_client.wait_closed()
+
+    pypck_client.event_handler.assert_has_awaits(
+        [asynctest.mock.call("connection-lost")]
     )
 
 
@@ -106,9 +120,9 @@ async def test_segment_coupler_response(pchk_server, pypck_client):
 
     assert pypck_client.local_seg_id == 0
 
-    await pchk_server.send_message(b"=M000005.SK020")
-    await pchk_server.send_message(b"=M021021.SK021")
-    await pchk_server.send_message(b"=M022010.SK022")
+    await pchk_server.send_message("=M000005.SK020")
+    await pchk_server.send_message("=M021021.SK021")
+    await pchk_server.send_message("=M022010.SK022")
     assert await pypck_client.received("=M000005.SK020")
     assert await pypck_client.received("=M021021.SK021")
     assert await pypck_client.received("=M022010.SK022")
@@ -132,15 +146,30 @@ async def test_module_scan(pchk_server, pypck_client):
 async def test_module_sn_response(pchk_server, pypck_client):
     """Test module scan."""
     await pypck_client.async_connect()
-
-    message = "=M000007.SN1AB20A123401FW190B11HW015"
-    await pchk_server.send_message(message.encode())
-    assert await pypck_client.received(message)
-
     module = pypck_client.get_address_conn(LcnAddr(0, 7, False))
 
-    # assert await module.serial_known
+    message = "=M000007.SN1AB20A123401FW190B11HW015"
+    await pchk_server.send_message(message)
+    assert await pypck_client.received(message)
+
+    assert await module.serial_known
     assert module.hardware_serial == 0x1AB20A1234
     assert module.manu == 1
     assert module.software_serial == 0x190B11
     assert module.hw_type == 15
+
+
+@pytest.mark.asyncio
+async def test_send_command_to_server(pchk_server, pypck_client):
+    """Test sending a command to the PCHK server."""
+    await pypck_client.async_connect()
+    message = ">M000007.PIN003"
+    await pypck_client.async_send_command(message)
+    assert await pchk_server.received(message)
+
+
+@pytest.mark.asyncio
+async def test_ping(pchk_server, pypck_client):
+    """Test if pings are send."""
+    await pypck_client.async_connect()
+    assert await pchk_server.received("^ping0")

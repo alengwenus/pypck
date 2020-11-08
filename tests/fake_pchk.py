@@ -45,6 +45,9 @@ class PchkServer:
 
     async def stop(self):
         if self.server and self.server.is_serving():
+            if not (self.writer is None or self.writer.is_closing()):
+                self.writer.close()
+                await self.writer.wait_closed()
             self.server.close()
             await self.server.wait_closed()
 
@@ -122,7 +125,7 @@ class PchkServer:
             await self.writer.drain()
 
     async def send_message(self, message):
-        self.writer.write(message + self.separator)
+        self.writer.write(message.encode() + self.separator)
 
     async def received(self, message, timeout=5, remove=True):
         async def receive_loop(data, remove):
