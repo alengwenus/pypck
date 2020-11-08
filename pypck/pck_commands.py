@@ -880,7 +880,7 @@ class PckGenerator:
 
         :param    int    row_id:    Row id 0..3
         :param    int    part_id:   Part id 0..4
-        :param    str    part:      Text part (up to 12 bytes), encoded as
+        :param    bytes  part:      Text part (up to 12 bytes), encoded as
                                     lcn_defs.LCN_ENCODING
         :return:  The PCK command (without address header) as text
         :rtype:   str
