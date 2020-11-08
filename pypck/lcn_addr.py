@@ -108,7 +108,7 @@ class LcnAddr:
                 (self.seg_id >= 0)
                 & (self.seg_id <= 128)
                 & (self.addr_id >= 3)
-                & (self.addr_id < 254)
+                & (self.addr_id <= 254)
             )
         else:
             # seg_id:
@@ -122,7 +122,7 @@ class LcnAddr:
                 (self.seg_id >= 0)
                 & (self.seg_id <= 128)
                 & (self.addr_id >= 1)
-                & (self.addr_id < 254)
+                & (self.addr_id <= 254)
             )
         return is_valid
 
