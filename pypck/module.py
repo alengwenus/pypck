@@ -430,7 +430,8 @@ class StatusRequestsHandler:
 
         # Send variable request
         self.addr_conn.send_command(
-            False, PckGenerator.request_var_status(var, self.addr_conn.software_serial),
+            False,
+            PckGenerator.request_var_status(var, self.addr_conn.software_serial),
         )
 
     def request_status_leds_and_logic_ops_timeout(self, failed=False):
