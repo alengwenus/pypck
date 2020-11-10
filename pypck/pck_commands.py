@@ -11,8 +11,10 @@ Contributors:
 """
 
 import re
+from typing import Sequence, Optional, List
 
 from pypck import lcn_defs
+from pypck.lcn_addr import LcnAddr
 
 
 class PckParser:
@@ -140,7 +142,7 @@ class PckParser:
     )
 
     @staticmethod
-    def get_boolean_value(input_byte):
+    def get_boolean_value(input_byte: int) -> List[bool]:
         """Get boolean representation for the given byte.
 
         :param    int    input_byte:    Input byte as int8.
@@ -170,7 +172,7 @@ class PckGenerator:
     TABLE_NAMES = ["A", "B", "C", "D"]
 
     @staticmethod
-    def ping(counter):
+    def ping(counter: int) -> str:
         """Generate a keep-alive.
 
         LCN-PCHK will close the connection if it does not receive any commands
@@ -185,12 +187,14 @@ class PckGenerator:
         return "^ping{:d}".format(counter)
 
     @staticmethod
-    def set_dec_mode():
+    def set_dec_mode() -> str:
         """Generate PCK command to set used number system to decimal."""
         return "!CHD"
 
     @staticmethod
-    def set_operation_mode(dim_mode, status_mode):
+    def set_operation_mode(
+        dim_mode: lcn_defs.OutputPortDimMode, status_mode: lcn_defs.OutputPortStatusMode
+    ) -> str:
         """Generate a PCK command to set the connection's operation mode.
 
         This influences how output-port commands and status are interpreted
@@ -209,11 +213,13 @@ class PckGenerator:
         )
 
     @staticmethod
-    def generate_address_header(addr, local_seg_id, wants_ack):
+    def generate_address_header(
+        addr: LcnAddr, local_seg_id: int, wants_ack: bool
+    ) -> str:
         """Generate a PCK command address header.
 
         :param    addr:   The module's/group's address
-        :type     addr:   :class:`~LcnAddrMod` or :class:`~LcnAddrGrp`
+        :type     addr:   :class:`~LcnAddr`
         :param    int     local_seg_id:    The local segment id
         :param    bool    wants_ack:      Is an acknowledge requested.
 
@@ -228,7 +234,7 @@ class PckGenerator:
         )
 
     @staticmethod
-    def segment_coupler_scan():
+    def segment_coupler_scan() -> str:
         """Generate a scan-command for LCN segment-couplers.
 
         Used to detect the local segment (where the physical bus connection is
@@ -240,7 +246,7 @@ class PckGenerator:
         return "SK"
 
     @staticmethod
-    def request_serial():
+    def request_serial() -> str:
         """Generate a firmware/serial-number request.
 
         :return: The PCK command (without address header) as text
@@ -249,7 +255,7 @@ class PckGenerator:
         return "SN"
 
     @staticmethod
-    def request_name(block_id):
+    def request_name(block_id: int) -> str:
         """Generate a name request.
 
         :return The PCK command (without address header) as text
@@ -260,7 +266,7 @@ class PckGenerator:
         return "NMN{:d}".format(block_id + 1)
 
     @staticmethod
-    def request_comment(block_id):
+    def request_comment(block_id: int) -> str:
         """Generate a comment request.
 
         :return The PCK command (without address header) as text
@@ -271,7 +277,7 @@ class PckGenerator:
         return "NMK{:d}".format(block_id + 1)
 
     @staticmethod
-    def request_oem_text(block_id):
+    def request_oem_text(block_id: int) -> str:
         """Generate an oem text request.
 
         :return The PCK command (without address header) as text
@@ -282,7 +288,7 @@ class PckGenerator:
         return "NMO{:d}".format(block_id + 1)
 
     @staticmethod
-    def request_output_status(output_id):
+    def request_output_status(output_id: int) -> str:
         """Generate an output-port status request.
 
         :param    int    output_id:    Output id 0..3
@@ -294,11 +300,11 @@ class PckGenerator:
         return "SMA{:d}".format(output_id + 1)
 
     @staticmethod
-    def dim_ouput(output_id, percent, ramp):
+    def dim_ouput(output_id: int, percent: float, ramp: int) -> str:
         """Generate a dim command for a single output-port.
 
         :param    int    output_it:    Output id 0..3
-        :param    int    percent:      Brightness in percent 0..100
+        :param    float    percent:      Brightness in percent 0..100
         :param    int    ramp:         Ramp value
         :return:    The PCK command (without address header) as text
         :rtype:    str
@@ -317,17 +323,17 @@ class PckGenerator:
         return pck
 
     @staticmethod
-    def dim_all_outputs(percent, ramp, is1805=False):
+    def dim_all_outputs(percent: float, ramp: int, is1805: bool = False) -> str:
         """Generate a dim command for all output-ports.
 
-        :param    int    percent:    Brightness in percent 0..100
+        :param    float    percent:    Brightness in percent 0..100
         :param    int    ramp:       Ramp value
         :param    bool   is1805:     True if the target module's firmware is
                                      180501 or newer, otherwise False
         :return:    The PCK command (without address header) as text
         :rtype:    str
         """
-        percent_round = round(percent * 2)
+        percent_round = int(round(percent * 2))
         if is1805:
             # Supported since LCN-PCHK 2.61
             pck = "OY{0:03d}{0:03d}{0:03d}{0:03d}{1:03d}".format(percent_round, ramp)
@@ -337,22 +343,22 @@ class PckGenerator:
             pck = "AE{:03d}".format(ramp)
         else:
             # This is our worst-case: No high-res, no ramp
-            pck = "AH{:03d}".format(percent_round / 2)
+            pck = "AH{:03d}".format(int(percent_round / 2))
         return pck
 
     @staticmethod
-    def rel_output(output_id, percent):
+    def rel_output(output_id: int, percent: float) -> str:
         """Generate a command to change the value of an output-port.
 
         :param    int    output_id:    Output id 0..3
-        :param    int    percent:      Relative percentage -100..100
+        :param    float    percent:      Relative percentage -100..100
         :return:    The PCK command (without address header) as text
         :rtype:    str
         """
         if (output_id < 0) or (output_id > 3):
             raise ValueError("Invalid output_id.")
 
-        percent_round = round(percent * 2)
+        percent_round = int(round(percent * 2))
         if percent_round % 2 == 0:
             # Use the percent command (supported by all LCN-PCHK versions)
             pck = "A{:d}{:s}{:03d}".format(
@@ -364,10 +370,10 @@ class PckGenerator:
             pck = "O{:d}{:s}{:03d}".format(
                 output_id + 1, "AD" if percent >= 0 else "SB", abs(percent_round)
             )
-            return pck
+        return pck
 
     @staticmethod
-    def toggle_output(output_id, ramp):
+    def toggle_output(output_id: int, ramp: int) -> str:
         """Generate a command that toggles a single output-port.
 
         Toggle mode: (on->off, off->on).
@@ -382,7 +388,7 @@ class PckGenerator:
         return "A{:d}TA{:03d}".format(output_id + 1, ramp)
 
     @staticmethod
-    def toggle_all_outputs(ramp):
+    def toggle_all_outputs(ramp: int) -> str:
         """Generate a command that toggles all output-ports.
 
         Toggle mode: (on->off, off->on).
@@ -394,7 +400,7 @@ class PckGenerator:
         return "AU{:03d}".format(ramp)
 
     @staticmethod
-    def request_relays_status():
+    def request_relays_status() -> str:
         """Generate a relays-status request.
 
         :return: The PCK command (without address header) as text
@@ -403,7 +409,7 @@ class PckGenerator:
         return "SMR"
 
     @staticmethod
-    def control_relays(states):
+    def control_relays(states: List[lcn_defs.RelayStateModifier]) -> str:
         """Generate a command to control relays.
 
         :param     RelayStateModifier    states:    The 8 modifiers for the
@@ -420,7 +426,7 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def control_motors_relays(states):
+    def control_motors_relays(states: List[lcn_defs.MotorStateModifier]) -> str:
         """Generate a command to control motors via relays.
 
         :param    MotorStateModifier    states:    The 4 modifiers for the
@@ -457,7 +463,10 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def control_motors_outputs(state, reverse_time=None):
+    def control_motors_outputs(
+        state: lcn_defs.MotorStateModifier,
+        reverse_time: Optional[lcn_defs.MotorReverseTime] = None,
+    ) -> str:
         """Generate a command to control a motor via output ports 1+2.
 
         :param    MotorStateModifier    state:     The modifier for the
@@ -499,7 +508,7 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def request_bin_sensors_status():
+    def request_bin_sensors_status() -> str:
         """Generate a binary-sensors status request.
 
         :return:    The PCK command (without address header) as text
@@ -508,7 +517,7 @@ class PckGenerator:
         return "SMB"
 
     @staticmethod
-    def var_abs(var, value):
+    def var_abs(var: lcn_defs.Var, value: int) -> str:
         """Generate a command that sets a variable absolute.
 
         :param    Var    var:    The target variable to set
@@ -531,7 +540,7 @@ class PckGenerator:
         raise ValueError("Wrong variable type.")
 
     @staticmethod
-    def update_status_var(var, value):
+    def update_status_var(var: lcn_defs.Var, value: int) -> str:
         """Generate a command that send variable status updates.
 
         PCHK provides this variables by itself on selected segments
@@ -555,7 +564,7 @@ class PckGenerator:
         raise ValueError("Wrong variable type.")
 
     @staticmethod
-    def var_reset(var, is2013=True):
+    def var_reset(var: lcn_defs.Var, is2013: bool = True) -> str:
         """Generate a command that resets a variable to 0.
 
         :param    Var    var:    The target variable to set 0
@@ -587,7 +596,12 @@ class PckGenerator:
         raise ValueError("Wrong variable type.")
 
     @staticmethod
-    def var_rel(var, rel_var_ref, value, is2013=True):
+    def var_rel(
+        var: lcn_defs.Var,
+        rel_var_ref: lcn_defs.RelVarRef,
+        value: int,
+        is2013: bool = True,
+    ) -> str:
         """Generate a command to change the value of a variable.
 
         :param    Var          var:    The target variable to change
@@ -653,7 +667,7 @@ class PckGenerator:
         raise ValueError("Wrong variable type.")
 
     @staticmethod
-    def request_var_status(var, sw_age=0x170206):
+    def request_var_status(var: lcn_defs.Var, sw_age: int = 0x170206) -> str:
         """Generate a variable value request.
 
         :param    Var    var:    The variable to request
@@ -702,7 +716,7 @@ class PckGenerator:
         raise ValueError("Wrong variable type.")
 
     @staticmethod
-    def request_leds_and_logic_ops():
+    def request_leds_and_logic_ops() -> str:
         """Generate a request for LED and logic-operations states.
 
         :return: The PCK command (without address header) as text
@@ -711,7 +725,7 @@ class PckGenerator:
         return "SMT"
 
     @staticmethod
-    def control_led(led_id, state):
+    def control_led(led_id: int, state: lcn_defs.LedStatus) -> str:
         """Generate a command to the set the state of a single LED.
 
         :param    int          led_id:   Led id 0..11
@@ -724,10 +738,10 @@ class PckGenerator:
         return "LA{:03d}{:2}".format(led_id + 1, state.value)
 
     @staticmethod
-    def send_keys(cmds, keys):
+    def send_keys(cmds: List[lcn_defs.SendKeyCommand], keys: List[bool]) -> str:
         """Generate a command to send LCN keys.
 
-        :param    SendKeyCOmmand    cmds:    The 4 concrete commands to send
+        :param    SendKeyCommand    cmds:    The 4 concrete commands to send
                                              for the tables (A-D) as list
         :param    list(bool)        keys:    The tables' 8 key-states (True
                                              means "send") as list
@@ -752,7 +766,9 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def send_keys_hit_deferred(table_id, time, time_unit, keys):
+    def send_keys_hit_deferred(
+        table_id: int, time: int, time_unit: lcn_defs.TimeUnit, keys: List[bool]
+    ) -> str:
         """Generate a command to send LCN keys deferred / delayed.
 
         :param     int         table_id:    Table id 0(A)..3(D)
@@ -797,7 +813,7 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def request_key_lock_status():
+    def request_key_lock_status() -> str:
         """Generate a request for key-lock states.
 
         Always requests table A-D. Supported since LCN-PCHK 2.8.
@@ -808,7 +824,7 @@ class PckGenerator:
         return "STX"
 
     @staticmethod
-    def lock_keys(table_id, states):
+    def lock_keys(table_id: int, states: List[lcn_defs.KeyLockStateModifier]) -> str:
         """Generate a command to lock keys.
 
         :param     int           table_id:  Table id 0(A)..3(D)
@@ -829,7 +845,9 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def lock_keys_tab_a_temporary(time, time_unit, keys):
+    def lock_keys_tab_a_temporary(
+        time: int, time_unit: lcn_defs.TimeUnit, keys: List[bool]
+    ) -> str:
         """Generate a command to lock keys for table A temporary.
 
         There is no hardware-support for locking tables B-D.
@@ -870,7 +888,7 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def dyn_text_part(row_id, part_id, part):
+    def dyn_text_part(row_id: int, part_id: int, part: bytes) -> str:
         """Generate the command header / start for sending dynamic texts.
 
         Used by LCN-GTxD periphery (supports 4 text rows).
@@ -898,7 +916,7 @@ class PckGenerator:
         )
 
     @staticmethod
-    def lock_regulator(reg_id, state):
+    def lock_regulator(reg_id: int, state: bool) -> str:
         """Generate a command to lock a regulator.
 
         :param    int    reg_id:    Regulator id 0..1
@@ -911,7 +929,7 @@ class PckGenerator:
         return "RE{:s}X{:s}".format("A" if reg_id == 0 else "B", "S" if state else "A")
 
     @staticmethod
-    def change_scene_register(register_id):
+    def change_scene_register(register_id: int) -> str:
         """Change the scene register id.
 
         :param    int    register_id:    Register id 0..9
@@ -923,7 +941,11 @@ class PckGenerator:
         return "SZW{:03d}".format(register_id)
 
     @staticmethod
-    def activate_scene_output(scene_id, output_ports=(), ramp=None):
+    def activate_scene_output(
+        scene_id: int,
+        output_ports: Sequence[lcn_defs.OutputPort] = (),
+        ramp: Optional[int] = None,
+    ) -> str:
         """Activate the stored output states for the given scene.
 
         Please note: The output ports 3 and 4 can only be activated
@@ -958,7 +980,9 @@ class PckGenerator:
         return pck
 
     @staticmethod
-    def activate_scene_relay(scene_id, relay_ports=()):
+    def activate_scene_relay(
+        scene_id: int, relay_ports: Sequence[lcn_defs.RelayPort] = ()
+    ) -> str:
         """Activate the stored relay states for the given scene.
 
         :param    int                scene_id:       Scene id 0..9

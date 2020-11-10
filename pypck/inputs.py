@@ -11,6 +11,7 @@ Contributors:
 """
 
 import logging
+from typing import List, Optional, Type
 
 from pypck import lcn_defs
 from pypck.lcn_addr import LcnAddr
@@ -28,16 +29,15 @@ class Input:
     Each Input object provides an implementation of
     :func:`~pypck.input.Input.try_parse` static method, to parse the given
     plain text PCK command. If the command can be parsed by the Input object,
-    a list of instances of :class:`~pypck.input.Input` is returned.
-    If parsing is successful, the :func:`~pypck.input.Input.process` method
-    can be called to trigger further actions.
+    a list of instances of :class:`~pypck.input.Input` is returned. Otherwise,
+    nothing is returned.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Construct Input object."""
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> "Optional[List[Input]]":
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -45,7 +45,7 @@ class Input:
 
         :param    data    str:    The input data received from LCN-PCHK
 
-        :return:            The parsed Inputs (never null)
+        :return:            The parsed Inputs
         :rtype:             List with instances of :class:`~pypck.input.Input`
         """
         raise NotImplementedError
@@ -57,17 +57,17 @@ class ModInput(Input):
     The class in inherited from :class:`~pypck.input.Input`
     """
 
-    def __init__(self, physical_source_addr):
+    def __init__(self, physical_source_addr: LcnAddr):
         """Construct ModInput object."""
         super().__init__()
         self.physical_source_addr = physical_source_addr
         self.logical_source_addr = LcnAddr()
 
-    def get_logical_source_addr(self):
+    def get_logical_source_addr(self) -> LcnAddr:
         """Return the logical source id.
 
         :return:   Logical source address.
-        :rtype:    int
+        :rtype:    :class:`~pypck.lcn_addr.LcnAddr`
         """
         return self.logical_source_addr
 
@@ -79,7 +79,7 @@ class AuthUsername(Input):
     """Authentication username message received from PCHK."""
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -87,18 +87,19 @@ class AuthUsername(Input):
 
         :param    data    str:    The input data received from LCN-PCHK
 
-        :return:            The parsed Inputs (never null)
+        :return:            The parsed Inputs
         :rtype:             List with instances of :class:`~pypck.input.Input`
         """
         if data == PckParser.AUTH_USERNAME:
             return [AuthUsername()]
+        return None
 
 
 class AuthPassword(Input):
     """Authentication password message received from PCHK."""
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -106,18 +107,19 @@ class AuthPassword(Input):
 
         :param    data    str:    The input data received from LCN-PCHK
 
-        :return:            The parsed Inputs (never null)
+        :return:            The parsed Inputs
         :rtype:             List with instances of :class:`~pypck.input.Input`
         """
         if data == PckParser.AUTH_PASSWORD:
             return [AuthPassword()]
+        return None
 
 
 class AuthOk(Input):
     """Authentication ok message received from PCHK."""
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -130,13 +132,14 @@ class AuthOk(Input):
         """
         if data == PckParser.AUTH_OK:
             return [AuthOk()]
+        return None
 
 
 class AuthFailed(Input):
     """Authentication failed message received from PCHK."""
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -149,18 +152,19 @@ class AuthFailed(Input):
         """
         if data == PckParser.AUTH_FAILED:
             return [AuthFailed()]
+        return None
 
 
 class LcnConnState(Input):
     """LCN bus connected message received from PCHK."""
 
-    def __init__(self, is_lcn_connected):
+    def __init__(self, is_lcn_connected: bool):
         """Construct Input object."""
         super().__init__()
         self._is_lcn_connected = is_lcn_connected
 
     @property
-    def is_lcn_connected(self):
+    def is_lcn_connected(self) -> bool:
         """Return the LCN bus connection status.
 
         :return:   True if connection to hardware bus was established,
@@ -170,7 +174,7 @@ class LcnConnState(Input):
         return self._is_lcn_connected
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -181,19 +185,18 @@ class LcnConnState(Input):
         :return:            The parsed Inputs (never null)
         :rtype:             List with instances of :class:`~pypck.input.Input`
         """
-        inputs = None
         if data == PckParser.LCNCONNSTATE_CONNECTED:
-            inputs = [LcnConnState(True)]
-        elif data == PckParser.LCNCONNSTATE_DISCONNECTED:
-            inputs = [LcnConnState(False)]
-        return inputs
+            return [LcnConnState(True)]
+        if data == PckParser.LCNCONNSTATE_DISCONNECTED:
+            return [LcnConnState(False)]
+        return None
 
 
 class LicenseError(Input):
     """LCN bus connected message received from PCHK."""
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -206,13 +209,14 @@ class LicenseError(Input):
         """
         if data == PckParser.LICENSE_ERROR:
             return [LicenseError()]
+        return None
 
 
 class DecModeSet(Input):
     """Decimal mode set received from PCHK."""
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -225,18 +229,19 @@ class DecModeSet(Input):
         """
         if data == PckParser.DEC_MODE_SET:
             return [DecModeSet()]
+        return None
 
 
 class CommandError(Input):
     """Command error received from PCHK."""
 
-    def __init__(self, message):
+    def __init__(self, message: str):
         """Construct Input object."""
         super().__init__()
         self.message = message
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -250,6 +255,7 @@ class CommandError(Input):
         matcher = PckParser.PATTERN_COMMAND_ERROR.match(data)
         if matcher:
             return [CommandError(matcher.group("message"))]
+        return None
 
 
 # ## Inputs received from modules
@@ -258,12 +264,12 @@ class CommandError(Input):
 class ModAck(ModInput):
     """Acknowledge message received from module."""
 
-    def __init__(self, physical_source_addr, code):
+    def __init__(self, physical_source_addr: LcnAddr, code: int):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.code = code
 
-    def get_code(self):
+    def get_code(self) -> int:
         """Return the acknowledge code.
 
         :return:    Acknowledge code.
@@ -272,7 +278,7 @@ class ModAck(ModInput):
         return self.code
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -295,18 +301,20 @@ class ModAck(ModInput):
             addr = LcnAddr(
                 int(matcher_neg.group("seg_id")), int(matcher_neg.group("mod_id"))
             )
-            return [ModAck(addr, matcher_neg.group("code"))]
+            return [ModAck(addr, int(matcher_neg.group("code")))]
+
+        return None
 
 
 class ModSk(ModInput):
     """Segment information received from an LCN segment coupler."""
 
-    def __init__(self, physical_source_addr, reported_seg_id):
+    def __init__(self, physical_source_addr: LcnAddr, reported_seg_id: int):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.reported_seg_id = reported_seg_id
 
-    def get_reported_seg_id(self):
+    def get_reported_seg_id(self) -> int:
         """Return the segment id reported from segment coupler.
 
         :return:   Reported segment id.
@@ -315,7 +323,7 @@ class ModSk(ModInput):
         return self.reported_seg_id
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -331,11 +339,20 @@ class ModSk(ModInput):
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             return [ModSk(addr, int(matcher.group("id")))]
 
+        return None
+
 
 class ModSn(ModInput):
     """Serial number and firmware version received from an LCN module."""
 
-    def __init__(self, physical_source_addr, serial, manu, sw_age, hw_type):
+    def __init__(
+        self,
+        physical_source_addr: LcnAddr,
+        serial: int,
+        manu: int,
+        sw_age: int,
+        hw_type: int,
+    ):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.serial = serial
@@ -344,7 +361,7 @@ class ModSn(ModInput):
         self.hw_type = hw_type
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -364,11 +381,15 @@ class ModSn(ModInput):
             hw_type = int(matcher.group("hw_type"))
             return [ModSn(addr, serial, manu, sw_age, hw_type)]
 
+        return None
+
 
 class ModNameComment(ModInput):
     """Name or comment received from an LCN module."""
 
-    def __init__(self, physical_source_addr, command, block_id, text):
+    def __init__(
+        self, physical_source_addr: LcnAddr, command: str, block_id: int, text: str
+    ):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.command = command
@@ -376,7 +397,7 @@ class ModNameComment(ModInput):
         self.text = text
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -395,17 +416,19 @@ class ModNameComment(ModInput):
             text = matcher.group("text")
             return [ModNameComment(addr, command, block_id, text)]
 
+        return None
+
 
 class ModStatusOutput(ModInput):
     """Status of an output-port received from an LCN module."""
 
-    def __init__(self, physical_source_addr, output_id, percent):
+    def __init__(self, physical_source_addr: LcnAddr, output_id: int, percent: float):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.output_id = output_id
         self.percent = percent
 
-    def get_output_id(self):
+    def get_output_id(self) -> int:
         """Return the output port id.
 
         :return:    Output port id.
@@ -413,16 +436,16 @@ class ModStatusOutput(ModInput):
         """
         return self.output_id
 
-    def get_percent(self):
+    def get_percent(self) -> float:
         """Return the output brightness in percent.
 
         :return:    Brightness in percent.
-        :rtype:     int
+        :rtype:     float
         """
         return self.percent
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -455,16 +478,18 @@ class ModStatusOutput(ModInput):
                 )
             ]
 
+        return None
+
 
 class ModStatusRelays(ModInput):
     """Status of 8 relays received from an LCN module."""
 
-    def __init__(self, physical_source_addr, states):
+    def __init__(self, physical_source_addr: LcnAddr, states: List[bool]):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.states = states
 
-    def get_state(self, relay_id):
+    def get_state(self, relay_id: int) -> bool:
         """
         Get the state of a single relay.
 
@@ -476,7 +501,7 @@ class ModStatusRelays(ModInput):
         return self.states[relay_id]
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -496,16 +521,18 @@ class ModStatusRelays(ModInput):
                 )
             ]
 
+        return None
+
 
 class ModStatusBinSensors(ModInput):
     """Status of 8 binary sensors received from an LCN module."""
 
-    def __init__(self, physical_source_addr, states):
+    def __init__(self, physical_source_addr: LcnAddr, states: List[bool]):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.states = states
 
-    def get_state(self, bin_sensor_id):
+    def get_state(self, bin_sensor_id: int) -> bool:
         """Get the state of a single binary-sensor.
 
         :param    int    bin_sensor_id:    Binary sensor id (0..7)
@@ -516,7 +543,7 @@ class ModStatusBinSensors(ModInput):
         return self.states[bin_sensor_id]
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -536,18 +563,25 @@ class ModStatusBinSensors(ModInput):
                 )
             ]
 
+        return None
+
 
 class ModStatusVar(ModInput):
     """Status of a variable received from an LCN module."""
 
-    def __init__(self, physical_source_addr, orig_var, value):
+    def __init__(
+        self,
+        physical_source_addr: LcnAddr,
+        orig_var: lcn_defs.Var,
+        value: lcn_defs.VarValue,
+    ):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.orig_var = orig_var
         self.value = value
         self.var = self.orig_var
 
-    def get_var(self):
+    def get_var(self) -> lcn_defs.Var:
         """Get the variable's real type.
 
         :return:        The real type
@@ -555,7 +589,7 @@ class ModStatusVar(ModInput):
         """
         return self.var
 
-    def get_value(self):
+    def get_value(self) -> lcn_defs.VarValue:
         """Get the variable's value.
 
         :return:    The value of the variable.
@@ -564,7 +598,7 @@ class ModStatusVar(ModInput):
         return self.value
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -614,7 +648,7 @@ class ModStatusVar(ModInput):
 
         matcher = PckParser.PATTERN_THRS5.match(data)
         if matcher:
-            ret = []
+            ret: List[Input] = []
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             for thrs_id in range(5):
                 var = lcn_defs.Var.var_id_to_var(int(matcher.group("id")) - 1)
@@ -623,6 +657,8 @@ class ModStatusVar(ModInput):
                 )
                 ret.append(ModStatusVar(addr, var, value))
             return ret
+
+        return None
 
 
 class ModStatusLedsAndLogicOps(ModInput):
@@ -635,13 +671,18 @@ class ModStatusLedsAndLogicOps(ModInput):
     :type     states_logic_ops:   list(:class:`~pypck.lcn_defs.LogicOpStatus`)
     """
 
-    def __init__(self, physical_source_addr, states_led, states_logic_ops):
+    def __init__(
+        self,
+        physical_source_addr: LcnAddr,
+        states_led: List[lcn_defs.LedStatus],
+        states_logic_ops: List[lcn_defs.LogicOpStatus],
+    ):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.states_led = states_led  # 12x LED status.
         self.states_logic_ops = states_logic_ops  # 4x logic-operation status.
 
-    def get_led_state(self, led_id):
+    def get_led_state(self, led_id: int) -> lcn_defs.LedStatus:
         """Get the status of a single LED.
 
         :param    int    led_id:   LED id (0..11)
@@ -650,7 +691,7 @@ class ModStatusLedsAndLogicOps(ModInput):
         """
         return self.states_led[led_id]
 
-    def get_logic_op_state(self, logic_op_id):
+    def get_logic_op_state(self, logic_op_id: int) -> lcn_defs.LogicOpStatus:
         """Get the status of a single logic operation.
 
         :param    int    logic_op_id:    Logic operation id (0..3)
@@ -660,7 +701,7 @@ class ModStatusLedsAndLogicOps(ModInput):
         return self.states_logic_ops[logic_op_id]
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -685,6 +726,8 @@ class ModStatusLedsAndLogicOps(ModInput):
             ]
             return [ModStatusLedsAndLogicOps(addr, states_leds, states_logic_ops)]
 
+        return None
+
 
 class ModStatusKeyLocks(ModInput):
     """Status of locked keys received from an LCN module.
@@ -693,12 +736,12 @@ class ModStatusKeyLocks(ModInput):
     :param    list(list(bool))   states:               The 4x8 key-lock states
     """
 
-    def __init__(self, physical_source_id, states):
+    def __init__(self, physical_source_id: LcnAddr, states: List[List[bool]]):
         """Construct ModInput object."""
         super().__init__(physical_source_id)
         self.states = states
 
-    def get_state(self, table_id, key_id):
+    def get_state(self, table_id: int, key_id: int) -> bool:
         """Get the lock-state of a single key.
 
         :param    int    tableId:    Table id: (0..3  =>  A..D)
@@ -709,7 +752,7 @@ class ModStatusKeyLocks(ModInput):
         return self.states[table_id][key_id]
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -721,7 +764,7 @@ class ModStatusKeyLocks(ModInput):
         :rtype:             List with instances of :class:`~pypck.input.Input`
         """
         matcher = PckParser.PATTERN_STATUS_KEYLOCKS.match(data)
-        states = []
+        states: List[List[bool]] = []
         if matcher:
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             for i in range(4):
@@ -730,6 +773,8 @@ class ModStatusKeyLocks(ModInput):
                     states.append(PckParser.get_boolean_value(int(state)))
             return [ModStatusKeyLocks(addr, states)]
 
+        return None
+
 
 # ## Other inputs
 
@@ -737,13 +782,13 @@ class ModStatusKeyLocks(ModInput):
 class Unknown(Input):
     """Handle all unknown input data."""
 
-    def __init__(self, data):
+    def __init__(self, data: str):
         """Construct Input object."""
         super().__init__()
         self._data = data
 
     @staticmethod
-    def try_parse(data):
+    def try_parse(data: str) -> Optional[List[Input]]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -757,7 +802,7 @@ class Unknown(Input):
         return [Unknown(data)]
 
     @property
-    def data(self):
+    def data(self) -> str:
         """Return the received data.
 
         :return:    Received data.
@@ -769,7 +814,7 @@ class Unknown(Input):
 class InputParser:
     """Parse all input objects for given input data."""
 
-    parsers = [
+    parsers: List[Type[Input]] = [
         AuthUsername,
         AuthPassword,
         AuthOk,
@@ -792,7 +837,7 @@ class InputParser:
     ]
 
     @staticmethod
-    def parse(data):
+    def parse(data: str) -> Optional[List[Input]]:
         """Parse all input objects for given input data.
 
         :param    str    data:    The input data received from LCN-PCHK
@@ -801,6 +846,8 @@ class InputParser:
         :rtype:     List with instances of :class:`~pypck.input.Input`
         """
         for parser in InputParser.parsers:
-            ret = parser.try_parse(data)
+            ret: Optional[List[Input]] = parser.try_parse(data)
             if ret is not None:
                 return ret
+
+        return None

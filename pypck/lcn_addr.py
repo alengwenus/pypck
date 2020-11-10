@@ -47,13 +47,13 @@ class LcnAddr:
                                 5..254)
     """
 
-    def __init__(self, seg_id=-1, addr_id=-1, is_group=False):
+    def __init__(self, seg_id: int = -1, addr_id: int = -1, is_group: bool = False):
         """Construct LcnAddr instance."""
         self.seg_id = seg_id
         self.addr_id = addr_id
         self._is_group = is_group
 
-    def is_group(self):
+    def is_group(self) -> bool:
         """Get the address' module or group id (discarding the concrete type).
 
         :return:    Returns whether address points to a module(False) or
@@ -62,7 +62,7 @@ class LcnAddr:
         """
         return self._is_group
 
-    def get_seg_id(self):
+    def get_seg_id(self) -> int:
         """Get the logical segment id.
 
         :return:    The (logical) segment id
@@ -70,7 +70,7 @@ class LcnAddr:
         """
         return self.seg_id
 
-    def get_physical_seg_id(self, local_seg_id):
+    def get_physical_seg_id(self, local_seg_id: int) -> int:
         """Get the physical segment id ("local" segment replaced with 0).
 
         Can be used to send data into the LCN bus.
@@ -82,7 +82,7 @@ class LcnAddr:
         """
         return 0 if (self.seg_id == local_seg_id) else self.seg_id
 
-    def get_id(self):
+    def get_id(self) -> int:
         """Get the module id.
 
         :return:    The module id
@@ -90,7 +90,7 @@ class LcnAddr:
         """
         return self.addr_id
 
-    def is_valid(self):
+    def is_valid(self) -> bool:
         """Return if the current address is valid.
 
         :return:    True, if address is a valid group/module address,
@@ -126,7 +126,7 @@ class LcnAddr:
             )
         return is_valid
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """Calculate and return hash value."""
         if self.is_valid():
             hash_value = (
@@ -138,12 +138,14 @@ class LcnAddr:
             hash_value = -1
         return hash_value
 
-    def __eq__(self, obj):
+    def __eq__(self, obj: object) -> bool:
         """Return if instance equals the given object."""
+        if not isinstance(obj, LcnAddr):
+            return False
         return (
             (self.is_group() == obj.is_group())
-            & (self.get_seg_id() == obj.get_seg_id())
-            & (self.get_id() == obj.get_id())
+            and (self.get_seg_id() == obj.get_seg_id())
+            and (self.get_id() == obj.get_id())
         )
 
 
@@ -156,7 +158,7 @@ if "REV_UINT8" not in dir():
                 REV_UINT8[i] |= 0x80 >> j
 
 
-def reverse_uint8(value):
+def reverse_uint8(value: int) -> int:
     """Reverse the bit order of the given value."""
     if value < 0 | value > 255:
         raise ValueError("Invalid value.")
