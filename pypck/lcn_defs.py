@@ -1222,6 +1222,13 @@ class KeyLockStateModifier(Enum):
     NOCHANGE = "-"
 
 
+class BeepSound(Enum):
+    """Beep sounds supported by LCN modules."""
+
+    NORMAL = "N"
+    SPECIAL = "S"
+
+
 default_connection_settings: Dict[str, Any] = {
     "NUM_TRIES": 3,  # Total number of request to sent before going into
     # failed-state.
