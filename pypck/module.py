@@ -760,6 +760,38 @@ class AbstractConnection(LcnAddr):
                 PckGenerator.activate_scene_relay(scene_id, relay_ports),
             )
 
+    def store_scene(
+        self,
+        register_id: int,
+        scene_id: int,
+        output_ports: Sequence[lcn_defs.OutputPort] = (),
+        relay_ports: Sequence[lcn_defs.RelayPort] = (),
+        ramp: Optional[int] = None,
+    ) -> None:
+        """Store states in the given scene.
+
+        :param    int                register_id:    Register id 0..9
+        :param    int                scene_id:       Scene id 0..9
+        :param    list(OutputPort)   output_ports:   Output ports to store
+                                                     as list
+        :param    list(RelayPort)    relay_ports:    Relay ports to store
+                                                     as list
+        :param    int                ramp:           Ramp value
+        """
+        self.send_command(
+            not self.is_group(), PckGenerator.change_scene_register(register_id)
+        )
+        if output_ports:
+            self.send_command(
+                not self.is_group(),
+                PckGenerator.store_scene_output(scene_id, output_ports, ramp),
+            )
+        if relay_ports:
+            self.send_command(
+                not self.is_group(),
+                PckGenerator.store_scene_relay(scene_id, relay_ports),
+            )
+
     def var_abs(
         self,
         var: lcn_defs.Var,

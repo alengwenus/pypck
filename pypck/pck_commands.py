@@ -959,6 +959,40 @@ class PckGenerator:
         :return:  The PCK command (without address header) as text
         :rtype:   str
         """
+        return PckGenerator._activate_or_store_scene_output(
+            scene_id, output_ports, ramp, store=False
+        )
+
+    @staticmethod
+    def store_scene_output(
+        scene_id: int,
+        output_ports: Sequence[lcn_defs.OutputPort] = (),
+        ramp: Optional[int] = None,
+    ) -> str:
+        """Store the current output states in the given scene.
+
+        Please note: The output ports 3 and 4 can only be stored
+        simultaneously. If one of them is given, the other one is stored,
+        too.
+
+        :param    int                scene_id:       Scene id 0..9
+        :param    list(OutputPort)   output_ports:   Output ports to store
+                                                     as list
+        :param    int                ramp:           Ramp value
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        return PckGenerator._activate_or_store_scene_output(
+            scene_id, output_ports, ramp, store=True
+        )
+
+    @staticmethod
+    def _activate_or_store_scene_output(
+        scene_id: int,
+        output_ports: Sequence[lcn_defs.OutputPort] = (),
+        ramp: Optional[int] = None,
+        store: bool = False,
+    ) -> str:
         if (scene_id < 0) or (scene_id > 9):
             raise ValueError("Wrong scene_id.")
         if not output_ports:
@@ -973,10 +1007,14 @@ class PckGenerator:
             or lcn_defs.OutputPort.OUTPUT4 in output_ports
         ):
             output_mask += 4
-        if ramp is None:
-            pck = "SZA{:1d}{:03d}".format(output_mask, scene_id)
+        if store:
+            action = "S"
         else:
-            pck = "SZA{:1d}{:03d}{:03d}".format(output_mask, scene_id, ramp)
+            action = "A"
+        if ramp is None:
+            pck = "SZ{:s}{:1d}{:03d}".format(action, output_mask, scene_id)
+        else:
+            pck = "SZ{:s}{:1d}{:03d}{:03d}".format(action, output_mask, scene_id, ramp)
         return pck
 
     @staticmethod
@@ -991,6 +1029,32 @@ class PckGenerator:
         :return:  The PCK command (without address header) as text
         :rtype:   str
         """
+        return PckGenerator._activate_or_store_scene_relay(
+            scene_id, relay_ports, store=False
+        )
+
+    @staticmethod
+    def store_scene_relay(
+        scene_id: int, relay_ports: Sequence[lcn_defs.RelayPort] = ()
+    ) -> str:
+        """Store the current relay states in the given scene.
+
+        :param    int                scene_id:       Scene id 0..9
+        :param    list(RelayPort)    relay_ports:    Relay ports to store
+                                                     as list
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        return PckGenerator._activate_or_store_scene_relay(
+            scene_id, relay_ports, store=True
+        )
+
+    @staticmethod
+    def _activate_or_store_scene_relay(
+        scene_id: int,
+        relay_ports: Sequence[lcn_defs.RelayPort] = (),
+        store: bool = False,
+    ) -> str:
         if (scene_id < 0) or (scene_id > 9):
             raise ValueError("Wrong scene_id.")
         if not relay_ports:
@@ -998,7 +1062,11 @@ class PckGenerator:
         relays_mask = ["0"] * 8
         for port in relay_ports:
             relays_mask[port.value] = "1"
-        return "SZA0{:03d}{:s}".format(scene_id, "".join(relays_mask))
+        if store:
+            action = "S"
+        else:
+            action = "A"
+        return "SZ{:s}0{:03d}{:s}".format(action, scene_id, "".join(relays_mask))
 
     @staticmethod
     def beep(sound: lcn_defs.BeepSound, count: int) -> str:
