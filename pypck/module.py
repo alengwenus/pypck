@@ -965,6 +965,10 @@ class AbstractConnection(LcnAddr):
         """
         self.send_command(not self.is_group(), PckGenerator.beep(sound, count))
 
+    def ping(self) -> None:
+        """Send a command that does nothing and request an acknowledgement."""
+        self.send_command(True, PckGenerator.empty())
+
     def pck(self, pck: str) -> None:
         """Send arbitrary PCK command.
 

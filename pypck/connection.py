@@ -469,7 +469,12 @@ class PchkConnectionManager(PchkConnection):
             for segment_id in segment_coupler_ids:
                 if segment_id == self.local_seg_id:
                     segment_id = 0
-                await self.async_send_command(">G{:03d}003!LEER".format(segment_id))
+                await self.async_send_command(
+                    PckGenerator.generate_address_header(
+                        LcnAddr(segment_id, 3, True), self.local_seg_id, True
+                    )
+                    + PckGenerator.empty()
+                )
 
             # Wait loop which is extended on every serial number received
             while True:
