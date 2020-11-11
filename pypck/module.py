@@ -13,7 +13,6 @@ Contributors:
 import asyncio
 from asyncio import Task
 from collections import deque
-import typing
 from typing import (
     TYPE_CHECKING,
     Optional,
@@ -489,7 +488,6 @@ class StatusRequestsHandler:
         if not failed:
             self.addr_conn.send_command(False, PckGenerator.request_key_lock_status())
 
-    @typing.no_type_check
     async def activate(self, item: Any) -> None:
         """Activate status requests for given item."""
         await self.addr_conn.conn.segment_scan_completed_event.wait()
@@ -516,7 +514,6 @@ class StatusRequestsHandler:
         elif item in lcn_defs.Key:
             self.request_status_locked_keys.activate()
 
-    @typing.no_type_check
     async def cancel(self, item: Any) -> None:
         """Cancel status request for given item."""
         # handle variables independently
