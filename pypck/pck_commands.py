@@ -1020,3 +1020,15 @@ class PckGenerator:
         if (count < 1) or (count > 15):
             raise ValueError("Wrong number of beeps.")
         return "PI{:s}{:02d}".format(sound, count)
+
+    @staticmethod
+    def empty() -> str:
+        """Generate an empty command (LEER) that does nothing.
+
+        Combine with request for acknowledgement to discover and
+        ping modules and to discover and verify group memberships.
+
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        return "LEER"
