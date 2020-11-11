@@ -11,7 +11,7 @@ Contributors:
 """
 
 import re
-from typing import Sequence, Optional, List
+from typing import List, Optional, Sequence
 
 from pypck import lcn_defs
 from pypck.lcn_addr import LcnAddr
@@ -141,6 +141,15 @@ class PckParser:
         r"(?P<table1>\d{3})(?P<table2>\d{3})((?P<table3>\d{3}))?"
     )
 
+    # Pattern to parse send command host messages.
+    PATTERN_SEND_COMMAND_HOST = re.compile(
+        r"\+M004(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.SKH"
+        r"(?P<p1>\d{3})(?P<p2>\d{3})"
+        r"(?:(?P<p3>\d{3})(?P<p4>\d{3})(?P<p5>\d{3})(?P<p6>\d{3}))?"
+        r"(?:(?P<p7>\d{3})(?P<p8>\d{3})(?P<p9>\d{3})(?P<p10>\d{3})"
+        r"(?P<p11>\d{3})(?P<p12>\d{3})(?P<p13>\d{3})(?P<p14>\d{3}))?"
+    )
+
     @staticmethod
     def get_boolean_value(input_byte: int) -> List[bool]:
         """Get boolean representation for the given byte.
@@ -176,7 +185,6 @@ class PckGenerator:
         """Generate a keep-alive.
 
         LCN-PCHK will close the connection if it does not receive any commands
-        from an open :class:`~pypck.connection.PchkConnectionManager` for a
         specific period (10 minutes by default).
 
         :param    int    counter:    The current ping's id (optional, but

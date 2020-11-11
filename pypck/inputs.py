@@ -816,6 +816,45 @@ class ModStatusKeyLocks(ModInput):
         return None
 
 
+class ModSendCommandHost(ModInput):
+    """Send command to host message from module."""
+
+    def __init__(self, physical_source_addr: LcnAddr, parameters: List[int]):
+        """Construct ModSendCommandHost object."""
+        super().__init__(physical_source_addr)
+        self.parameters = parameters
+
+    def get_parameters(self) -> List[int]:
+        """Return the received parameters.
+
+        :return:    Parameters
+        :rtype:     List with parameters of type int.
+        """
+        return self.parameters
+
+    @staticmethod
+    def try_parse(data: str) -> Optional[List[Input]]:
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_SEND_COMMAND_HOST.match(data)
+        if matcher:
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            parameters = [
+                int(param) for param in matcher.groups()[2:] if param is not None
+            ]
+            return [ModSendCommandHost(addr, parameters)]
+
+        return None
+
+
 # ## Other inputs
 
 
@@ -874,6 +913,7 @@ class InputParser:
         ModStatusVar,
         ModStatusLedsAndLogicOps,
         ModStatusKeyLocks,
+        ModSendCommandHost,
         Unknown,
     ]
 

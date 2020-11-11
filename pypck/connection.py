@@ -12,16 +12,7 @@ Contributors:
 
 import asyncio
 import logging
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Union,
-)
+from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Union
 
 from pypck import inputs, lcn_defs
 from pypck.lcn_addr import LcnAddr
