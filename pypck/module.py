@@ -957,6 +957,14 @@ class AbstractConnection(LcnAddr):
                     PckGenerator.dyn_text_part(row_id, part_id, part),
                 )
 
+    def beep(self, sound: lcn_defs.BeepSound, count: int) -> None:
+        """Send a command to make count number of beep sounds.
+
+        :param    BeepSound sound:  Beep sound style
+        :param    int       count:  Number of beeps (1..15)
+        """
+        self.send_command(not self.is_group(), PckGenerator.beep(sound, count))
+
     def pck(self, pck: str) -> None:
         """Send arbitrary PCK command.
 

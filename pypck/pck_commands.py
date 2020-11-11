@@ -1007,3 +1007,16 @@ class PckGenerator:
         for port in relay_ports:
             relays_mask[port.value] = "1"
         return "SZA0{:03d}{:s}".format(scene_id, "".join(relays_mask))
+
+    @staticmethod
+    def beep(sound: lcn_defs.BeepSound, count: int) -> str:
+        """Make count number of beep sounds.
+
+        :param    BeepSound sound:  Beep sound style
+        :param    int       count:  Number of beeps (1..15)
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        if (count < 1) or (count > 15):
+            raise ValueError("Wrong number of beeps.")
+        return "PI{:s}{:02d}".format(sound, count)
