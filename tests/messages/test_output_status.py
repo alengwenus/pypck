@@ -1,4 +1,4 @@
-"""Output status messages."""
+"""Tests for output status messages."""
 
 import asynctest
 import pytest

@@ -11,7 +11,7 @@ Contributors:
 """
 
 import logging
-from typing import List, Optional, Type
+from typing import List, Optional, Tuple, Type
 
 from pypck import lcn_defs
 from pypck.lcn_addr import LcnAddr
@@ -819,12 +819,12 @@ class ModStatusKeyLocks(ModInput):
 class ModSendCommandHost(ModInput):
     """Send command to host message from module."""
 
-    def __init__(self, physical_source_addr: LcnAddr, parameters: List[int]):
+    def __init__(self, physical_source_addr: LcnAddr, parameters: Tuple[int, ...]):
         """Construct ModSendCommandHost object."""
         super().__init__(physical_source_addr)
         self.parameters = parameters
 
-    def get_parameters(self) -> List[int]:
+    def get_parameters(self) -> Tuple[int, ...]:
         """Return the received parameters.
 
         :return:    Parameters
@@ -847,9 +847,9 @@ class ModSendCommandHost(ModInput):
         matcher = PckParser.PATTERN_SEND_COMMAND_HOST.match(data)
         if matcher:
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
-            parameters = [
+            parameters = tuple(
                 int(param) for param in matcher.groups()[2:] if param is not None
-            ]
+            )
             return [ModSendCommandHost(addr, parameters)]
 
         return None
