@@ -15,16 +15,16 @@ from asyncio import Task
 from collections import deque
 from typing import (
     TYPE_CHECKING,
-    Optional,
-    Dict,
-    Tuple,
-    List,
     Any,
-    Callable,
-    Sequence,
-    Union,
-    Deque,
     Awaitable,
+    Callable,
+    Deque,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
 )
 
 from pypck import inputs, lcn_defs
@@ -1076,6 +1076,7 @@ class ModuleConnection(AbstractConnection):
     ):
         """Construct ModuleConnection instance."""
         super().__init__(conn, seg_id, mod_id, False, sw_age=sw_age)
+        self.activate_status_requests = activate_status_requests
         self.has_s0_enabled = has_s0_enabled
 
         # List of queued PCK commands to be acknowledged by the LCN module.
@@ -1095,9 +1096,13 @@ class ModuleConnection(AbstractConnection):
         )
         self.status_requests = StatusRequestsHandler(self)
 
-        asyncio.create_task(self.activate_properties_request_handlers())
-        if activate_status_requests:
-            asyncio.create_task(self.activate_status_request_handlers())
+        self.activate_prh_task = asyncio.create_task(
+            self.activate_properties_request_handlers()
+        )
+        if self.activate_status_requests:
+            self.activate_srh_task = asyncio.create_task(
+                self.activate_status_request_handlers()
+            )
 
     def send_command(self, wants_ack: bool, pck: str) -> None:
         """Send a command to the module represented by this class.
@@ -1125,10 +1130,15 @@ class ModuleConnection(AbstractConnection):
     async def cancel_properties_request_handlers(self) -> None:
         """Canecl all TimeoutRetryHandlers for status requests."""
         await self.properties_requests.cancel_all()
+        self.activate_prh_task.cancel()
+        await self.activate_prh_task
 
     async def cancel_status_request_handler(self, item: Any) -> None:
         """Cancel a specific TimeoutRetryHandler for status requests."""
         await self.status_requests.cancel(item)
+        if self.activate_status_requests:
+            self.activate_srh_task.cancel()
+            await self.activate_srh_task
 
     async def cancel_status_request_handlers(self) -> None:
         """Canecl all TimeoutRetryHandlers for status requests."""
@@ -1136,8 +1146,8 @@ class ModuleConnection(AbstractConnection):
 
     async def cancel_requests(self) -> None:
         """Cancel all TimeoutRetryHandlers."""
-        await self.status_requests.cancel_all()
-        await self.properties_requests.cancel_all()
+        await self.cancel_status_request_handlers()
+        await self.cancel_properties_request_handlers()
         await self.request_curr_pck_command_with_ack.cancel()
         self.pck_commands_with_ack.clear()
 

@@ -1,9 +1,11 @@
 """Core testing functionality."""
 
 import asyncio
+from asyncio.tasks import all_tasks, wait_for
 
 import pytest
 from pypck.connection import PchkConnectionManager
+from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
 
 from .fake_pchk import PchkServer
@@ -64,3 +66,11 @@ async def pypck_client():
     )
     yield pcm
     await pcm.async_close()
+
+
+@pytest.fixture
+async def module10(pypck_client):
+    lcn_addr = LcnAddr(0, 10, False)
+    address_connection = pypck_client.get_address_conn(lcn_addr)
+    yield address_connection
+    await address_connection.cancel_requests()

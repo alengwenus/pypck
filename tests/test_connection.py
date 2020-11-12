@@ -1,10 +1,10 @@
 """Connection tests."""
-# from unittest.mock import Mock
 
 import asynctest
 import pytest
 from pypck.connection import PchkAuthenticationError, PchkLicenseError
 from pypck.lcn_addr import LcnAddr
+from pypck.module import ModuleConnection
 
 
 @pytest.mark.asyncio
@@ -173,3 +173,29 @@ async def test_ping(pchk_server, pypck_client):
     """Test if pings are send."""
     await pypck_client.async_connect()
     assert await pchk_server.received("^ping0")
+
+
+@pytest.mark.asyncio
+async def test_add_address_connections(pypck_client):
+    """Test if new address connections are added on request."""
+    lcn_addr = LcnAddr(0, 10, False)
+    assert lcn_addr not in pypck_client.address_conns
+
+    addr_conn = pypck_client.get_address_conn(lcn_addr)
+    assert isinstance(addr_conn, ModuleConnection)
+
+    assert lcn_addr in pypck_client.address_conns
+
+
+@pytest.mark.asyncio
+async def test_add_address_connections_by_message(pchk_server, pypck_client):
+    """Test if new address connections are added by received message."""
+    await pypck_client.async_connect()
+    lcn_addr = LcnAddr(0, 10, False)
+    assert lcn_addr not in pypck_client.address_conns
+
+    message = ":M000010A1050"
+    await pchk_server.send_message(message)
+    assert await pypck_client.received(message)
+
+    assert lcn_addr in pypck_client.address_conns

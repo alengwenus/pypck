@@ -420,7 +420,7 @@ class ModNameComment(ModInput):
 
 
 class ModStatusOutput(ModInput):
-    """Status of an output-port received from an LCN module."""
+    """Status of an output-port in percent received from an LCN module."""
 
     def __init__(self, physical_source_addr: LcnAddr, output_id: int, percent: float):
         """Construct ModInput object."""
@@ -467,14 +467,54 @@ class ModStatusOutput(ModInput):
                 )
             ]
 
+        return None
+
+
+class ModStatusOutputNative(ModInput):
+    """Status of an output-port in native units received from an LCN module."""
+
+    def __init__(self, physical_source_addr: LcnAddr, output_id: int, value: int):
+        """Construct ModInput object."""
+        super().__init__(physical_source_addr)
+        self.output_id = output_id
+        self.value = value
+
+    def get_output_id(self) -> int:
+        """Return the output port id.
+
+        :return:    Output port id.
+        :rtype:     int
+        """
+        return self.output_id
+
+    def get_value(self) -> int:
+        """Return the output brightness in native units.
+
+        :return:    Brightness in percent.
+        :rtype:     float
+        """
+        return self.value
+
+    @staticmethod
+    def try_parse(data: str) -> Optional[List[Input]]:
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
         matcher = PckParser.PATTERN_STATUS_OUTPUT_NATIVE.match(data)
         if matcher:
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             return [
-                ModStatusOutput(
+                ModStatusOutputNative(
                     addr,
-                    int(matcher.group("output_id")),
-                    float(matcher.group("value")) / 2.0,
+                    int(matcher.group("output_id")) - 1,
+                    int(matcher.group("value")),
                 )
             ]
 
@@ -828,6 +868,7 @@ class InputParser:
         ModSk,
         ModSn,
         ModStatusOutput,
+        ModStatusOutputNative,
         ModStatusRelays,
         ModStatusBinSensors,
         ModStatusVar,
