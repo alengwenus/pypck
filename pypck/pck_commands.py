@@ -1087,7 +1087,7 @@ class PckGenerator:
         """
         if (count < 1) or (count > 15):
             raise ValueError("Wrong number of beeps.")
-        return "PI{:s}{:02d}".format(sound, count)
+        return "PI{:s}{:03d}".format(sound, count)
 
     @staticmethod
     def empty() -> str:

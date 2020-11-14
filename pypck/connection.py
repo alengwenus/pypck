@@ -12,7 +12,8 @@ Contributors:
 
 import asyncio
 import logging
-from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Union
+from types import TracebackType
+from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Type, Union
 
 from pypck import inputs, lcn_defs
 from pypck.lcn_addr import LcnAddr
@@ -73,7 +74,7 @@ class PchkLcnNotConnectedError(Exception):
 class PchkConnection:
     """Socket connection to LCN-PCHK server.
 
-    :param    str    server_addr: Server IP address formatted as
+    :param    str    host:        Server IP address formatted as
                                   xxx.xxx.xxx.xxx
     :param    int    port:        Server port
 
@@ -89,9 +90,9 @@ class PchkConnection:
     :class:`~PchkConnectionManager`.
     """
 
-    def __init__(self, server_addr: str, port: int, connection_id: str = "PCHK"):
+    def __init__(self, host: str, port: int, connection_id: str = "PCHK"):
         """Construct PchkConnection."""
-        self.server_addr = server_addr
+        self.host = host
         self.port = port
         self.connection_id = connection_id
         self.reader: Optional[asyncio.StreamReader] = None
@@ -103,9 +104,7 @@ class PchkConnection:
 
     async def async_connect(self) -> None:
         """Connect to a PCHK server (no authentication or license error check)."""
-        self.reader, self.writer = await asyncio.open_connection(
-            self.server_addr, self.port
-        )
+        self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
         address = self.writer.get_extra_info("peername")
         _LOGGER.debug("%d server connected at %s:%s", self.connection_id, *address)
 
@@ -198,8 +197,7 @@ class PchkConnectionManager(PchkConnection):
     - Calls input object's process method.
     - Updates seg_id of ModuleConnections if segment scan finishes.
 
-    :param           loop:        Asyncio event loop
-    :param    str    server_addr: Server IP address formatted as
+    :param    str    host:        Server IP address formatted as
                                   xxx.xxx.xxx.xxx
     :param    int    port:        Server port
     :param    str    username:    usernam for login.
@@ -219,8 +217,7 @@ class PchkConnectionManager(PchkConnection):
 
     def __init__(
         self,
-        loop: Any,  # It appears unused and should be removed.
-        server_addr: str,
+        host: str,
         port: int,
         username: str,
         password: str,
@@ -228,7 +225,7 @@ class PchkConnectionManager(PchkConnection):
         connection_id: str = "PCHK",
     ):
         """Construct PchkConnectionManager."""
-        super().__init__(server_addr, port, connection_id)
+        super().__init__(host, port, connection_id)
 
         self.username = username
         self.password = password
@@ -264,6 +261,21 @@ class PchkConnectionManager(PchkConnection):
         # dictionary.
         self.address_conns: Dict[LcnAddr, Union[ModuleConnection, GroupConnection]] = {}
         self.segment_coupler_ids: List[int] = []
+
+    async def __aenter__(self) -> "PchkConnectionManager":
+        """Context manager enter method."""
+        await self.async_connect()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        exc_traceback: Optional[TracebackType],
+    ) -> None:
+        """Context manager exit method."""
+        await self.async_close()
+        return None
 
     async def async_send_command(
         self, pck: str, to_host: bool = False, **kwargs: Any

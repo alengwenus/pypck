@@ -13,7 +13,7 @@ Contributors:
 import math
 import re
 from enum import Enum, auto
-from typing import Tuple, Union, Dict, Any
+from typing import Any, Dict, Tuple, Union
 
 LCN_ENCODING = "utf-8"
 PATTERN_SPLIT_PORT_PIN = re.compile(r"(?P<port>[a-zA-Z]+)(?P<pin>\d+)")
@@ -221,16 +221,15 @@ def ramp_value_to_time(ramp_value: int) -> int:
     :returns: The ramp time in milliseconds.
     :rtype: int
     """
-    # pylint: disable=invalid-name
     if not 0 <= ramp_value <= 250:
         raise ValueError("Ramp value has to be in range 0..250.")
 
     if ramp_value < 10:
         times = [0, 250, 500, 660, 1000, 1400, 2000, 3000, 4000, 5000]
-        t = times[ramp_value]
+        ramp_time = times[ramp_value]
     else:
-        t = int(((ramp_value - 10) * 2 + 6) * 1000)
-    return t
+        ramp_time = int(((ramp_value - 10) * 2 + 6) * 1000)
+    return ramp_time
 
 
 class Var(Enum):
@@ -683,10 +682,10 @@ class VarValue:
         return (self.native_value & 0x8000) != 0
 
     @staticmethod
-    def from_var_unit(v: float, unit: VarUnit, is_abs: bool) -> "VarValue":
+    def from_var_unit(value: float, unit: VarUnit, is_abs: bool) -> "VarValue":
         """Create a variable value from any input.
 
-        :param    float    v:       The input value
+        :param    float    value:   The input value
         :param    VarUnit  unit:    The input value's unit
         :param    bool     is_abs:  True for absolute values (relative values
                                     are used to add/subtract from other
@@ -695,52 +694,50 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
-        # pylint: disable=invalid-name
         if unit == VarUnit.NATIVE:
-            var_value = VarValue.from_native(int(v))
+            var_value = VarValue.from_native(int(value))
         elif unit == VarUnit.CELSIUS:
-            var_value = VarValue.from_celsius(v, is_abs)
+            var_value = VarValue.from_celsius(value, is_abs)
         elif unit == VarUnit.KELVIN:
-            var_value = VarValue.from_kelvin(v, is_abs)
+            var_value = VarValue.from_kelvin(value, is_abs)
         elif unit == VarUnit.FAHRENHEIT:
-            var_value = VarValue.from_fahrenheit(v, is_abs)
+            var_value = VarValue.from_fahrenheit(value, is_abs)
         elif unit == VarUnit.LUX_T:
-            var_value = VarValue.from_lux_t(v)
+            var_value = VarValue.from_lux_t(value)
         elif unit == VarUnit.LUX_I:
-            var_value = VarValue.from_lux_i(v)
+            var_value = VarValue.from_lux_i(value)
         elif unit == VarUnit.METERPERSECOND:
-            var_value = VarValue.from_meters_per_second(v)
+            var_value = VarValue.from_meters_per_second(value)
         elif unit == VarUnit.PERCENT:
-            var_value = VarValue.from_percent(v)
+            var_value = VarValue.from_percent(value)
         elif unit == VarUnit.PPM:
-            var_value = VarValue.from_ppm(v)
+            var_value = VarValue.from_ppm(value)
         elif unit == VarUnit.VOLT:
-            var_value = VarValue.from_volt(v)
+            var_value = VarValue.from_volt(value)
         elif unit == VarUnit.AMPERE:
-            var_value = VarValue.from_kelvin(v)
+            var_value = VarValue.from_kelvin(value)
         elif unit == VarUnit.DEGREE:
-            var_value = VarValue.from_degree(v)
+            var_value = VarValue.from_degree(value)
         else:
             raise ValueError("Wrong unit.")
         return var_value
 
     @staticmethod
-    def from_native(n: int) -> "VarValue":
+    def from_native(value: int) -> "VarValue":
         """Create a variable value from native input.
 
-        :param    int    n:    The input value
+        :param    int    value:    The input value
 
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
-        # pylint: disable=invalid-name
-        return VarValue(n)
+        return VarValue(value)
 
     @staticmethod
-    def from_celsius(c: float, is_abs: bool = True) -> "VarValue":
+    def from_celsius(value: float, is_abs: bool = True) -> "VarValue":
         """Create a variable value from Celsius input.
 
-        :param    float    c:        The input value
+        :param    float    value:    The input value
         :param    bool     is_abs:   True for absolute values (relative values
                                      are used to add/subtract from other
                                      VarValues), otherwise False
@@ -748,15 +745,14 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
-        # pylint: disable=invalid-name
-        n = int(round(c * 10))
-        return VarValue(n + 1000 if is_abs else n)
+        number = int(round(value * 10))
+        return VarValue(number + 1000 if is_abs else number)
 
     @staticmethod
-    def from_kelvin(k: float, is_abs: bool = True) -> "VarValue":
+    def from_kelvin(value: float, is_abs: bool = True) -> "VarValue":
         """Create a variable value from Kelvin input.
 
-        :param    float    k:        The input value
+        :param    float    value:    The input value
         :param    bool     is_abs:   True for absolute values (relative values
                                      are used to add/subtract from other
                                      VarValues), otherwise False
@@ -764,18 +760,17 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
-        # pylint: disable=invalid-name
         if is_abs:
-            k -= 273.15
+            value -= 273.15
 
-        n = int(round(k * 10))
-        return VarValue(n + 1000 if is_abs else n)
+        number = int(round(value * 10))
+        return VarValue(number + 1000 if is_abs else number)
 
     @staticmethod
-    def from_fahrenheit(f: float, is_abs: bool = True) -> "VarValue":
+    def from_fahrenheit(value: float, is_abs: bool = True) -> "VarValue":
         """Create a variable value from Fahrenheit input.
 
-        :param    float    f:        The input value
+        :param    float    value:    The input value
         :param    bool     is_abs:   True for absolute values (relative values
                                      are used to add/subtract from other
                                      VarValues), otherwise False
@@ -783,12 +778,11 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
-        # pylint: disable=invalid-name
         if is_abs:
-            f -= 32
+            value -= 32
 
-        n = int(round(f / 0.18))
-        return VarValue(n + 1000 if is_abs else n)
+        number = int(round(value / 0.18))
+        return VarValue(number + 1000 if is_abs else number)
 
     @staticmethod
     def from_lux_t(lux: float) -> "VarValue":
@@ -817,74 +811,69 @@ class VarValue:
         return VarValue(int(round(math.log(lux) * 100)))
 
     @staticmethod
-    def from_percent(p: float) -> "VarValue":
+    def from_percent(value: float) -> "VarValue":
         """Create a variable value from % input.
 
-        :param    float    p:    The input value
+        :param    float    value:    The input value
 
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
-        # pylint: disable=invalid-name
-        return VarValue(int(round(p)))
+        return VarValue(int(round(value)))
 
     @staticmethod
-    def from_ppm(p: float) -> "VarValue":
+    def from_ppm(value: float) -> "VarValue":
         """Create a variable value from ppm input.
 
         Used for CO2 sensors.
 
-        :param    float    p:   The input value
+        :param    float    value:   The input value
 
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
-        # pylint: disable=invalid-name
-        return VarValue(int(round(p)))
+        return VarValue(int(round(value)))
 
     @staticmethod
-    def from_meters_per_second(ms: float) -> "VarValue":
+    def from_meters_per_second(value: float) -> "VarValue":
         """Create a variable value from m/s input.
 
         Used for LCN-WIH wind speed.
 
-        :param    float    ms:    The input value
+        :param    float    value:    The input value
 
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
-        # pylint: disable=invalid-name
-        return VarValue(int(round(ms * 10)))
+        return VarValue(int(round(value * 10)))
 
     @staticmethod
-    def from_volt(v: float) -> "VarValue":
+    def from_volt(value: float) -> "VarValue":
         """Create a variable value from V input.
 
-        :param    float    v:    The input value
+        :param    float    value:    The input value
 
         :return:    The variable value (never null)
         :rtype:    VarValue
         """
-        # pylint: disable=invalid-name
-        return VarValue(int(round(v * 400)))
+        return VarValue(int(round(value * 400)))
 
     @staticmethod
-    def from_ampere(a: float) -> "VarValue":
+    def from_ampere(value: float) -> "VarValue":
         """Create a variable value from A input.
 
-        :param    float    a:    The input value
+        :param    float    value:    The input value
 
         :return: The variable value (never null)
         :rtype:    VarValue
         """
-        # pylint: disable=invalid-name
-        return VarValue(int(round(a * 100)))
+        return VarValue(int(round(value * 100)))
 
     @staticmethod
-    def from_degree(d: float, is_abs: bool = True) -> "VarValue":
+    def from_degree(value: float, is_abs: bool = True) -> "VarValue":
         """Create a variable value from degree (angle) input.
 
-        :param    float    d:        The input value
+        :param    float    value:        The input value
         :param    bool     is_abs:   True for absolute values (relative values
                                      are used to add/subtract from other
                                      VarValues), otherwise False
@@ -892,9 +881,8 @@ class VarValue:
         :return:    The variable value (never null)
         :rtype:     VarValue
         """
-        # pylint: disable=invalid-name
-        n = int(round(d * 10))
-        return VarValue(n + 1000 if is_abs else n)
+        number = int(round(value * 10))
+        return VarValue(number + 1000 if is_abs else number)
 
     def to_var_unit(
         self, unit: VarUnit, is_lockable_regulator_source: bool = False
@@ -907,37 +895,36 @@ class VarValue:
         :return:    The variable value
         :rtype:     Union[int,float]
         """
-        # pylint: disable=invalid-name
-        v = VarValue(
+        var_value = VarValue(
             self.native_value & 0x7FFF
             if is_lockable_regulator_source
             else self.native_value
         )
 
         if unit == VarUnit.NATIVE:
-            return v.to_native()
+            return var_value.to_native()
         if unit == VarUnit.CELSIUS:
-            return v.to_celsius()
+            return var_value.to_celsius()
         if unit == VarUnit.KELVIN:
-            return v.to_kelvin()
+            return var_value.to_kelvin()
         if unit == VarUnit.FAHRENHEIT:
-            return v.to_fahrenheit()
+            return var_value.to_fahrenheit()
         if unit == VarUnit.LUX_T:
-            return v.to_lux_t()
+            return var_value.to_lux_t()
         if unit == VarUnit.LUX_I:
-            return v.to_lux_i()
+            return var_value.to_lux_i()
         if unit == VarUnit.METERPERSECOND:
-            return v.to_meters_per_second()
+            return var_value.to_meters_per_second()
         if unit == VarUnit.PERCENT:
-            return v.to_percent()
+            return var_value.to_percent()
         if unit == VarUnit.PPM:
-            return v.to_ppm()
+            return var_value.to_ppm()
         if unit == VarUnit.VOLT:
-            return v.to_volt()
+            return var_value.to_volt()
         if unit == VarUnit.AMPERE:
-            return v.to_ampere()
+            return var_value.to_ampere()
         if unit == VarUnit.DEGREE:
-            return v.to_degree()
+            return var_value.to_degree()
         raise ValueError("Wrong unit.")
 
     def to_native(self) -> int:
@@ -1137,7 +1124,7 @@ class TimeUnit(Enum):
     DAYS = "D"
 
     @staticmethod
-    def parse(time_unit: str) -> "TimeUnit":
+    def parse(unit: str) -> "TimeUnit":
         """Parse the given time_unit into a time unit.
 
         It supports several alternative terms.
@@ -1147,19 +1134,18 @@ class TimeUnit(Enum):
         :return:    TimeUnit enum
         :rtype:    TimeUnit
         """
-        # pylint: disable=invalid-name
-        time_unit = time_unit.upper()
-        if time_unit in ["SECONDS", "SECOND", "SEC", "S"]:
-            tu = TimeUnit.SECONDS
-        elif time_unit in ["MINUTES", "MINUTE", "MIN", "M"]:
-            tu = TimeUnit.MINUTES
-        elif time_unit in ["HOURS", "HOUR", "H"]:
-            tu = TimeUnit.HOURS
-        elif time_unit in ["DAYS", "DAY", "D"]:
-            tu = TimeUnit.DAYS
+        unit = unit.upper()
+        if unit in ["SECONDS", "SECOND", "SEC", "S"]:
+            time_unit = TimeUnit.SECONDS
+        elif unit in ["MINUTES", "MINUTE", "MIN", "M"]:
+            time_unit = TimeUnit.MINUTES
+        elif unit in ["HOURS", "HOUR", "H"]:
+            time_unit = TimeUnit.HOURS
+        elif unit in ["DAYS", "DAY", "D"]:
+            time_unit = TimeUnit.DAYS
         else:
             raise ValueError("Bad time unit input.")
-        return tu
+        return time_unit
 
 
 class RelayStateModifier(Enum):
