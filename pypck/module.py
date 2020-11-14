@@ -1558,6 +1558,21 @@ class ModuleConnection(AbstractConnection):
         """Return stored OEM text."""
         return self.properties_requests.name_comment.oem_text
 
+    @property
+    def static_groups(self) -> List[LcnAddr]:
+        """Return static group membership."""
+        return self.properties_requests.groups.static_groups
+
+    @property
+    def dynamic_groups(self) -> List[LcnAddr]:
+        """Return dynamic group membership."""
+        return self.properties_requests.groups.dynamic_groups
+
+    @property
+    def groups(self) -> List[LcnAddr]:
+        """Return static and dynamic group membership."""
+        return self.properties_requests.groups.groups
+
     # ## future properties
 
     @property
@@ -1576,3 +1591,15 @@ class ModuleConnection(AbstractConnection):
     async def request_oem_text(self) -> List[str]:
         """Request OEM text from a module."""
         return await self.properties_requests.name_comment.request_oem_text()
+
+    async def request_static_groups(self) -> List[LcnAddr]:
+        """Request module static group memberships."""
+        return await self.properties_requests.groups.request_static_groups()
+
+    async def request_dynamic_groups(self) -> List[LcnAddr]:
+        """Request module dynamic group memberships."""
+        return await self.properties_requests.groups.request_dynamic_groups()
+
+    async def request_groups(self) -> List[LcnAddr]:
+        """Request module group memberships."""
+        return await self.properties_requests.groups.request_groups()
