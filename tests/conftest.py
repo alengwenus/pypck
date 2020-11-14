@@ -62,7 +62,7 @@ async def pypck_client():
     """
     loop = None
     pcm = MockPchkConnectionManager(
-        loop, HOST, PORT, USERNAME, PASSWORD, settings={"SK_NUM_TRIES": 0}
+        HOST, PORT, USERNAME, PASSWORD, settings={"SK_NUM_TRIES": 0}
     )
     yield pcm
     await pcm.async_close()
