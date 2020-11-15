@@ -84,10 +84,12 @@ class SerialRequestHandler:
 
             await self.cancel()
 
-    def timeout(self, failed: bool = False) -> None:
+    async def timeout(self, failed: bool = False) -> None:
         """Is called on serial request timeout."""
         if not failed:
-            self.addr_conn.send_command(False, PckGenerator.request_serial())
+            await self.addr_conn.async_send_command(
+                False, PckGenerator.request_serial()
+            )
         else:
             self.serial_known.set()
 
@@ -192,24 +194,30 @@ class NameCommentRequestHandler:
                     self.oem_text_known.set()
                     await self.cancel_oem_text()
 
-    def timeout_name(self, failed: bool = False, block_id: int = 0) -> None:
+    async def timeout_name(self, failed: bool = False, block_id: int = 0) -> None:
         """Is called on serial request timeout."""
         if not failed:
-            self.addr_conn.send_command(False, PckGenerator.request_name(block_id))
+            await self.addr_conn.async_send_command(
+                False, PckGenerator.request_name(block_id)
+            )
         else:
             self.name_known.set()
 
-    def timeout_comment(self, failed: bool = False, block_id: int = 0) -> None:
+    async def timeout_comment(self, failed: bool = False, block_id: int = 0) -> None:
         """Is called on serial request timeout."""
         if not failed:
-            self.addr_conn.send_command(False, PckGenerator.request_comment(block_id))
+            await self.addr_conn.async_send_command(
+                False, PckGenerator.request_comment(block_id)
+            )
         else:
             self.comment_known.set()
 
-    def timeout_oem_text(self, failed: bool = False, block_id: int = 0) -> None:
+    async def timeout_oem_text(self, failed: bool = False, block_id: int = 0) -> None:
         """Is called on serial request timeout."""
         if not failed:
-            self.addr_conn.send_command(False, PckGenerator.request_oem_text(block_id))
+            await self.addr_conn.async_send_command(
+                False, PckGenerator.request_oem_text(block_id)
+            )
         else:
             self.oem_text_known.set()
 
@@ -429,24 +437,26 @@ class StatusRequestsHandler:
 
         return inp
 
-    def request_status_outputs_timeout(
+    async def request_status_outputs_timeout(
         self, failed: bool = False, output_port: int = 0
     ) -> None:
         """Is called on output status request timeout."""
         if not failed:
-            self.addr_conn.send_command(
+            await self.addr_conn.async_send_command(
                 False, PckGenerator.request_output_status(output_port)
             )
 
-    def request_status_relays_timeout(self, failed: bool = False) -> None:
+    async def request_status_relays_timeout(self, failed: bool = False) -> None:
         """Is called on relay status request timeout."""
         if not failed:
-            self.addr_conn.send_command(False, PckGenerator.request_relays_status())
+            await self.addr_conn.async_send_command(
+                False, PckGenerator.request_relays_status()
+            )
 
-    def request_status_bin_sensors_timeout(self, failed: bool = False) -> None:
+    async def request_status_bin_sensors_timeout(self, failed: bool = False) -> None:
         """Is called on binary sensor status request timeout."""
         if not failed:
-            self.addr_conn.send_command(
+            await self.addr_conn.async_send_command(
                 False, PckGenerator.request_bin_sensors_status()
             )
 
@@ -469,22 +479,26 @@ class StatusRequestsHandler:
             self.last_requested_var_without_type_in_response = var
 
         # Send variable request
-        self.addr_conn.send_command(
+        await self.addr_conn.async_send_command(
             False,
             PckGenerator.request_var_status(var, self.addr_conn.software_serial),
         )
 
-    def request_status_leds_and_logic_ops_timeout(self, failed: bool = False) -> None:
+    async def request_status_leds_and_logic_ops_timeout(
+        self, failed: bool = False
+    ) -> None:
         """Is called on leds/logical ops status request timeout."""
         if not failed:
-            self.addr_conn.send_command(
+            await self.addr_conn.async_send_command(
                 False, PckGenerator.request_leds_and_logic_ops()
             )
 
-    def request_status_locked_keys_timeout(self, failed: bool = False) -> None:
+    async def request_status_locked_keys_timeout(self, failed: bool = False) -> None:
         """Is called on locked keys status request timeout."""
         if not failed:
-            self.addr_conn.send_command(False, PckGenerator.request_key_lock_status())
+            await self.addr_conn.async_send_command(
+                False, PckGenerator.request_key_lock_status()
+            )
 
     async def activate(self, item: Any) -> None:
         """Activate status requests for given item."""
@@ -595,10 +609,6 @@ class AbstractConnection(LcnAddr):
     def get_sw_age(self) -> Optional[int]:
         """Return standard sw_age."""
         return self._sw_age
-
-    def send_command(self, wants_ack: bool, pck: str) -> None:
-        """Create a task to send a command to the PCHK server concurrently."""
-        asyncio.create_task(self.async_send_command(wants_ack, pck))
 
     async def async_send_command(self, wants_ack: bool, pck: str) -> bool:
         """Send a command to the module represented by this class.
