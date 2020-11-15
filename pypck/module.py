@@ -640,104 +640,136 @@ class AbstractConnection(LcnAddr):
     # ## Methods for sending PCK commands
     # ##
 
-    def dim_output(self, output_id: int, percent: float, ramp: int) -> None:
+    async def dim_output(self, output_id: int, percent: float, ramp: int) -> bool:
         """Send a dim command for a single output-port.
 
-        :param    int    output_id:    Output id 0..3
+        :param    int      output_id:    Output id 0..3
         :param    float    percent:      Brightness in percent 0..100
-        :param    int    ramp:         Ramp time in milliseconds
+        :param    int      ramp:         Ramp time in milliseconds
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
-        self.send_command(
+        return await self.async_send_command(
             not self.is_group(), PckGenerator.dim_ouput(output_id, percent, ramp)
         )
 
-    def dim_all_outputs(self, percent: float, ramp: int, is1805: bool = False) -> None:
+    async def dim_all_outputs(
+        self, percent: float, ramp: int, is1805: bool = False
+    ) -> bool:
         """Send a dim command for all output-ports.
 
         :param    float    percent:    Brightness in percent 0..100
         :param    int    ramp:       Ramp time in milliseconds.
         :param    bool   is1805:     True if the target module's firmware is
                                      180501 or newer, otherwise False
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
-        self.send_command(
+        return await self.async_send_command(
             not self.is_group(), PckGenerator.dim_all_outputs(percent, ramp, is1805)
         )
 
-    def rel_output(self, output_id: int, percent: float) -> None:
+    async def rel_output(self, output_id: int, percent: float) -> bool:
         """Send a command to change the value of an output-port.
 
         :param     int    output_id:    Output id 0..3
         :param     float    percent:      Relative brightness in percent
                                         -100..100
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
-        self.send_command(
+        return await self.async_send_command(
             not self.is_group(), PckGenerator.rel_output(output_id, percent)
         )
 
-    def toggle_output(self, output_id: int, ramp: int) -> None:
+    async def toggle_output(self, output_id: int, ramp: int) -> bool:
         """Send a command that toggles a single output-port.
 
         Toggle mode: (on->off, off->on).
 
         :param    int    output_id:    Output id 0..3
         :param    int    ramp:         Ramp time in milliseconds
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
-        self.send_command(
+        return await self.async_send_command(
             not self.is_group(), PckGenerator.toggle_output(output_id, ramp)
         )
 
-    def toggle_all_outputs(self, ramp: int) -> None:
+    async def toggle_all_outputs(self, ramp: int) -> bool:
         """Generate a command that toggles all output-ports.
 
         Toggle Mode:  (on->off, off->on).
 
         :param    int    ramp:        Ramp time in milliseconds
-        """
-        self.send_command(not self.is_group(), PckGenerator.toggle_all_outputs(ramp))
 
-    def control_relays(self, states: List[lcn_defs.RelayStateModifier]) -> None:
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.async_send_command(
+            not self.is_group(), PckGenerator.toggle_all_outputs(ramp)
+        )
+
+    async def control_relays(self, states: List[lcn_defs.RelayStateModifier]) -> bool:
         """Send a command to control relays.
 
         :param    states:   The 8 modifiers for the relay states as alist
         :type     states:   list(:class:`~pypck.lcn_defs.RelayStateModifier`)
-        """
-        self.send_command(not self.is_group(), PckGenerator.control_relays(states))
 
-    def control_motors_relays(self, states: List[lcn_defs.MotorStateModifier]) -> None:
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.async_send_command(
+            not self.is_group(), PckGenerator.control_relays(states)
+        )
+
+    async def control_motors_relays(
+        self, states: List[lcn_defs.MotorStateModifier]
+    ) -> bool:
         """Send a command to control motors via relays.
 
         :param    states:   The 4 modifiers for the cover states as a list
         :type     states:   list(:class: `~pypck.lcn-defs.MotorStateModifier`)
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
-        self.send_command(
+        return await self.async_send_command(
             not self.is_group(), PckGenerator.control_motors_relays(states)
         )
 
-    def control_motors_outputs(
+    async def control_motors_outputs(
         self,
         state: lcn_defs.MotorStateModifier,
         reverse_time: Optional[lcn_defs.MotorReverseTime] = None,
-    ) -> None:
+    ) -> bool:
         """Send a command to control a motor via output ports 1+2.
 
         :param    MotorStateModifier  state: The modifier for the cover state
         :param    MotorReverseTime    reverse_time: Reverse time for modules
                                                     with FW<190C
         :type     state:   :class: `~pypck.lcn-defs.MotorStateModifier`
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
-        self.send_command(
+        return await self.async_send_command(
             not self.is_group(),
             PckGenerator.control_motors_outputs(state, reverse_time),
         )
 
-    def activate_scene(
+    async def activate_scene(
         self,
         register_id: int,
         scene_id: int,
         output_ports: Sequence[lcn_defs.OutputPort] = (),
         relay_ports: Sequence[lcn_defs.RelayPort] = (),
         ramp: Optional[int] = None,
-    ) -> None:
+    ) -> bool:
         """Activate the stored states for the given scene.
 
         :param    int                register_id:    Register id 0..9
@@ -747,29 +779,42 @@ class AbstractConnection(LcnAddr):
         :param    list(RelayPort)    relay_ports:    Relay ports to activate
                                                      as list
         :param    int                ramp:           Ramp value
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
-        self.send_command(
+        success = await self.async_send_command(
             not self.is_group(), PckGenerator.change_scene_register(register_id)
         )
+        if not success:
+            return False
+
+        coros = []
         if output_ports:
-            self.send_command(
-                not self.is_group(),
-                PckGenerator.activate_scene_output(scene_id, output_ports, ramp),
+            coros.append(
+                self.async_send_command(
+                    not self.is_group(),
+                    PckGenerator.activate_scene_output(scene_id, output_ports, ramp),
+                )
             )
         if relay_ports:
-            self.send_command(
-                not self.is_group(),
-                PckGenerator.activate_scene_relay(scene_id, relay_ports),
+            coros.append(
+                self.async_send_command(
+                    not self.is_group(),
+                    PckGenerator.activate_scene_relay(scene_id, relay_ports),
+                )
             )
+        results = await asyncio.gather(*coros)
+        return all(results)
 
-    def store_scene(
+    async def store_scene(
         self,
         register_id: int,
         scene_id: int,
         output_ports: Sequence[lcn_defs.OutputPort] = (),
         relay_ports: Sequence[lcn_defs.RelayPort] = (),
         ramp: Optional[int] = None,
-    ) -> None:
+    ) -> bool:
         """Store states in the given scene.
 
         :param    int                register_id:    Register id 0..9
@@ -779,33 +824,50 @@ class AbstractConnection(LcnAddr):
         :param    list(RelayPort)    relay_ports:    Relay ports to store
                                                      as list
         :param    int                ramp:           Ramp value
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
-        self.send_command(
+        success = await self.async_send_command(
             not self.is_group(), PckGenerator.change_scene_register(register_id)
         )
+
+        if not success:
+            return False
+
+        coros = []
         if output_ports:
-            self.send_command(
-                not self.is_group(),
-                PckGenerator.store_scene_output(scene_id, output_ports, ramp),
+            coros.append(
+                self.async_send_command(
+                    not self.is_group(),
+                    PckGenerator.store_scene_output(scene_id, output_ports, ramp),
+                )
             )
         if relay_ports:
-            self.send_command(
-                not self.is_group(),
-                PckGenerator.store_scene_relay(scene_id, relay_ports),
+            coros.append(
+                self.async_send_command(
+                    not self.is_group(),
+                    PckGenerator.store_scene_relay(scene_id, relay_ports),
+                )
             )
+        results = await asyncio.gather(*coros)
+        return all(results)
 
-    def var_abs(
+    async def var_abs(
         self,
         var: lcn_defs.Var,
         value_or_float: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         is2013: Optional[bool] = None,
-    ) -> None:
+    ) -> bool:
         """Send a command to set the absolute value to a variable.
 
         :param     Var        var:      Variable
         :param     float      value:    Absolute value to set
         :param     VarUnit    unit:     Unit of variable
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
         if isinstance(value_or_float, lcn_defs.VarValue):
             value = value_or_float
@@ -823,31 +885,34 @@ class AbstractConnection(LcnAddr):
             # Absolute commands for variables 1-12 are not supported
             if self.get_id() == 4 and self.is_group():
                 # group 4 are status messages
-                self.send_command(
+                return await self.async_send_command(
                     not self.is_group(),
                     PckGenerator.update_status_var(var, value.to_native()),
                 )
-            else:
-                # We fake the missing command by using reset and relative
-                # commands.
-                self.send_command(
-                    not self.is_group(), PckGenerator.var_reset(var, sw_is2013)
-                )
-                self.send_command(
-                    not self.is_group(),
-                    PckGenerator.var_rel(
-                        var, lcn_defs.RelVarRef.CURRENT, value.to_native(), sw_is2013
-                    ),
-                )
-        else:
-            self.send_command(
-                not self.is_group(), PckGenerator.var_abs(var, value.to_native())
+            # We fake the missing command by using reset and relative
+            # commands.
+            success = await self.async_send_command(
+                not self.is_group(), PckGenerator.var_reset(var, sw_is2013)
             )
+            if not success:
+                return False
+            return await self.async_send_command(
+                not self.is_group(),
+                PckGenerator.var_rel(
+                    var, lcn_defs.RelVarRef.CURRENT, value.to_native(), sw_is2013
+                ),
+            )
+        return await self.async_send_command(
+            not self.is_group(), PckGenerator.var_abs(var, value.to_native())
+        )
 
-    def var_reset(self, var: lcn_defs.Var, is2013: Optional[bool] = None) -> None:
+    async def var_reset(self, var: lcn_defs.Var, is2013: Optional[bool] = None) -> bool:
         """Send a command to reset the variable value.
 
         :param    Var    var:    Variable
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
         if is2013 is not None:
             sw_is2013 = is2013
@@ -856,22 +921,27 @@ class AbstractConnection(LcnAddr):
         else:
             sw_is2013 = False
 
-        self.send_command(not self.is_group(), PckGenerator.var_reset(var, sw_is2013))
+        return await self.async_send_command(
+            not self.is_group(), PckGenerator.var_reset(var, sw_is2013)
+        )
 
-    def var_rel(
+    async def var_rel(
         self,
         var: lcn_defs.Var,
         value_or_float: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         value_ref: lcn_defs.RelVarRef = lcn_defs.RelVarRef.CURRENT,
         is2013: Optional[bool] = None,
-    ) -> None:
+    ) -> bool:
         """Send a command to change the value of a variable.
 
         :param     Var        var:      Variable
         :param     float      value:    Relative value to add (may also be
                                         negative)
         :param     VarUnit    unit:     Unit of variable
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
         if isinstance(value_or_float, lcn_defs.VarValue):
             value = value_or_float
@@ -885,52 +955,66 @@ class AbstractConnection(LcnAddr):
         else:
             sw_is2013 = False
 
-        self.send_command(
+        return await self.async_send_command(
             not self.is_group(),
             PckGenerator.var_rel(var, value_ref, value.to_native(), sw_is2013),
         )
 
-    def lock_regulator(self, reg_id: int, state: bool) -> None:
+    async def lock_regulator(self, reg_id: int, state: bool) -> bool:
         """Send a command to lock a regulator.
 
         :param    int        reg_id:        Regulator id
         :param    bool       state:         Lock state (locked=True,
                                             unlocked=False)
-        """
-        if reg_id != -1:
-            self.send_command(
-                not self.is_group(), PckGenerator.lock_regulator(reg_id, state)
-            )
 
-    def control_led(self, led: lcn_defs.LedPort, state: lcn_defs.LedStatus) -> None:
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.async_send_command(
+            not self.is_group(), PckGenerator.lock_regulator(reg_id, state)
+        )
+
+    async def control_led(
+        self, led: lcn_defs.LedPort, state: lcn_defs.LedStatus
+    ) -> bool:
         """Send a command to control a led.
 
         :param    LedPort      led:        Led port
         :param    LedStatus    state:      Led status
         """
-        self.send_command(
+        return await self.async_send_command(
             not self.is_group(), PckGenerator.control_led(led.value, state)
         )
 
-    def send_keys(self, keys: List[List[bool]], cmd: lcn_defs.SendKeyCommand) -> None:
+    async def send_keys(
+        self, keys: List[List[bool]], cmd: lcn_defs.SendKeyCommand
+    ) -> List[bool]:
         """Send a command to send keys.
 
         :param    list(bool)[4][8]    keys:    2d-list with [table_id][key_id]
                                                bool values, if command should
                                                be sent to specific key
         :param    SendKeyCommand      cmd:     command to send for each table
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      list of bool
         """
+        coros = []
         for table_id, key_states in enumerate(keys):
             if True in key_states:
                 cmds = [lcn_defs.SendKeyCommand.DONTSEND] * 4
                 cmds[table_id] = cmd
-                self.send_command(
-                    not self.is_group(), PckGenerator.send_keys(cmds, key_states)
+                coros.append(
+                    self.async_send_command(
+                        not self.is_group(), PckGenerator.send_keys(cmds, key_states)
+                    )
                 )
+        results = await asyncio.gather(*coros)
+        return results
 
-    def send_keys_hit_deferred(
+    async def send_keys_hit_deferred(
         self, keys: List[List[bool]], delay_time: int, delay_unit: lcn_defs.TimeUnit
-    ) -> None:
+    ) -> List[bool]:
         """Send a command to send keys deferred.
 
         :param    list(bool)[4][8]    keys:          2d-list with
@@ -939,76 +1023,107 @@ class AbstractConnection(LcnAddr):
                                                      be sent to specific key
         :param    int                 delay_time:    Delay time
         :param    TimeUnit            delay_unit:    Unit of time
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      list of bool
         """
+        coros = []
         for table_id, key_states in enumerate(keys):
             if True in key_states:
-                self.send_command(
-                    not self.is_group(),
-                    PckGenerator.send_keys_hit_deferred(
-                        table_id, delay_time, delay_unit, key_states
-                    ),
+                coros.append(
+                    self.async_send_command(
+                        not self.is_group(),
+                        PckGenerator.send_keys_hit_deferred(
+                            table_id, delay_time, delay_unit, key_states
+                        ),
+                    )
                 )
+        results = await asyncio.gather(*coros)
+        return results
 
-    def lock_keys(
+    async def lock_keys(
         self, table_id: int, states: List[lcn_defs.KeyLockStateModifier]
-    ) -> None:
+    ) -> bool:
         """Send a command to lock keys.
 
         :param    int                     table_id:  Table id: 0..3
         :param    keyLockStateModifier    states:    The 8 modifiers for the
                                                      key lock states as a list
-        """
-        self.send_command(not self.is_group(), PckGenerator.lock_keys(table_id, states))
 
-    def lock_keys_tab_a_temporary(
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.async_send_command(
+            not self.is_group(), PckGenerator.lock_keys(table_id, states)
+        )
+
+    async def lock_keys_tab_a_temporary(
         self, delay_time: int, delay_unit: lcn_defs.TimeUnit, states: List[bool]
-    ) -> None:
+    ) -> bool:
         """Send a command to lock keys in table A temporary.
 
         :param    int        delay_time:    Time to lock keys
         :param    TimeUnit   delay_unit:    Unit of time
         :param    list(bool) states:        The 8 lock states of the keys as
                                             list (locked=True, unlocked=False)
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
-        self.send_command(
+        return await self.async_send_command(
             not self.is_group(),
             PckGenerator.lock_keys_tab_a_temporary(delay_time, delay_unit, states),
         )
 
-    def dyn_text(self, row_id: int, text: str) -> None:
+    async def dyn_text(self, row_id: int, text: str) -> bool:
         """Send dynamic text to a module.
 
         :param    int    row_id:    Row id 0..3
         :param    str    text:      Text to send (up to 60 bytes)
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
         encoded_text = text.encode(lcn_defs.LCN_ENCODING)
-
-        parts = [encoded_text[12 * p : 12 * p + 12] for p in range(5)]
+        coros = []
+        parts = [encoded_text[12 * part : 12 * part + 12] for part in range(5)]
         for part_id, part in enumerate(parts):
             if part:
-                self.send_command(
-                    not self.is_group(),
-                    PckGenerator.dyn_text_part(row_id, part_id, part),
+                coros.append(
+                    self.async_send_command(
+                        not self.is_group(),
+                        PckGenerator.dyn_text_part(row_id, part_id, part),
+                    )
                 )
+        results = await asyncio.gather(*coros)
+        return all(results)
 
-    def beep(self, sound: lcn_defs.BeepSound, count: int) -> None:
+    async def beep(self, sound: lcn_defs.BeepSound, count: int) -> bool:
         """Send a command to make count number of beep sounds.
 
         :param    BeepSound sound:  Beep sound style
         :param    int       count:  Number of beeps (1..15)
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
-        self.send_command(not self.is_group(), PckGenerator.beep(sound, count))
+        return await self.async_send_command(
+            not self.is_group(), PckGenerator.beep(sound, count)
+        )
 
-    def ping(self) -> None:
+    async def ping(self) -> bool:
         """Send a command that does nothing and request an acknowledgement."""
-        self.send_command(True, PckGenerator.empty())
+        return await self.async_send_command(True, PckGenerator.empty())
 
-    def pck(self, pck: str) -> None:
+    async def pck(self, pck: str) -> bool:
         """Send arbitrary PCK command.
 
         :param    str    pck:    PCK command
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
         """
-        self.send_command(not self.is_group(), pck)
+        return await self.async_send_command(not self.is_group(), pck)
 
 
 class GroupConnection(AbstractConnection):
@@ -1027,21 +1142,22 @@ class GroupConnection(AbstractConnection):
         """Construct GroupConnection instance."""
         super().__init__(conn, seg_id, grp_id, True, sw_age=sw_age)
 
-    def var_abs(
+    async def var_abs(
         self,
         var: lcn_defs.Var,
         value: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         is2013: Optional[bool] = None,
-    ) -> None:
+    ) -> bool:
         """Send a command to set the absolute value to a variable.
 
         :param     Var        var:      Variable
         :param     float      value:    Absolute value to set
         :param     VarUnit    unit:     Unit of variable
         """
+        coros = []
         # for new modules (>=0x170206)
-        super().var_abs(var, value, unit, is2013=True)
+        coros.append(super().var_abs(var, value, unit, is2013=True))
 
         # for old modules (<0x170206)
         if var in [
@@ -1051,14 +1167,17 @@ class GroupConnection(AbstractConnection):
             lcn_defs.Var.R1VARSETPOINT,
             lcn_defs.Var.R2VARSETPOINT,
         ]:
-            super().var_abs(var, value, unit, is2013=False)
+            coros.append(super().var_abs(var, value, unit, is2013=False))
+        results = await asyncio.gather(*coros)
+        return all(results)
 
-    def var_reset(self, var: lcn_defs.Var, is2013: Optional[bool] = None) -> None:
+    async def var_reset(self, var: lcn_defs.Var, is2013: Optional[bool] = None) -> bool:
         """Send a command to reset the variable value.
 
         :param    Var    var:    Variable
         """
-        super().var_reset(var, is2013=True)
+        coros = []
+        coros.append(super().var_reset(var, is2013=True))
         if var in [
             lcn_defs.Var.TVAR,
             lcn_defs.Var.R1VAR,
@@ -1066,16 +1185,18 @@ class GroupConnection(AbstractConnection):
             lcn_defs.Var.R1VARSETPOINT,
             lcn_defs.Var.R2VARSETPOINT,
         ]:
-            super().var_reset(var, is2013=False)
+            coros.append(super().var_reset(var, is2013=False))
+        results = await asyncio.gather(*coros)
+        return all(results)
 
-    def var_rel(
+    async def var_rel(
         self,
         var: lcn_defs.Var,
         value: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         value_ref: lcn_defs.RelVarRef = lcn_defs.RelVarRef.CURRENT,
         is2013: Optional[bool] = None,
-    ) -> None:
+    ) -> bool:
         """Send a command to change the value of a variable.
 
         :param     Var        var:      Variable
@@ -1083,7 +1204,8 @@ class GroupConnection(AbstractConnection):
                                         negative)
         :param     VarUnit    unit:     Unit of variable
         """
-        super().var_rel(var, value, is2013=True)
+        coros = []
+        coros.append(super().var_rel(var, value, is2013=True))
         if var in [
             lcn_defs.Var.TVAR,
             lcn_defs.Var.R1VAR,
@@ -1096,7 +1218,9 @@ class GroupConnection(AbstractConnection):
             lcn_defs.Var.THRS4,
             lcn_defs.Var.THRS5,
         ]:
-            super().var_rel(var, value, is2013=False)
+            coros.append(super().var_rel(var, value, is2013=False))
+        results = await asyncio.gather(*coros)
+        return all(results)
 
     async def activate_status_request_handler(self, item: Any) -> None:
         """Activate a specific TimeoutRetryHandler for status requests."""
