@@ -133,7 +133,7 @@ class PchkConnection:
             message = data.decode().split(PckGenerator.TERMINATION)[0]
             await self.process_message(message)
 
-    async def async_send_command(self, pck: str, **kwargs: Any) -> bool:
+    async def send_command(self, pck: str, **kwargs: Any) -> bool:
         """Send a PCK command to the PCHK server.
 
         :param    str    pck:    PCK command
@@ -275,7 +275,7 @@ class PchkConnectionManager(PchkConnection):
         await self.async_close()
         return None
 
-    async def async_send_command(
+    async def send_command(
         self, pck: str, to_host: bool = False, **kwargs: Any
     ) -> bool:
         """Send a PCK command to the PCHK server.
@@ -284,7 +284,7 @@ class PchkConnectionManager(PchkConnection):
         """
         if not self.is_lcn_connected and not to_host:
             return False
-        return await super().async_send_command(pck)
+        return await super().send_command(pck)
 
     async def on_auth(self, success: bool) -> None:
         """Is called after successful authentication."""
@@ -292,7 +292,7 @@ class PchkConnectionManager(PchkConnection):
             _LOGGER.debug("%s authorization successful!", self.connection_id)
             self.authentication_completed_future.set_result(True)
             # Try to set the PCHK decimal mode
-            await self.async_send_command(PckGenerator.set_dec_mode(), to_host=True)
+            await self.send_command(PckGenerator.set_dec_mode(), to_host=True)
         else:
             _LOGGER.debug("%s authorization failed!", self.connection_id)
             self.authentication_completed_future.set_exception(PchkAuthenticationError)
@@ -305,7 +305,7 @@ class PchkConnectionManager(PchkConnection):
     async def on_successful_login(self) -> None:
         """Is called after connection to LCN bus system is established."""
         _LOGGER.debug("%s login successful.", self.connection_id)
-        await self.async_send_command(
+        await self.send_command(
             PckGenerator.set_operation_mode(self.dim_mode, self.status_mode),
             to_host=True,
         )
@@ -470,7 +470,7 @@ class PchkConnectionManager(PchkConnection):
             for segment_id in segment_coupler_ids:
                 if segment_id == self.local_seg_id:
                     segment_id = 0
-                await self.async_send_command(
+                await self.send_command(
                     PckGenerator.generate_address_header(
                         LcnAddr(segment_id, 3, True), self.local_seg_id, True
                     )
@@ -504,7 +504,7 @@ class PchkConnectionManager(PchkConnection):
                                             (default=3000)
         """
         for _ in range(num_tries):
-            await self.async_send_command(
+            await self.send_command(
                 PckGenerator.generate_address_header(
                     LcnAddr(3, 3, True), self.local_seg_id, False
                 )
@@ -531,9 +531,7 @@ class PchkConnectionManager(PchkConnection):
         """Send pings."""
         assert self.writer is not None
         while not self.writer.is_closing():
-            await self.async_send_command(
-                "^ping{:d}".format(self.ping_counter), to_host=True
-            )
+            await self.send_command("^ping{:d}".format(self.ping_counter), to_host=True)
             self.ping_counter += 1
             await asyncio.sleep(self.settings["PING_TIMEOUT"])
 
@@ -556,9 +554,9 @@ class PchkConnectionManager(PchkConnection):
         """Process an input command."""
         # Inputs from Host
         if isinstance(inp, inputs.AuthUsername):
-            await self.async_send_command(self.username, to_host=True)
+            await self.send_command(self.username, to_host=True)
         elif isinstance(inp, inputs.AuthPassword):
-            await self.async_send_command(self.password, to_host=True)
+            await self.send_command(self.password, to_host=True)
         elif isinstance(inp, inputs.AuthOk):
             await self.on_auth(True)
         elif isinstance(inp, inputs.AuthFailed):
