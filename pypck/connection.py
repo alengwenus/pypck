@@ -133,7 +133,7 @@ class PchkConnection:
             message = data.decode().split(PckGenerator.TERMINATION)[0]
             await self.process_message(message)
 
-    async def async_send_command(self, pck: str, **kwargs: Any) -> None:
+    async def async_send_command(self, pck: str, **kwargs: Any) -> bool:
         """Send a PCK command to the PCHK server.
 
         :param    str    pck:    PCK command
@@ -143,6 +143,8 @@ class PchkConnection:
             _LOGGER.debug("to %s: %s", self.connection_id, pck)
             self.writer.write((pck + PckGenerator.TERMINATION).encode())
             await self.writer.drain()
+            return True
+        return False
 
     async def process_message(self, message: str) -> None:
         """Is called when a new text message is received from the PCHK server.
@@ -275,14 +277,14 @@ class PchkConnectionManager(PchkConnection):
 
     async def async_send_command(
         self, pck: str, to_host: bool = False, **kwargs: Any
-    ) -> None:
+    ) -> bool:
         """Send a PCK command to the PCHK server.
 
         :param    str    pck:    PCK command
         """
         if not self.is_lcn_connected and not to_host:
-            return
-        await super().async_send_command(pck)
+            return False
+        return await super().async_send_command(pck)
 
     async def on_auth(self, success: bool) -> None:
         """Is called after successful authentication."""
@@ -570,13 +572,6 @@ class PchkConnectionManager(PchkConnection):
             await self.on_successful_login()
         elif isinstance(inp, inputs.CommandError):
             _LOGGER.debug("LCN command error: %s", inp.message)
-            for address_conn in self.address_conns.values():
-                if isinstance(address_conn, ModuleConnection):
-                    if address_conn.pck_commands_with_ack:
-                        address_conn.pck_commands_with_ack.popleft()
-                    asyncio.create_task(
-                        address_conn.request_curr_pck_command_with_ack.cancel()
-                    )
         elif isinstance(inp, inputs.ModSk):
             if inp.physical_source_addr.seg_id == 0:
                 self.set_local_seg_id(inp.reported_seg_id)

@@ -12,13 +12,11 @@ Contributors:
 
 import asyncio
 from asyncio import Task
-from collections import deque
 from typing import (
     TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
-    Deque,
     Dict,
     List,
     Optional,
@@ -30,7 +28,7 @@ from typing import (
 from pypck import inputs, lcn_defs
 from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
-from pypck.timeout_retry import DEFAULT_TIMEOUT_MSEC, TimeoutRetryHandler
+from pypck.timeout_retry import TimeoutRetryHandler
 
 if TYPE_CHECKING:
     from pypck.connection import PchkConnectionManager
@@ -602,13 +600,13 @@ class AbstractConnection(LcnAddr):
         """Create a task to send a command to the PCHK server concurrently."""
         asyncio.create_task(self.async_send_command(wants_ack, pck))
 
-    async def async_send_command(self, wants_ack: bool, pck: str) -> None:
+    async def async_send_command(self, wants_ack: bool, pck: str) -> bool:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
         :param    str     pck:          PCK command (without header).
         """
-        await self.conn.async_send_command(
+        return await self.conn.async_send_command(
             PckGenerator.generate_address_header(
                 self, self.conn.local_seg_id, wants_ack
             )
@@ -1127,17 +1125,8 @@ class ModuleConnection(AbstractConnection):
         self.activate_status_requests = activate_status_requests
         self.has_s0_enabled = has_s0_enabled
 
-        # List of queued PCK commands to be acknowledged by the LCN module.
-        # Commands are always without address header.
-        # Note that the first one might currently be "in progress".
-        self.pck_commands_with_ack: Deque[str] = deque()
-
-        self.request_curr_pck_command_with_ack = TimeoutRetryHandler(
-            conn.settings["NUM_TRIES"], conn.settings["DEFAULT_TIMEOUT_MSEC"]
-        )
-        self.request_curr_pck_command_with_ack.set_timeout_callback(
-            self.request_curr_pck_command_with_ack_timeout
-        )
+        # List of queued acknowledge codes from the LCN modules.
+        self.acknowledges: "asyncio.Queue[int]" = asyncio.Queue()
 
         self.properties_requests = ModulePropertiesRequestHandler(
             self, software_serial=sw_age
@@ -1152,16 +1141,54 @@ class ModuleConnection(AbstractConnection):
                 self.activate_status_request_handlers()
             )
 
-    async def async_send_command(self, wants_ack: bool, pck: str) -> None:
+    async def async_send_command(self, wants_ack: bool, pck: str) -> bool:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
         :param    str     pck:          PCK command (without header).
         """
         if wants_ack:
-            await self.schedule_command_with_ack(pck)
-        else:
-            await super().async_send_command(False, pck)
+            return await self.async_send_command_with_ack(pck)
+
+        return await super().async_send_command(False, pck)
+
+    # ##
+    # ## Retry logic if an acknowledge is requested
+    # ##
+
+    async def async_send_command_with_ack(self, pck: str) -> bool:
+        """Send a PCK command and ensure receiving of an acknowledgement.
+
+        Resends the PCK command if no acknowledgement has been received
+        within timeout.
+
+        :param    str     pck:          PCK command (without header).
+        :returns:    True if acknowledge was received, False otherwise
+        :rtype:      bool
+        """
+        count = 0
+        while count < self.conn.settings["NUM_TRIES"]:
+            await super().async_send_command(True, pck)
+            try:
+                code = await asyncio.wait_for(
+                    self.acknowledges.get(),
+                    timeout=self.conn.settings["DEFAULT_TIMEOUT_MSEC"] / 1000,
+                )
+            except asyncio.TimeoutError:
+                count += 1
+                continue
+            if code == -1:
+                return True
+            break
+        return False
+
+    async def on_ack(self, code: int = -1) -> None:
+        """Is called whenever an acknowledge is received from the LCN module.
+
+        :param     int    code:           The LCN internal code. -1 means
+                                          "positive" acknowledge
+        """
+        await self.acknowledges.put(code)
 
     async def activate_properties_request_handlers(self) -> None:
         """Activate all TimeoutRetryHandlers for property requests."""
@@ -1196,8 +1223,6 @@ class ModuleConnection(AbstractConnection):
         """Cancel all TimeoutRetryHandlers."""
         await self.cancel_status_request_handlers()
         await self.cancel_properties_request_handlers()
-        await self.request_curr_pck_command_with_ack.cancel()
-        self.pck_commands_with_ack.clear()
 
     def set_s0_enabled(self, s0_enabled: bool) -> None:
         """Set the activation status for S0 variables.
@@ -1215,60 +1240,6 @@ class ModuleConnection(AbstractConnection):
         """Get the LCN module's firmware date."""
         return self.properties_requests.serials.software_serial
 
-    # ##
-    # ## Retry logic if an acknowledge is requested
-    # ##
-
-    async def schedule_command_with_ack(self, pck: str) -> None:
-        """Schedule the next command which requests an acknowledge."""
-        # add pck command to pck commands list
-        self.pck_commands_with_ack.append(pck)
-        # Try to process the new acknowledged command.
-        # Will do nothing if another one is still in progress.
-        self.try_process_next_command_with_ack()
-
-    async def on_ack(
-        self, code: int = -1, timeout_msec: int = DEFAULT_TIMEOUT_MSEC
-    ) -> None:
-        """Is called whenever an acknowledge is received from the LCN module.
-
-        :param     int    code:           The LCN internal code. -1 means
-                                          "positive" acknowledge
-        :param     intt   timeout_mSec:   The time to wait for a response
-                                          before retrying a request
-        """
-        # Check if we wait for an ack.
-        if self.request_curr_pck_command_with_ack.is_active():
-            if self.pck_commands_with_ack:
-                self.pck_commands_with_ack.popleft()
-            await self.request_curr_pck_command_with_ack.cancel()
-            # Try to process next acknowledged command
-            self.try_process_next_command_with_ack()
-
-    def try_process_next_command_with_ack(self) -> None:
-        """Send the next acknowledged command from the queue."""
-        if self.pck_commands_with_ack and (
-            not self.request_curr_pck_command_with_ack.is_active()
-        ):
-            self.request_curr_pck_command_with_ack.activate()
-
-    def request_curr_pck_command_with_ack_timeout(self, failed: bool) -> None:
-        """I called on command with acknowledge timeout."""
-        # Use the chance to remove a failed command first
-        if failed:
-            self.pck_commands_with_ack.popleft()
-            self.try_process_next_command_with_ack()
-        else:
-            pck = self.pck_commands_with_ack[0]
-            asyncio.create_task(
-                self.conn.async_send_command(
-                    PckGenerator.generate_address_header(
-                        self, self.conn.local_seg_id, True
-                    )
-                    + pck
-                )
-            )
-
     async def async_process_input(self, inp: inputs.Input) -> None:
         """Is called by input object's process method.
 
@@ -1276,7 +1247,7 @@ class ModuleConnection(AbstractConnection):
         toggle_output, switch_relays, ...)
         """
         if isinstance(inp, inputs.ModAck):
-            asyncio.create_task(self.on_ack(inp.code, DEFAULT_TIMEOUT_MSEC))
+            await self.on_ack(inp.code)
             return None
 
         # handle typeless variable responses
