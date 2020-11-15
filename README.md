@@ -27,12 +27,11 @@ async def main():
         password="lcn",
         settings={"SK_NUM_TRIES": 0},
     ) as pck_client:
-        module10 = pck_client.get_address_conn(LcnAddr(0, 10, False))
+        module = pck_client.get_address_conn(LcnAddr(0, 10, False))
 
-        module10.dim_output(0, 100, 0)
+        await module.dim_output(0, 100, 0)
         await asyncio.sleep(1)
-        module10.dim_output(0, 0, 0)
-        await asyncio.sleep(1)
+        await module.dim_output(0, 0, 0)
 
 asyncio.run(main())
 ```
