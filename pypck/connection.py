@@ -106,7 +106,7 @@ class PchkConnection:
         """Connect to a PCHK server (no authentication or license error check)."""
         self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
         address = self.writer.get_extra_info("peername")
-        _LOGGER.debug("%d server connected at %s:%s", self.connection_id, *address)
+        _LOGGER.debug("%s server connected at %s:%d", self.connection_id, *address)
 
         # main read loop
         self.read_data_loop_task = asyncio.create_task(self.read_data_loop())
