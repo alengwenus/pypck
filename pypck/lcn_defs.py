@@ -677,6 +677,16 @@ class VarValue:
         """Construct with native LCN value."""
         self.native_value = native_value
 
+    def __eq__(self, other: object) -> bool:
+        """Return if instance equals the given object."""
+        if isinstance(other, VarValue):
+            return self.native_value == other.native_value
+        return False
+
+    def __hash__(self) -> int:
+        """Calculate the instance hash value."""
+        return self.native_value.__hash__()
+
     def is_locked_regulator(self) -> bool:
         """Return if regulator is locked."""
         return (self.native_value & 0x8000) != 0
