@@ -164,7 +164,7 @@ async def test_send_command_to_server(pchk_server, pypck_client):
     """Test sending a command to the PCHK server."""
     await pypck_client.async_connect()
     message = ">M000007.PIN003"
-    await pypck_client.async_send_command(message)
+    await pypck_client.send_command(message)
     assert await pchk_server.received(message)
 
 

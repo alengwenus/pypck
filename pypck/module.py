@@ -87,9 +87,7 @@ class SerialRequestHandler:
     async def timeout(self, failed: bool = False) -> None:
         """Is called on serial request timeout."""
         if not failed:
-            await self.addr_conn.async_send_command(
-                False, PckGenerator.request_serial()
-            )
+            await self.addr_conn.send_command(False, PckGenerator.request_serial())
         else:
             self.serial_known.set()
 
@@ -197,7 +195,7 @@ class NameCommentRequestHandler:
     async def timeout_name(self, failed: bool = False, block_id: int = 0) -> None:
         """Is called on serial request timeout."""
         if not failed:
-            await self.addr_conn.async_send_command(
+            await self.addr_conn.send_command(
                 False, PckGenerator.request_name(block_id)
             )
         else:
@@ -206,7 +204,7 @@ class NameCommentRequestHandler:
     async def timeout_comment(self, failed: bool = False, block_id: int = 0) -> None:
         """Is called on serial request timeout."""
         if not failed:
-            await self.addr_conn.async_send_command(
+            await self.addr_conn.send_command(
                 False, PckGenerator.request_comment(block_id)
             )
         else:
@@ -215,7 +213,7 @@ class NameCommentRequestHandler:
     async def timeout_oem_text(self, failed: bool = False, block_id: int = 0) -> None:
         """Is called on serial request timeout."""
         if not failed:
-            await self.addr_conn.async_send_command(
+            await self.addr_conn.send_command(
                 False, PckGenerator.request_oem_text(block_id)
             )
         else:
@@ -442,21 +440,21 @@ class StatusRequestsHandler:
     ) -> None:
         """Is called on output status request timeout."""
         if not failed:
-            await self.addr_conn.async_send_command(
+            await self.addr_conn.send_command(
                 False, PckGenerator.request_output_status(output_port)
             )
 
     async def request_status_relays_timeout(self, failed: bool = False) -> None:
         """Is called on relay status request timeout."""
         if not failed:
-            await self.addr_conn.async_send_command(
+            await self.addr_conn.send_command(
                 False, PckGenerator.request_relays_status()
             )
 
     async def request_status_bin_sensors_timeout(self, failed: bool = False) -> None:
         """Is called on binary sensor status request timeout."""
         if not failed:
-            await self.addr_conn.async_send_command(
+            await self.addr_conn.send_command(
                 False, PckGenerator.request_bin_sensors_status()
             )
 
@@ -479,7 +477,7 @@ class StatusRequestsHandler:
             self.last_requested_var_without_type_in_response = var
 
         # Send variable request
-        await self.addr_conn.async_send_command(
+        await self.addr_conn.send_command(
             False,
             PckGenerator.request_var_status(var, self.addr_conn.software_serial),
         )
@@ -489,14 +487,14 @@ class StatusRequestsHandler:
     ) -> None:
         """Is called on leds/logical ops status request timeout."""
         if not failed:
-            await self.addr_conn.async_send_command(
+            await self.addr_conn.send_command(
                 False, PckGenerator.request_leds_and_logic_ops()
             )
 
     async def request_status_locked_keys_timeout(self, failed: bool = False) -> None:
         """Is called on locked keys status request timeout."""
         if not failed:
-            await self.addr_conn.async_send_command(
+            await self.addr_conn.send_command(
                 False, PckGenerator.request_key_lock_status()
             )
 
@@ -610,13 +608,13 @@ class AbstractConnection(LcnAddr):
         """Return standard sw_age."""
         return self._sw_age
 
-    async def async_send_command(self, wants_ack: bool, pck: str) -> bool:
+    async def send_command(self, wants_ack: bool, pck: str) -> bool:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
         :param    str     pck:          PCK command (without header).
         """
-        return await self.conn.async_send_command(
+        return await self.conn.send_command(
             PckGenerator.generate_address_header(
                 self, self.conn.local_seg_id, wants_ack
             )
@@ -660,7 +658,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.dim_ouput(output_id, percent, ramp)
         )
 
@@ -677,7 +675,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.dim_all_outputs(percent, ramp, is1805)
         )
 
@@ -691,7 +689,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.rel_output(output_id, percent)
         )
 
@@ -706,7 +704,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.toggle_output(output_id, ramp)
         )
 
@@ -720,7 +718,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.toggle_all_outputs(ramp)
         )
 
@@ -733,7 +731,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.control_relays(states)
         )
 
@@ -748,7 +746,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.control_motors_relays(states)
         )
 
@@ -767,7 +765,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(),
             PckGenerator.control_motors_outputs(state, reverse_time),
         )
@@ -793,7 +791,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        success = await self.async_send_command(
+        success = await self.send_command(
             not self.is_group(), PckGenerator.change_scene_register(register_id)
         )
         if not success:
@@ -802,14 +800,14 @@ class AbstractConnection(LcnAddr):
         coros = []
         if output_ports:
             coros.append(
-                self.async_send_command(
+                self.send_command(
                     not self.is_group(),
                     PckGenerator.activate_scene_output(scene_id, output_ports, ramp),
                 )
             )
         if relay_ports:
             coros.append(
-                self.async_send_command(
+                self.send_command(
                     not self.is_group(),
                     PckGenerator.activate_scene_relay(scene_id, relay_ports),
                 )
@@ -838,7 +836,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        success = await self.async_send_command(
+        success = await self.send_command(
             not self.is_group(), PckGenerator.change_scene_register(register_id)
         )
 
@@ -848,14 +846,14 @@ class AbstractConnection(LcnAddr):
         coros = []
         if output_ports:
             coros.append(
-                self.async_send_command(
+                self.send_command(
                     not self.is_group(),
                     PckGenerator.store_scene_output(scene_id, output_ports, ramp),
                 )
             )
         if relay_ports:
             coros.append(
-                self.async_send_command(
+                self.send_command(
                     not self.is_group(),
                     PckGenerator.store_scene_relay(scene_id, relay_ports),
                 )
@@ -895,24 +893,24 @@ class AbstractConnection(LcnAddr):
             # Absolute commands for variables 1-12 are not supported
             if self.get_id() == 4 and self.is_group():
                 # group 4 are status messages
-                return await self.async_send_command(
+                return await self.send_command(
                     not self.is_group(),
                     PckGenerator.update_status_var(var, value.to_native()),
                 )
             # We fake the missing command by using reset and relative
             # commands.
-            success = await self.async_send_command(
+            success = await self.send_command(
                 not self.is_group(), PckGenerator.var_reset(var, sw_is2013)
             )
             if not success:
                 return False
-            return await self.async_send_command(
+            return await self.send_command(
                 not self.is_group(),
                 PckGenerator.var_rel(
                     var, lcn_defs.RelVarRef.CURRENT, value.to_native(), sw_is2013
                 ),
             )
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.var_abs(var, value.to_native())
         )
 
@@ -931,7 +929,7 @@ class AbstractConnection(LcnAddr):
         else:
             sw_is2013 = False
 
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.var_reset(var, sw_is2013)
         )
 
@@ -965,7 +963,7 @@ class AbstractConnection(LcnAddr):
         else:
             sw_is2013 = False
 
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(),
             PckGenerator.var_rel(var, value_ref, value.to_native(), sw_is2013),
         )
@@ -980,7 +978,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.lock_regulator(reg_id, state)
         )
 
@@ -992,7 +990,7 @@ class AbstractConnection(LcnAddr):
         :param    LedPort      led:        Led port
         :param    LedStatus    state:      Led status
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.control_led(led.value, state)
         )
 
@@ -1015,7 +1013,7 @@ class AbstractConnection(LcnAddr):
                 cmds = [lcn_defs.SendKeyCommand.DONTSEND] * 4
                 cmds[table_id] = cmd
                 coros.append(
-                    self.async_send_command(
+                    self.send_command(
                         not self.is_group(), PckGenerator.send_keys(cmds, key_states)
                     )
                 )
@@ -1041,7 +1039,7 @@ class AbstractConnection(LcnAddr):
         for table_id, key_states in enumerate(keys):
             if True in key_states:
                 coros.append(
-                    self.async_send_command(
+                    self.send_command(
                         not self.is_group(),
                         PckGenerator.send_keys_hit_deferred(
                             table_id, delay_time, delay_unit, key_states
@@ -1063,7 +1061,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.lock_keys(table_id, states)
         )
 
@@ -1080,7 +1078,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(),
             PckGenerator.lock_keys_tab_a_temporary(delay_time, delay_unit, states),
         )
@@ -1100,7 +1098,7 @@ class AbstractConnection(LcnAddr):
         for part_id, part in enumerate(parts):
             if part:
                 coros.append(
-                    self.async_send_command(
+                    self.send_command(
                         not self.is_group(),
                         PckGenerator.dyn_text_part(row_id, part_id, part),
                     )
@@ -1117,13 +1115,13 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(
+        return await self.send_command(
             not self.is_group(), PckGenerator.beep(sound, count)
         )
 
     async def ping(self) -> bool:
         """Send a command that does nothing and request an acknowledgement."""
-        return await self.async_send_command(True, PckGenerator.empty())
+        return await self.send_command(True, PckGenerator.empty())
 
     async def pck(self, pck: str) -> bool:
         """Send arbitrary PCK command.
@@ -1133,7 +1131,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.async_send_command(not self.is_group(), pck)
+        return await self.send_command(not self.is_group(), pck)
 
 
 class GroupConnection(AbstractConnection):
@@ -1275,22 +1273,22 @@ class ModuleConnection(AbstractConnection):
                 self.activate_status_request_handlers()
             )
 
-    async def async_send_command(self, wants_ack: bool, pck: str) -> bool:
+    async def send_command(self, wants_ack: bool, pck: str) -> bool:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
         :param    str     pck:          PCK command (without header).
         """
         if wants_ack:
-            return await self.async_send_command_with_ack(pck)
+            return await self.send_command_with_ack(pck)
 
-        return await super().async_send_command(False, pck)
+        return await super().send_command(False, pck)
 
     # ##
     # ## Retry logic if an acknowledge is requested
     # ##
 
-    async def async_send_command_with_ack(self, pck: str) -> bool:
+    async def send_command_with_ack(self, pck: str) -> bool:
         """Send a PCK command and ensure receiving of an acknowledgement.
 
         Resends the PCK command if no acknowledgement has been received
@@ -1302,7 +1300,7 @@ class ModuleConnection(AbstractConnection):
         """
         count = 0
         while count < self.conn.settings["NUM_TRIES"]:
-            await super().async_send_command(True, pck)
+            await super().send_command(True, pck)
             try:
                 code = await asyncio.wait_for(
                     self.acknowledges.get(),
