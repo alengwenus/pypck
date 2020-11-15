@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+      - master
+  pull_request: ~
+
+env:
+  DEFAULT_PYTHON: 3.7
+
+jobs:
+  code-check:
+    name: Code check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code from GitHub
+        uses: actions/checkout@v2
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v2.1.4
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - name: Set up test dependencies
+        run: pip install -r requirements_test.txt
+      - name: Run black
+        run: black --check pypck tests
+      - name: Run pylint
+        run: pylint pypck
+      - name: mypy
+        run: mypy --strict pypck
+
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8]
+    name: Run tests Python ${{ matrix.python-version }}
+    steps:
+      - name: Check out code from GitHub
+        uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2.1.4
+        id: python
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Set up test dependencies
+        run: pip install -r requirements_test.txt
+      - name: Run pytest
+        run: pytest
