@@ -133,10 +133,6 @@ class PchkConnection:
             message = data.decode().split(PckGenerator.TERMINATION)[0]
             await self.process_message(message)
 
-    def send_command(self, pck: str, **kwargs: Any) -> None:
-        """Create a task to send a command to the PCHK server concurrently."""
-        asyncio.create_task(self.async_send_command(pck, **kwargs))
-
     async def async_send_command(self, pck: str, **kwargs: Any) -> None:
         """Send a PCK command to the PCHK server.
 
