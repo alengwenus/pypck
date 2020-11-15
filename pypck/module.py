@@ -599,12 +599,16 @@ class AbstractConnection(LcnAddr):
         return self._sw_age
 
     def send_command(self, wants_ack: bool, pck: str) -> None:
+        """Create a task to send a command to the PCHK server concurrently."""
+        asyncio.create_task(self.async_send_command(wants_ack, pck))
+
+    async def async_send_command(self, wants_ack: bool, pck: str) -> None:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
         :param    str     pck:          PCK command (without header).
         """
-        self.conn.send_command(
+        await self.conn.async_send_command(
             PckGenerator.generate_address_header(
                 self, self.conn.local_seg_id, wants_ack
             )
@@ -1148,16 +1152,16 @@ class ModuleConnection(AbstractConnection):
                 self.activate_status_request_handlers()
             )
 
-    def send_command(self, wants_ack: bool, pck: str) -> None:
+    async def async_send_command(self, wants_ack: bool, pck: str) -> None:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
         :param    str     pck:          PCK command (without header).
         """
         if wants_ack:
-            self.schedule_command_with_ack(pck)
+            await self.schedule_command_with_ack(pck)
         else:
-            super().send_command(False, pck)
+            await super().async_send_command(False, pck)
 
     async def activate_properties_request_handlers(self) -> None:
         """Activate all TimeoutRetryHandlers for property requests."""
@@ -1215,7 +1219,7 @@ class ModuleConnection(AbstractConnection):
     # ## Retry logic if an acknowledge is requested
     # ##
 
-    def schedule_command_with_ack(self, pck: str) -> None:
+    async def schedule_command_with_ack(self, pck: str) -> None:
         """Schedule the next command which requests an acknowledge."""
         # add pck command to pck commands list
         self.pck_commands_with_ack.append(pck)
@@ -1256,9 +1260,13 @@ class ModuleConnection(AbstractConnection):
             self.try_process_next_command_with_ack()
         else:
             pck = self.pck_commands_with_ack[0]
-            self.conn.send_command(
-                PckGenerator.generate_address_header(self, self.conn.local_seg_id, True)
-                + pck
+            asyncio.create_task(
+                self.conn.async_send_command(
+                    PckGenerator.generate_address_header(
+                        self, self.conn.local_seg_id, True
+                    )
+                    + pck
+                )
             )
 
     async def async_process_input(self, inp: inputs.Input) -> None:
