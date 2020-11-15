@@ -64,24 +64,24 @@ class PckParser:
 
     # Pattern to parse serial number and firmware date responses.
     PATTERN_SN = re.compile(
-        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3}).SN(?P<sn>[0-9|A-F]{10})"
+        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.SN(?P<sn>[0-9|A-F]{10})"
         r"(?P<manu>[0-9|A-F]{2})FW(?P<sw_age>[0-9|A-F]{6})HW(?P<hw_type>\d+)"
     )
 
     # Pattern to parse module name and comment
     PATTERN_NAME_COMMENT = re.compile(
-        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3}).(?P<command>[NKO])"
+        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.(?P<command>[NKO])"
         r"(?P<block_id>\d)(?P<text>.{0,12})"
     )
 
     # Pattern to parse output-port status responses in percent.
     PATTERN_STATUS_OUTPUT_PERCENT = re.compile(
-        r":M(?P<seg_id>\d{3})(?P<mod_id>\d{3})A(?P<output_id>\d)" r"(?P<percent>\d+)"
+        r":M(?P<seg_id>\d{3})(?P<mod_id>\d{3})A(?P<output_id>\d)(?P<percent>\d+)"
     )
 
     # Pattern to parse output-port status responses in native format (0..200).
     PATTERN_STATUS_OUTPUT_NATIVE = re.compile(
-        r":M(?P<seg_id>\d{3})(?P<mod_id>\d{3})O(?P<output_id>\d)" r"(?P<value>\d+)"
+        r":M(?P<seg_id>\d{3})(?P<mod_id>\d{3})O(?P<output_id>\d)(?P<value>\d+)"
     )
 
     # Pattern to parse relays status responses.
