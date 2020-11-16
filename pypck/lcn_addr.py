@@ -52,22 +52,7 @@ class LcnAddr:
 
     seg_id: int = -1
     addr_id: int = -1
-    _is_group: bool = False
-
-    def __init__(self, seg_id: int = -1, addr_id: int = -1, is_group: bool = False):
-        """Construct LcnAddr instance."""
-        self.seg_id = seg_id
-        self.addr_id = addr_id
-        self._is_group = is_group
-
-    def is_group(self) -> bool:
-        """Get the address' module or group id (discarding the concrete type).
-
-        :return:    Returns whether address points to a module(False) or
-                    group(True)
-        :rtype:     bool
-        """
-        return self._is_group
+    is_group: bool = False
 
     def get_seg_id(self) -> int:
         """Get the logical segment id.
@@ -104,7 +89,7 @@ class LcnAddr:
                     otherwise False
         :rtype:     bool
         """
-        if self.is_group():
+        if self.is_group:
             # seg_id:
             # 0 = Local, 1..2 = Not allowed (but "seen in the wild")
             # 3 = Broadcast, 4 = Status messages, 5..127, 128 = Segment-bus

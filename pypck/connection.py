@@ -387,7 +387,7 @@ class PchkConnectionManager(PchkConnection):
                 address_conn = self.address_conns.pop(addr)
                 address_conn.seg_id = self.local_seg_id
                 self.address_conns[
-                    LcnAddr(self.local_seg_id, addr.get_id(), addr.is_group())
+                    LcnAddr(self.local_seg_id, addr.get_id(), addr.is_group)
                 ] = address_conn
 
     def physical_to_logical(self, addr: LcnAddr) -> LcnAddr:
@@ -402,7 +402,7 @@ class PchkConnectionManager(PchkConnection):
         return LcnAddr(
             self.local_seg_id if addr.get_seg_id() == 0 else addr.get_seg_id(),
             addr.get_id(),
-            addr.is_group(),
+            addr.is_group,
         )
 
     def is_ready(self) -> bool:
@@ -439,7 +439,7 @@ class PchkConnectionManager(PchkConnection):
             addr.seg_id = self.local_seg_id
         address_conn = self.address_conns.get(addr, None)
         if address_conn is None:
-            if addr.is_group():
+            if addr.is_group:
                 address_conn = GroupConnection(self, addr.seg_id, addr.addr_id)
             else:
                 address_conn = ModuleConnection(self, addr.seg_id, addr.addr_id)
