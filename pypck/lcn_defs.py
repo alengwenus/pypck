@@ -13,7 +13,7 @@ Contributors:
 import math
 import re
 from enum import Enum, auto
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Tuple, Union, no_type_check
 
 LCN_ENCODING = "utf-8"
 PATTERN_SPLIT_PORT_PIN = re.compile(r"(?P<port>[a-zA-Z]+)(?P<pin>\d+)")
@@ -1225,73 +1225,93 @@ class BeepSound(Enum):
     SPECIAL = "S"
 
 
+HARDWARE_NAMES = dict(
+    [
+        (-1, "UnknownModuleType"),
+        (1, "LCN-SW1.0"),
+        (2, "LCN-SW1.1"),
+        (3, "LCN-UP1.0"),
+        (4, "LCN-UP2"),
+        (5, "LCN-SW2"),
+        (6, "LCN-UP-Profi1-Plus"),
+        (7, "LCN-DI12"),
+        (8, "LCN-HU"),
+        (9, "LCN-SH"),
+        (10, "LCN-UP2"),
+        (11, "LCN-UPP"),
+        (12, "LCN-SK"),
+        (14, "LCN-LD"),
+        (15, "LCN-SH-Plus"),
+        (17, "LCN-UPS"),
+        (18, "LCN_UPS24V"),
+        (19, "LCN-GTM"),
+        (20, "LCN-SHS"),
+        (21, "LCN-ESD"),
+        (22, "LCN-EB2"),
+        (23, "LCN-MRS"),
+        (24, "LCN-EB11"),
+        (25, "LCN-UMR"),
+        (26, "LCN-UPU"),
+        (27, "LCN-UMR24V"),
+        (28, "LCN-SHD"),
+        (29, "LCN-SHU"),
+        (30, "LCN-SR6"),
+    ]
+)
+
+
 class HardwareType(Enum):
     """Hardware types as returned by serial number request."""
 
-    UNKNOWN = (-1, "UnknownModuleType")
-    SW1_0 = (1, "LCN-SW1.0")
-    SW1_1 = (2, "LCN-SW1.1")
-    UP1_0 = (3, "LCN-UP1.0")
-    UP2 = (4, "LCN-UP2")
-    SW2 = (5, "LCN-SW2")
-    UP_PROFI1_PLUS = (6, "LCN-UP-Profi1-Plus")
-    DI12 = (7, "LCN-DI12")
-    HU = (8, "LCN-HU")
-    SH = (9, "LCN-SH")
-    UPP = (11, "LCN-UPP")
-    SK = (12, "LCN-SK")
-    LD = (14, "LCN-LD")
-    SH_PLUS = (15, "LCN-SH-Plus")
-    UPS = (17, "LCN-UPS")
-    UPS24V = (18, "LCN_UPS24V")
-    GTM = (19, "LCN-GTM")
-    SHS = (20, "LCN-SHS")
-    ESD = (21, "LCN-ESD")
-    EB2 = (22, "LCN-EB2")
-    MRS = (23, "LCN-MRS")
-    EB11 = (24, "LCN-EB11")
-    UMR = (25, "LCN-UMR")
-    UPU = (26, "LCN-UPU")
-    UMR24V = (27, "LCN-UMR24V")
-    SHD = (28, "LCN-SHD")
-    SHU = (29, "LCN-SHU")
-    SR6 = (30, "LCN-SR6")
+    UNKNOWN = -1
+    SW1_0 = 1
+    SW1_1 = 2
+    UP1_0 = 3
+    UP2 = 4
+    SW2 = 5
+    UP_PROFI1_PLUS = 6
+    DI12 = 7
+    HU = 8
+    SH = 9
+    UPP = 11
+    SK = 12
+    LD = 14
+    SH_PLUS = 15
+    UPS = 17
+    UPS24V = 18
+    GTM = 19
+    SHS = 20
+    ESD = 21
+    EB2 = 22
+    MRS = 23
+    EB11 = 24
+    UMR = 25
+    UPU = 26
+    UMR24V = 27
+    SHD = 28
+    SHU = 29
+    SR6 = 30
 
     @property
-    def hw_id(self) -> int:
+    def hw_id(self) -> Any:
         """Get the LCN hardware id."""
-        return self._hw_id
+        return self.value
 
     @property
     def hw_name(self) -> str:
         """Get the LCN hardware name."""
-        return self._hw_name
-
-    @staticmethod
-    def _new(clss: "HardwareType", hw_id: int) -> "HardwareType":
-        """Override HardwareType creation.
-
-        Is used to replace __new__() method after class definition.
-        """
-        for hw_type in HardwareType:
-            if hw_type.value[0] == hw_id:
-                break
-        else:
-            if hw_id == 10:
-                hw_type = HardwareType.UP2
-            else:
-                raise ValueError(
-                    "%r is not a valid %s" % (hw_id, clss.__name__)  # type: ignore
-                )
-        return hw_type
-
-    def __init__(self, hw_id: int, hw_name: str) -> None:
-        """Construct HardwareType."""
-        self._hw_id = hw_id
-        self._hw_name = hw_name
+        return HARDWARE_NAMES[self.value]
 
 
-setattr(HardwareType, "__new__", HardwareType._new)  # pylint: disable=protected-access
+@no_type_check
+def hw_type_new(cls, value):
+    """Replace Hardwaretype.__new__."""
+    if value == 10:
+        value = 4
+    return super(HardwareType, cls).__new__(cls, value)
+
+
+setattr(HardwareType, "__new__", hw_type_new)
 
 
 default_connection_settings: Dict[str, Any] = {
