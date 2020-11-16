@@ -1484,7 +1484,8 @@ class ModuleConnection(AbstractConnection):
         """Set the activation status for S0 variables.
 
         :param     bool    s0_enabled:   If True, a BU4L has to be connected
-        to the hardware module and S0 mode has to be activated in LCN-PRO.
+                                         to the hardware module and S0 mode
+                                         has to be activated in LCN-PRO.
         """
         self.has_s0_enabled = s0_enabled
 
