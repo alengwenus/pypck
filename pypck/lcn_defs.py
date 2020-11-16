@@ -673,7 +673,7 @@ class VarValue:
     :param    int    native_value:    The native value
     """
 
-    def __init__(self, native_value: int):
+    def __init__(self, native_value: int) -> None:
         """Construct with native LCN value."""
         self.native_value = native_value
 
@@ -1223,6 +1223,75 @@ class BeepSound(Enum):
 
     NORMAL = "N"
     SPECIAL = "S"
+
+
+class HardwareType(Enum):
+    """Hardware types as returned by serial number request."""
+
+    UNKNOWN = (-1, "UnknownModuleType")
+    SW1_0 = (1, "LCN-SW1.0")
+    SW1_1 = (2, "LCN-SW1.1")
+    UP1_0 = (3, "LCN-UP1.0")
+    UP2 = (4, "LCN-UP2")
+    SW2 = (5, "LCN-SW2")
+    UP_PROFI1_PLUS = (6, "LCN-UP-Profi1-Plus")
+    DI12 = (7, "LCN-DI12")
+    HU = (8, "LCN-HU")
+    SH = (9, "LCN-SH")
+    UPP = (11, "LCN-UPP")
+    SK = (12, "LCN-SK")
+    LD = (14, "LCN-LD")
+    SH_PLUS = (15, "LCN-SH-Plus")
+    UPS = (17, "LCN-UPS")
+    UPS24V = (18, "LCN_UPS24V")
+    GTM = (19, "LCN-GTM")
+    SHS = (20, "LCN-SHS")
+    ESD = (21, "LCN-ESD")
+    EB2 = (22, "LCN-EB2")
+    MRS = (23, "LCN-MRS")
+    EB11 = (24, "LCN-EB11")
+    UMR = (25, "LCN-UMR")
+    UPU = (26, "LCN-UPU")
+    UMR24V = (27, "LCN-UMR24V")
+    SHD = (28, "LCN-SHD")
+    SHU = (29, "LCN-SHU")
+    SR6 = (30, "LCN-SR6")
+
+    @property
+    def hw_id(self) -> int:
+        """Get the LCN hardware id."""
+        return self._hw_id
+
+    @property
+    def hw_name(self) -> str:
+        """Get the LCN hardware name."""
+        return self._hw_name
+
+    @staticmethod
+    def _new(clss: "HardwareType", hw_id: int) -> "HardwareType":
+        """Override HardwareType creation.
+
+        Is used to replace __new__() method after class definition.
+        """
+        for hw_type in HardwareType:
+            if hw_type.value[0] == hw_id:
+                break
+        else:
+            if hw_id == 10:
+                hw_type = HardwareType.UP2
+            else:
+                raise ValueError(
+                    "%r is not a valid %s" % (hw_id, clss.__name__)  # type: ignore
+                )
+        return hw_type
+
+    def __init__(self, hw_id: int, hw_name: str) -> None:
+        """Construct HardwareType."""
+        self._hw_id = hw_id
+        self._hw_name = hw_name
+
+
+setattr(HardwareType, "__new__", HardwareType._new)  # pylint: disable=protected-access
 
 
 default_connection_settings: Dict[str, Any] = {
