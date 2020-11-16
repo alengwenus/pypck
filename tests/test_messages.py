@@ -8,6 +8,7 @@ from pypck.inputs import (
     ModSendCommandHost,
     ModSk,
     ModSn,
+    ModStatusGroups,
     ModStatusBinSensors,
     ModStatusKeyLocks,
     ModStatusLedsAndLogicOps,
@@ -60,6 +61,36 @@ MESSAGES = {
     "=M000010.O2EG HWR Hau": (ModNameComment, "O", 1, "EG HWR Hau"),
     "=M000010.O3EG HWR Hau": (ModNameComment, "O", 2, "EG HWR Hau"),
     "=M000010.O4EG HWR Hau": (ModNameComment, "O", 3, "EG HWR Hau"),
+    # Groups
+    "=M000010.GP012005040": (
+        ModStatusGroups,
+        False,
+        12,
+        [LcnAddr(0, 5, True), LcnAddr(0, 40, True)],
+    ),
+    "=M000010.GD008005040": (
+        ModStatusGroups,
+        True,
+        8,
+        [LcnAddr(0, 5, True), LcnAddr(0, 40, True)],
+    ),
+    "=M000010.GD010005040030020010100200150099201": (
+        ModStatusGroups,
+        True,
+        10,
+        [
+            LcnAddr(0, 5, True),
+            LcnAddr(0, 40, True),
+            LcnAddr(0, 30, True),
+            LcnAddr(0, 20, True),
+            LcnAddr(0, 10, True),
+            LcnAddr(0, 100, True),
+            LcnAddr(0, 200, True),
+            LcnAddr(0, 150, True),
+            LcnAddr(0, 99, True),
+            LcnAddr(0, 201, True),
+        ],
+    ),
     # Status Output
     ":M000010A1050": (ModStatusOutput, OutputPort.OUTPUT1.value, 50.0),
     # Status Output Native
