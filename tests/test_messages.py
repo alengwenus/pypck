@@ -1,25 +1,31 @@
 """Tests for input message parsing for bus messages"""
 
 import pytest
-
 from pypck.inputs import (
     InputParser,
     ModAck,
+    ModNameComment,
+    ModSendCommandHost,
     ModSk,
     ModSn,
-    ModNameComment,
+    ModStatusBinSensors,
+    ModStatusKeyLocks,
+    ModStatusLedsAndLogicOps,
     ModStatusOutput,
     ModStatusOutputNative,
     ModStatusRelays,
-    ModStatusBinSensors,
     ModStatusVar,
-    ModStatusLedsAndLogicOps,
-    ModStatusKeyLocks,
-    ModSendCommandHost,
 )
 from pypck.lcn_addr import LcnAddr
-from pypck.lcn_defs import OutputPort, Var, VarUnit, VarValue, LedStatus, LogicOpStatus
-
+from pypck.lcn_defs import (
+    HardwareType,
+    LedStatus,
+    LogicOpStatus,
+    OutputPort,
+    Var,
+    VarUnit,
+    VarValue,
+)
 
 MESSAGES = {
     # Ack
@@ -28,8 +34,20 @@ MESSAGES = {
     # SK
     "=M000010.SK007": (ModSk, 7),
     # SN
-    "=M000010.SN1AB20A123401FW190B11HW015": (ModSn, 0x1AB20A1234, 0x1, 0x190B11, 15),
-    "=M000010.SN1234567890AFFW190011HW255": (ModSn, 0x1234567890, 0xAF, 0x190011, 255),
+    "=M000010.SN1AB20A123401FW190B11HW015": (
+        ModSn,
+        0x1AB20A1234,
+        0x1,
+        0x190B11,
+        HardwareType.SH_PLUS,
+    ),
+    "=M000010.SN1234567890AFFW190011HW011": (
+        ModSn,
+        0x1234567890,
+        0xAF,
+        0x190011,
+        HardwareType.UPP,
+    ),
     # Name
     "=M000010.N1EG HWR Hau": (ModNameComment, "N", 0, "EG HWR Hau"),
     "=M000010.N2EG HWR Hau": (ModNameComment, "N", 1, "EG HWR Hau"),

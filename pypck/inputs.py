@@ -351,7 +351,7 @@ class ModSn(ModInput):
         serial: int,
         manu: int,
         sw_age: int,
-        hw_type: int,
+        hw_type: lcn_defs.HardwareType,
     ):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
@@ -378,7 +378,7 @@ class ModSn(ModInput):
             serial = int(matcher.group("sn"), 16)
             manu = int(matcher.group("manu"), 16)
             sw_age = int(matcher.group("sw_age"), 16)
-            hw_type = int(matcher.group("hw_type"))
+            hw_type = lcn_defs.HardwareType(int(matcher.group("hw_type")))
             return [ModSn(addr, serial, manu, sw_age, hw_type)]
 
         return None

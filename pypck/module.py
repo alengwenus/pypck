@@ -52,7 +52,7 @@ class SerialRequestHandler:
         if software_serial is None:
             software_serial = -1
         self.software_serial = software_serial
-        self.hardware_type = -1
+        self.hardware_type = lcn_defs.HardwareType.UNKNOWN
 
         # Serial Number request
         self.trh = TimeoutRetryHandler(num_tries, timeout_msec)
@@ -91,7 +91,7 @@ class SerialRequestHandler:
         else:
             self.serial_known.set()
 
-    async def request(self) -> Dict[str, int]:
+    async def request(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
         """Request serial number."""
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.serial_known.clear()
@@ -104,7 +104,7 @@ class SerialRequestHandler:
         await self.trh.cancel()
 
     @property
-    def serial(self) -> Dict[str, int]:
+    def serial(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
         """Return serial numbers of a module."""
         return {
             "hardware_serial": self.hardware_serial,
@@ -315,7 +315,9 @@ class ModulePropertiesRequestHandler:
         self.addr_conn = addr_conn
         self.settings = addr_conn.conn.settings
 
-        self.serial_request_task: Optional[Task[Dict[str, int]]] = None
+        self.serial_request_task: Optional[
+            Task[Dict[str, Union[int, lcn_defs.HardwareType]]]
+        ] = None
 
         num_tries: int = self.settings["NUM_TRIES"]
         timeout_msec: int = self.settings["DEFAULT_TIMEOUT_MSEC"]
@@ -1410,12 +1412,12 @@ class ModuleConnection(AbstractConnection):
         return self.properties_requests.serials.software_serial
 
     @property
-    def hw_type(self) -> int:
+    def hw_type(self) -> lcn_defs.HardwareType:
         """Return hardware type of module."""
         return self.properties_requests.serials.hardware_type
 
     @property
-    def serial(self) -> Tuple[int, int, int, int]:
+    def serial(self) -> Tuple[int, int, int, lcn_defs.HardwareType]:
         """Return serials number information."""
         return (self.hardware_serial, self.manu, self.software_serial, self.hw_type)
 
