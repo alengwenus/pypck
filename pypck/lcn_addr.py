@@ -10,7 +10,10 @@ Contributors:
   Tobias Juettner - initial LCN binding for openHAB (Java)
 """
 
+from dataclasses import dataclass
 
+
+@dataclass(unsafe_hash=True)
 class LcnAddr:
     """Represents a LCN address (module or group).
 
@@ -46,6 +49,10 @@ class LcnAddr:
                                 4 = Status messages,
                                 5..254)
     """
+
+    seg_id: int = -1
+    addr_id: int = -1
+    _is_group: bool = False
 
     def __init__(self, seg_id: int = -1, addr_id: int = -1, is_group: bool = False):
         """Construct LcnAddr instance."""
@@ -125,41 +132,3 @@ class LcnAddr:
                 & (self.addr_id <= 254)
             )
         return is_valid
-
-    def __hash__(self) -> int:
-        """Calculate and return hash value."""
-        if self.is_valid():
-            hash_value = (
-                (self.is_group() << 9)
-                + (reverse_uint8(self.get_id()) << 8)
-                + (reverse_uint8(self.get_seg_id()))
-            )
-        else:
-            hash_value = -1
-        return hash_value
-
-    def __eq__(self, obj: object) -> bool:
-        """Return if instance equals the given object."""
-        if not isinstance(obj, LcnAddr):
-            return False
-        return (
-            (self.is_group() == obj.is_group())
-            and (self.get_seg_id() == obj.get_seg_id())
-            and (self.get_id() == obj.get_id())
-        )
-
-
-# only execute, if not defined before
-if "REV_UINT8" not in dir():
-    REV_UINT8 = [0] * 256
-    for i in range(256):
-        for j in range(8):
-            if i & (1 << j) != 0:
-                REV_UINT8[i] |= 0x80 >> j
-
-
-def reverse_uint8(value: int) -> int:
-    """Reverse the bit order of the given value."""
-    if value < 0 | value > 255:
-        raise ValueError("Invalid value.")
-    return REV_UINT8[value]
