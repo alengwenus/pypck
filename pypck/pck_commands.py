@@ -347,8 +347,8 @@ class PckGenerator:
     def dim_ouput(output_id: int, percent: float, ramp: int) -> str:
         """Generate a dim command for a single output-port.
 
-        :param    int    output_it:    Output id 0..3
-        :param    float    percent:      Brightness in percent 0..100
+        :param    int    output_id:    Output id 0..3
+        :param    float  percent:      Brightness in percent 0..100
         :param    int    ramp:         Ramp value
         :return:    The PCK command (without address header) as text
         :rtype:    str
@@ -1150,7 +1150,7 @@ class PckGenerator:
         """
         if (count < 1) or (count > 15):
             raise ValueError("Wrong number of beeps.")
-        return "PI{:s}{:03d}".format(sound, count)
+        return "PI{:s}{:03d}".format(sound.value, count)
 
     @staticmethod
     def empty() -> str:
