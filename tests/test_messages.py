@@ -165,5 +165,5 @@ def test_message_parsing_single_mod_input(message, expected):
     exp = (expected[0])(LcnAddr(0, 10, False), *expected[1:])
     inp = InputParser.parse(message)
     assert len(inp) == 1
-    assert type(inp[0]) == type(exp)
+    assert type(inp[0]) == type(exp)  # pylint: disable=unidiomatic-typecheck
     assert vars(inp[0]) == vars(exp)

@@ -52,10 +52,10 @@ def encode_pck(pck):
 @pytest.fixture
 async def pchk_server():
     """Create a fake PchkServer and run."""
-    ps = PchkServer(host=HOST, port=PORT, username=USERNAME, password=PASSWORD)
-    await ps.run()
-    yield ps
-    await ps.stop()
+    pchk_server = PchkServer(host=HOST, port=PORT, username=USERNAME, password=PASSWORD)
+    await pchk_server.run()
+    yield pchk_server
+    await pchk_server.stop()
 
 
 @pytest.fixture
