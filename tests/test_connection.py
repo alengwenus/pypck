@@ -1,5 +1,6 @@
 """Connection tests."""
 
+import asyncio
 import asynctest
 import pytest
 from pypck.connection import PchkAuthenticationError, PchkLicenseError
@@ -199,3 +200,56 @@ async def test_add_address_connections_by_message(pchk_server, pypck_client):
     assert await pypck_client.received(message)
 
     assert lcn_addr in pypck_client.address_conns
+
+
+@pytest.mark.asyncio
+async def test_groups_static_membership_discovery(pchk_server, pypck_client):
+    """Test module scan."""
+    await pypck_client.async_connect()
+    module = pypck_client.get_address_conn(LcnAddr(0, 10, False))
+
+    task = asyncio.create_task(module.request_static_groups())
+    assert await pchk_server.received(">M000010.GP")
+    await pchk_server.send_message("=M000010.GP012011200051")
+    assert await task == [
+        LcnAddr(0, 11, True),
+        LcnAddr(0, 200, True),
+        LcnAddr(0, 51, True),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_groups_dynamic_membership_discovery(pchk_server, pypck_client):
+    """Test module scan."""
+    await pypck_client.async_connect()
+    module = pypck_client.get_address_conn(LcnAddr(0, 10, False))
+
+    task = asyncio.create_task(module.request_dynamic_groups())
+    assert await pchk_server.received(">M000010.GD")
+    await pchk_server.send_message("=M000010.GD008011200051")
+    assert await task == [
+        LcnAddr(0, 11, True),
+        LcnAddr(0, 200, True),
+        LcnAddr(0, 51, True),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_groups_membership_discovery(pchk_server, pypck_client):
+    """Test module scan."""
+    await pypck_client.async_connect()
+    module = pypck_client.get_address_conn(LcnAddr(0, 10, False))
+
+    task = asyncio.create_task(module.request_groups())
+    assert await pchk_server.received(">M000010.GP")
+    assert await pchk_server.received(">M000010.GD")
+    await pchk_server.send_message("=M000010.GP012011200051")
+    await pchk_server.send_message("=M000010.GD008015100052")
+    assert await task == [
+        LcnAddr(0, 11, True),
+        LcnAddr(0, 200, True),
+        LcnAddr(0, 51, True),
+        LcnAddr(0, 15, True),
+        LcnAddr(0, 100, True),
+        LcnAddr(0, 52, True),
+    ]

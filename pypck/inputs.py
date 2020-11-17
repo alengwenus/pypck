@@ -419,6 +419,49 @@ class ModNameComment(ModInput):
         return None
 
 
+class ModStatusGroups(ModInput):
+    """Group memberships status received from an LCN module."""
+
+    def __init__(
+        self,
+        physical_source_addr: LcnAddr,
+        dynamic: bool,
+        max_groups: int,
+        groups: List[LcnAddr],
+    ):
+        """Construct ModInput object."""
+        super().__init__(physical_source_addr)
+        self.dynamic = dynamic
+        self.max_groups = max_groups
+        self.groups = groups
+
+    @staticmethod
+    def try_parse(data: str) -> Optional[List[Input]]:
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_STATUS_GROUPS.match(data)
+        if matcher:
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            dynamic = matcher.group("kind") == "D"
+            max_groups = int(matcher.group("max_groups"))
+            groups = [
+                LcnAddr(addr.seg_id, int(group), True)
+                for group in matcher.groups()[4:]
+                if group is not None
+            ]
+            return [ModStatusGroups(addr, dynamic, max_groups, groups)]
+
+        return None
+
+
 class ModStatusOutput(ModInput):
     """Status of an output-port in percent received from an LCN module."""
 
@@ -906,6 +949,7 @@ class InputParser:
         ModNameComment,
         ModSk,
         ModSn,
+        ModStatusGroups,
         ModStatusOutput,
         ModStatusOutputNative,
         ModStatusRelays,

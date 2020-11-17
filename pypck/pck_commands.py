@@ -74,6 +74,14 @@ class PckParser:
         r"(?P<block_id>\d)(?P<text>.{0,12})"
     )
 
+    # Pattern to parse the static and dynamic group membership status
+    PATTERN_STATUS_GROUPS = re.compile(
+        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.G(?P<kind>[DP])(?P<max_groups>\d{3})"
+        r"(?:(?P<g1>\d{3}))?(?:(?P<g2>\d{3}))?(?:(?P<g3>\d{3}))?(?:(?P<g4>\d{3}))?"
+        r"(?:(?P<g5>\d{3}))?(?:(?P<g6>\d{3}))?(?:(?P<g7>\d{3}))?(?:(?P<g8>\d{3}))?"
+        r"(?:(?P<g9>\d{3}))?(?:(?P<g10>\d{3}))?(?:(?P<g11>\d{3}))?(?:(?P<g12>\d{3}))?"
+    )
+
     # Pattern to parse output-port status responses in percent.
     PATTERN_STATUS_OUTPUT_PERCENT = re.compile(
         r":M(?P<seg_id>\d{3})(?P<mod_id>\d{3})A(?P<output_id>\d)(?P<percent>\d+)"
@@ -294,6 +302,24 @@ class PckGenerator:
         if block_id not in [0, 1, 2, 3]:
             raise ValueError("Invalid block_id.")
         return "NMO{:d}".format(block_id + 1)
+
+    @staticmethod
+    def request_group_membership_static() -> str:
+        """Generate a group membership request for static membership (EEPROM).
+
+        :return The PCK command (without address header) as text
+        :rtype:    str
+        """
+        return "GP"
+
+    @staticmethod
+    def request_group_membership_dynamic() -> str:
+        """Generate a group membership request for dynamic membership.
+
+        :return The PCK command (without address header) as text
+        :rtype:    str
+        """
+        return "GD"
 
     @staticmethod
     def request_output_status(output_id: int) -> str:

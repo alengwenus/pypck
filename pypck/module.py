@@ -305,6 +305,124 @@ class NameCommentRequestHandler:
         # return ''.join([block for block in self._oem_text if block])
 
 
+class GroupMembershipRequestHandler:
+    """Request handler to request static and dynamic group membership of a module."""
+
+    def __init__(
+        self,
+        addr_conn: "ModuleConnection",
+        num_tries: int = 3,
+        timeout_msec: int = 1500,
+    ):
+        """Initialize class instance."""
+        self.addr_conn = addr_conn
+
+        self._static_groups: List[LcnAddr] = []
+        self._dynamic_groups: List[LcnAddr] = []
+
+        self.static_groups_trh = TimeoutRetryHandler(num_tries, timeout_msec)
+        self.static_groups_trh.set_timeout_callback(self.timeout_static_groups)
+        self.dynamic_groups_trh = TimeoutRetryHandler(num_tries, timeout_msec)
+        self.dynamic_groups_trh.set_timeout_callback(self.timeout_dynamic_groups)
+
+        # callback
+        addr_conn.register_for_inputs(self.process_input)
+
+        # events
+        self.static_groups_known = asyncio.Event()
+        self.dynamic_groups_known = asyncio.Event()
+
+    def process_input(self, inp: inputs.Input) -> None:
+        """Create a task to process the input object concurrently."""
+        asyncio.create_task(self.async_process_input(inp))
+
+    async def async_process_input(self, inp: inputs.Input) -> None:
+        """Process incoming input object.
+
+        Method to handle incoming commands for this specific request handler.
+        """
+        if isinstance(inp, inputs.ModStatusGroups):
+            if inp.dynamic:
+                self._dynamic_groups = inp.groups
+                self.dynamic_groups_known.set()
+                await self.cancel_dynamic_groups()
+            else:
+                self._static_groups = inp.groups
+                self.static_groups_known.set()
+                await self.cancel_static_groups()
+
+    async def timeout_static_groups(self, failed: bool = False) -> None:
+        """Is called on static group membership request timeout."""
+        if not failed:
+            await self.addr_conn.send_command(
+                False, PckGenerator.request_group_membership_static()
+            )
+        else:
+            self.static_groups_known.set()
+
+    async def timeout_dynamic_groups(self, failed: bool = False) -> None:
+        """Is called on dynamic group membership request timeout."""
+        if not failed:
+            await self.addr_conn.send_command(
+                False, PckGenerator.request_group_membership_dynamic()
+            )
+        else:
+            self.dynamic_groups_known.set()
+
+    async def request_static_groups(self) -> List[LcnAddr]:
+        """Request static group membership from a module."""
+        await self.addr_conn.conn.segment_scan_completed_event.wait()
+        self.static_groups_known.clear()
+        self.static_groups_trh.activate()
+        await self.static_groups_known.wait()
+        return self.static_groups
+
+    async def request_dynamic_groups(self) -> List[LcnAddr]:
+        """Request dynamic group membership from a module."""
+        await self.addr_conn.conn.segment_scan_completed_event.wait()
+        self.dynamic_groups_known.clear()
+        self.dynamic_groups_trh.activate()
+        await self.dynamic_groups_known.wait()
+        return self.dynamic_groups
+
+    async def request_groups(self) -> List[LcnAddr]:
+        """Request group memberships from a module."""
+        return [
+            group
+            for groups in await asyncio.gather(
+                self.request_static_groups(), self.request_dynamic_groups()
+            )
+            for group in groups
+        ]
+
+    async def cancel_static_groups(self) -> None:
+        """Cancel static groups request task."""
+        await self.static_groups_trh.cancel()
+
+    async def cancel_dynamic_groups(self) -> None:
+        """Cancel dynamic groups request task."""
+        await self.dynamic_groups_trh.cancel()
+
+    async def cancel(self) -> None:
+        """Cancel all group membership request tasks."""
+        await asyncio.gather(self.cancel_static_groups(), self.cancel_dynamic_groups())
+
+    @property
+    def static_groups(self) -> List[LcnAddr]:
+        """Return static groups."""
+        return self._static_groups
+
+    @property
+    def dynamic_groups(self) -> List[LcnAddr]:
+        """Return dynamic groups."""
+        return self._dynamic_groups
+
+    @property
+    def groups(self) -> List[LcnAddr]:
+        """Return static and dynamic groups."""
+        return [*self._static_groups, *self._dynamic_groups]
+
+
 class ModulePropertiesRequestHandler:
     """Manages all property requestst for serial number, name, comments, ..."""
 
@@ -337,6 +455,11 @@ class ModulePropertiesRequestHandler:
             timeout_msec=timeout_msec,
         )
 
+        # Group membership request
+        self.groups = GroupMembershipRequestHandler(
+            addr_conn, num_tries, timeout_msec=timeout_msec
+        )
+
     async def activate_all(self) -> None:
         """Activate all properties requests."""
         # software_serial is not given externally
@@ -354,6 +477,7 @@ class ModulePropertiesRequestHandler:
                 pass
         await self.serials.cancel()
         await self.name_comment.cancel()
+        await self.groups.cancel()
 
 
 class StatusRequestsHandler:
@@ -1436,6 +1560,21 @@ class ModuleConnection(AbstractConnection):
         """Return stored OEM text."""
         return self.properties_requests.name_comment.oem_text
 
+    @property
+    def static_groups(self) -> List[LcnAddr]:
+        """Return static group membership."""
+        return self.properties_requests.groups.static_groups
+
+    @property
+    def dynamic_groups(self) -> List[LcnAddr]:
+        """Return dynamic group membership."""
+        return self.properties_requests.groups.dynamic_groups
+
+    @property
+    def groups(self) -> List[LcnAddr]:
+        """Return static and dynamic group membership."""
+        return self.properties_requests.groups.groups
+
     # ## future properties
 
     @property
@@ -1454,3 +1593,15 @@ class ModuleConnection(AbstractConnection):
     async def request_oem_text(self) -> List[str]:
         """Request OEM text from a module."""
         return await self.properties_requests.name_comment.request_oem_text()
+
+    async def request_static_groups(self) -> List[LcnAddr]:
+        """Request module static group memberships."""
+        return await self.properties_requests.groups.request_static_groups()
+
+    async def request_dynamic_groups(self) -> List[LcnAddr]:
+        """Request module dynamic group memberships."""
+        return await self.properties_requests.groups.request_dynamic_groups()
+
+    async def request_groups(self) -> List[LcnAddr]:
+        """Request module group memberships."""
+        return await self.properties_requests.groups.request_groups()
