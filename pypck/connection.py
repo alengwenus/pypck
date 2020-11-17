@@ -385,10 +385,10 @@ class PchkConnectionManager(PchkConnection):
         for addr in list(self.address_conns):
             if addr.seg_id == old_local_seg_id:
                 address_conn = self.address_conns.pop(addr)
-                address_conn.seg_id = self.local_seg_id
-                self.address_conns[
-                    LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
-                ] = address_conn
+                address_conn.addr = LcnAddr(
+                    self.local_seg_id, addr.addr_id, addr.is_group
+                )
+                self.address_conns[address_conn.addr] = address_conn
 
     def physical_to_logical(self, addr: LcnAddr) -> LcnAddr:
         """Convert the physical segment id of an address to the logical one.
@@ -436,13 +436,13 @@ class PchkConnectionManager(PchkConnection):
         >>> module.toggle_output(0, 5)
         """
         if addr.seg_id == 0 and self.local_seg_id != -1:
-            addr.seg_id = self.local_seg_id
+            addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
         address_conn = self.address_conns.get(addr, None)
         if address_conn is None:
             if addr.is_group:
-                address_conn = GroupConnection(self, addr.seg_id, addr.addr_id)
+                address_conn = GroupConnection(self, addr)
             else:
-                address_conn = ModuleConnection(self, addr.seg_id, addr.addr_id)
+                address_conn = ModuleConnection(self, addr)
 
             self.address_conns[addr] = address_conn
 

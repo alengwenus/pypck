@@ -703,7 +703,7 @@ class StatusRequestsHandler:
             await self.cancel(item)
 
 
-class AbstractConnection(LcnAddr):
+class AbstractConnection:
     """Organizes communication with a specific module.
 
     Sends status requests to the connection and handles status responses.
@@ -712,14 +712,12 @@ class AbstractConnection(LcnAddr):
     def __init__(
         self,
         conn: "PchkConnectionManager",
-        seg_id: int,
-        addr_id: int,
-        is_group: bool,
+        addr: LcnAddr,
         sw_age: Optional[int] = None,
     ):
         """Construct AbstractConnection instance."""
         self.conn = conn
-        super().__init__(seg_id=seg_id, addr_id=addr_id, is_group=is_group)
+        self.addr = addr
 
         self._sw_age: Optional[int] = sw_age
         self._serial: Optional[int] = None
@@ -727,6 +725,21 @@ class AbstractConnection(LcnAddr):
         self._hw_type: Optional[int] = None
 
         self.input_callbacks: List[Callable[[inputs.Input], None]] = []
+
+    @property
+    def seg_id(self) -> int:
+        """Get the segment id."""
+        return self.addr.seg_id
+
+    @property
+    def addr_id(self) -> int:
+        """Get the module or group id."""
+        return self.addr.addr_id
+
+    @property
+    def is_group(self) -> int:
+        """Return whether this connection refers to a module or group."""
+        return self.addr.is_group
 
     def get_sw_age(self) -> Optional[int]:
         """Return standard sw_age."""
@@ -740,7 +753,7 @@ class AbstractConnection(LcnAddr):
         """
         return await self.conn.send_command(
             PckGenerator.generate_address_header(
-                self, self.conn.local_seg_id, wants_ack
+                self.addr, self.conn.local_seg_id, wants_ack
             )
             + pck
         )
@@ -1015,7 +1028,7 @@ class AbstractConnection(LcnAddr):
 
         if lcn_defs.Var.to_var_id(var) != -1:
             # Absolute commands for variables 1-12 are not supported
-            if self.get_id() == 4 and self.is_group:
+            if self.addr_id == 4 and self.is_group:
                 # group 4 are status messages
                 return await self.send_command(
                     not self.is_group,
@@ -1267,12 +1280,12 @@ class GroupConnection(AbstractConnection):
     def __init__(
         self,
         conn: "PchkConnectionManager",
-        seg_id: int,
-        grp_id: int,
+        addr: LcnAddr,
         sw_age: int = 0x170206,
     ):
         """Construct GroupConnection instance."""
-        super().__init__(conn, seg_id, grp_id, True, sw_age=sw_age)
+        assert addr.is_group
+        super().__init__(conn, addr, sw_age=sw_age)
 
     async def var_abs(
         self,
@@ -1370,14 +1383,14 @@ class ModuleConnection(AbstractConnection):
     def __init__(
         self,
         conn: "PchkConnectionManager",
-        seg_id: int,
-        mod_id: int,
+        addr: LcnAddr,
         activate_status_requests: bool = False,
         has_s0_enabled: bool = False,
         sw_age: Optional[int] = None,
     ):
         """Construct ModuleConnection instance."""
-        super().__init__(conn, seg_id, mod_id, False, sw_age=sw_age)
+        assert not addr.is_group
+        super().__init__(conn, addr, sw_age=sw_age)
         self.activate_status_requests = activate_status_requests
         self.has_s0_enabled = has_s0_enabled
 

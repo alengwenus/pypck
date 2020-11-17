@@ -13,7 +13,7 @@ Contributors:
 from dataclasses import dataclass
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True)
 class LcnAddr:
     """Represents a LCN address (module or group).
 
