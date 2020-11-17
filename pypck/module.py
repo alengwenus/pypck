@@ -79,9 +79,7 @@ class SerialRequestHandler:
             self.software_serial = inp.sw_age
             self.hardware_type = inp.hw_type
 
-            if not self.serial_known.is_set():
-                self.serial_known.set()
-
+            self.serial_known.set()
             await self.cancel()
 
     async def timeout(self, failed: bool = False) -> None:
@@ -174,21 +172,21 @@ class NameCommentRequestHandler:
             if command == "N":
                 self._name[block_id] = f"{text:10s}"
                 await self.cancel_name(block_id)
-                if not self.name_known.is_set() and (None not in self._name):
+                if None not in self._name:
                     self.name_known.set()
                     await self.cancel_name()
 
             elif command == "K":
                 self._comment[block_id] = f"{text:12s}"
                 await self.cancel_comment(block_id)
-                if not self.comment_known.is_set() and (None not in self._comment):
+                if None not in self._comment:
                     self.comment_known.set()
                     await self.cancel_comment()
 
             elif command == "O":
                 self._oem_text[block_id] = f"{text:12s}"
                 await self.cancel_oem_text(block_id)
-                if not self.oem_text_known.is_set() and (None not in self._oem_text):
+                if None not in self._oem_text:
                     self.oem_text_known.set()
                     await self.cancel_oem_text()
 
