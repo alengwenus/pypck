@@ -345,9 +345,11 @@ class GroupMembershipRequestHandler:
             if inp.dynamic:
                 self._dynamic_groups = inp.groups
                 self.dynamic_groups_known.set()
+                await self.cancel_dynamic_groups()
             else:
                 self._static_groups = inp.groups
                 self.static_groups_known.set()
+                await self.cancel_static_groups()
 
     async def timeout_static_groups(self, failed: bool = False) -> None:
         """Is called on static group membership request timeout."""
