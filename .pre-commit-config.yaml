@@ -7,3 +7,18 @@ repos:
           - --safe
           - --quiet
         files: ^((pypck|tests)/.+)?[^/]+\.py$
+  - repo: https://github.com/codespell-project/codespell
+    rev: v1.17.1
+    hooks:
+      - id: codespell
+        args:
+          - --ignore-words-list=authentification
+          - --quiet-level=2
+  - repo: https://gitlab.com/pycqa/flake8
+    rev: 3.8.4
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          - flake8-docstrings==1.5.0
+          - pydocstyle==5.1.1
+        files: ^(homeassistant|script|tests)/.+\.py$
