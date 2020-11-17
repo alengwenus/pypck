@@ -1545,7 +1545,7 @@ class ModuleConnection(AbstractConnection):
 
     @property
     def name(self) -> str:
-        """Retrun stored name."""
+        """Return stored name."""
         return self.properties_requests.name_comment.name
 
     @property

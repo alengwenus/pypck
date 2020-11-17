@@ -12,7 +12,7 @@ To get started an unused license of the coupling software LCN-PCHK and a hardwar
 ## Example
 
 ```python
-"""Example for switching an output port of moudle 10 on and off."""
+"""Example for switching an output port of module 10 on and off."""
 import asyncio
 
 from pypck.connection import PchkConnectionManager

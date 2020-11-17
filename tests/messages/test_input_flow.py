@@ -1,4 +1,4 @@
-"""Test the data flow for Input objects"""
+"""Test the data flow for Input objects."""
 
 from unittest.mock import patch
 

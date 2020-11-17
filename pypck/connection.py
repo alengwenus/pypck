@@ -39,7 +39,7 @@ async def cancel(task: "asyncio.Task[Any]") -> None:
 
 
 class PchkLicenseError(Exception):
-    """Exception which is raised if a license error occured."""
+    """Exception which is raised if a license error occurred."""
 
     def __init__(self, message: Optional[str] = None):
         """Initialize instance."""
@@ -150,7 +150,7 @@ class PchkConnection:
         """Is called when a new text message is received from the PCHK server.
 
         This class should be reimplemented in any subclass which evaluates
-        recieved messages.
+        received messages.
 
         :param    str    input:    Input text message
         """

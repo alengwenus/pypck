@@ -894,7 +894,7 @@ class PckGenerator:
         :rtype:    str
         """
         if len(keys) != 8:
-            raise ValueError("Wrong keys lenght.")
+            raise ValueError("Wrong keys length.")
         ret = "TXZA{:03d}".format(time)
 
         if time_unit == lcn_defs.TimeUnit.SECONDS:

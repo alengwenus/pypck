@@ -2,7 +2,7 @@
 
 import asynctest
 import pytest
-from pypck.inputs import InputParser, ModSendCommandHost, Unknown
+from pypck.inputs import InputParser, ModSendCommandHost
 
 # Unit tests
 
