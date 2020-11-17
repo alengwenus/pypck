@@ -703,7 +703,7 @@ class StatusRequestsHandler:
             await self.cancel(item)
 
 
-class AbstractConnection(LcnAddr):
+class AbstractConnection:
     """Organizes communication with a specific module.
 
     Sends status requests to the connection and handles status responses.
@@ -712,14 +712,12 @@ class AbstractConnection(LcnAddr):
     def __init__(
         self,
         conn: "PchkConnectionManager",
-        seg_id: int,
-        addr_id: int,
-        is_group: bool,
+        addr: LcnAddr,
         sw_age: Optional[int] = None,
     ):
         """Construct AbstractConnection instance."""
         self.conn = conn
-        super().__init__(seg_id=seg_id, addr_id=addr_id, is_group=is_group)
+        self.addr = addr
 
         self._sw_age: Optional[int] = sw_age
         self._serial: Optional[int] = None
@@ -727,6 +725,21 @@ class AbstractConnection(LcnAddr):
         self._hw_type: Optional[int] = None
 
         self.input_callbacks: List[Callable[[inputs.Input], None]] = []
+
+    @property
+    def seg_id(self) -> int:
+        """Get the segment id."""
+        return self.addr.seg_id
+
+    @property
+    def addr_id(self) -> int:
+        """Get the module or group id."""
+        return self.addr.addr_id
+
+    @property
+    def is_group(self) -> int:
+        """Return whether this connection refers to a module or group."""
+        return self.addr.is_group
 
     def get_sw_age(self) -> Optional[int]:
         """Return standard sw_age."""
@@ -740,7 +753,7 @@ class AbstractConnection(LcnAddr):
         """
         return await self.conn.send_command(
             PckGenerator.generate_address_header(
-                self, self.conn.local_seg_id, wants_ack
+                self.addr, self.conn.local_seg_id, wants_ack
             )
             + pck
         )
@@ -783,7 +796,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(), PckGenerator.dim_ouput(output_id, percent, ramp)
+            not self.is_group, PckGenerator.dim_ouput(output_id, percent, ramp)
         )
 
     async def dim_all_outputs(
@@ -800,7 +813,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(), PckGenerator.dim_all_outputs(percent, ramp, is1805)
+            not self.is_group, PckGenerator.dim_all_outputs(percent, ramp, is1805)
         )
 
     async def rel_output(self, output_id: int, percent: float) -> bool:
@@ -814,7 +827,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(), PckGenerator.rel_output(output_id, percent)
+            not self.is_group, PckGenerator.rel_output(output_id, percent)
         )
 
     async def toggle_output(self, output_id: int, ramp: int) -> bool:
@@ -829,7 +842,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(), PckGenerator.toggle_output(output_id, ramp)
+            not self.is_group, PckGenerator.toggle_output(output_id, ramp)
         )
 
     async def toggle_all_outputs(self, ramp: int) -> bool:
@@ -843,7 +856,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(), PckGenerator.toggle_all_outputs(ramp)
+            not self.is_group, PckGenerator.toggle_all_outputs(ramp)
         )
 
     async def control_relays(self, states: List[lcn_defs.RelayStateModifier]) -> bool:
@@ -856,7 +869,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(), PckGenerator.control_relays(states)
+            not self.is_group, PckGenerator.control_relays(states)
         )
 
     async def control_motors_relays(
@@ -871,7 +884,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(), PckGenerator.control_motors_relays(states)
+            not self.is_group, PckGenerator.control_motors_relays(states)
         )
 
     async def control_motors_outputs(
@@ -890,7 +903,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(),
+            not self.is_group,
             PckGenerator.control_motors_outputs(state, reverse_time),
         )
 
@@ -916,7 +929,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         success = await self.send_command(
-            not self.is_group(), PckGenerator.change_scene_register(register_id)
+            not self.is_group, PckGenerator.change_scene_register(register_id)
         )
         if not success:
             return False
@@ -925,14 +938,14 @@ class AbstractConnection(LcnAddr):
         if output_ports:
             coros.append(
                 self.send_command(
-                    not self.is_group(),
+                    not self.is_group,
                     PckGenerator.activate_scene_output(scene_id, output_ports, ramp),
                 )
             )
         if relay_ports:
             coros.append(
                 self.send_command(
-                    not self.is_group(),
+                    not self.is_group,
                     PckGenerator.activate_scene_relay(scene_id, relay_ports),
                 )
             )
@@ -961,7 +974,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         success = await self.send_command(
-            not self.is_group(), PckGenerator.change_scene_register(register_id)
+            not self.is_group, PckGenerator.change_scene_register(register_id)
         )
 
         if not success:
@@ -971,14 +984,14 @@ class AbstractConnection(LcnAddr):
         if output_ports:
             coros.append(
                 self.send_command(
-                    not self.is_group(),
+                    not self.is_group,
                     PckGenerator.store_scene_output(scene_id, output_ports, ramp),
                 )
             )
         if relay_ports:
             coros.append(
                 self.send_command(
-                    not self.is_group(),
+                    not self.is_group,
                     PckGenerator.store_scene_relay(scene_id, relay_ports),
                 )
             )
@@ -1015,27 +1028,27 @@ class AbstractConnection(LcnAddr):
 
         if lcn_defs.Var.to_var_id(var) != -1:
             # Absolute commands for variables 1-12 are not supported
-            if self.get_id() == 4 and self.is_group():
+            if self.addr_id == 4 and self.is_group:
                 # group 4 are status messages
                 return await self.send_command(
-                    not self.is_group(),
+                    not self.is_group,
                     PckGenerator.update_status_var(var, value.to_native()),
                 )
             # We fake the missing command by using reset and relative
             # commands.
             success = await self.send_command(
-                not self.is_group(), PckGenerator.var_reset(var, sw_is2013)
+                not self.is_group, PckGenerator.var_reset(var, sw_is2013)
             )
             if not success:
                 return False
             return await self.send_command(
-                not self.is_group(),
+                not self.is_group,
                 PckGenerator.var_rel(
                     var, lcn_defs.RelVarRef.CURRENT, value.to_native(), sw_is2013
                 ),
             )
         return await self.send_command(
-            not self.is_group(), PckGenerator.var_abs(var, value.to_native())
+            not self.is_group, PckGenerator.var_abs(var, value.to_native())
         )
 
     async def var_reset(self, var: lcn_defs.Var, is2013: Optional[bool] = None) -> bool:
@@ -1054,7 +1067,7 @@ class AbstractConnection(LcnAddr):
             sw_is2013 = False
 
         return await self.send_command(
-            not self.is_group(), PckGenerator.var_reset(var, sw_is2013)
+            not self.is_group, PckGenerator.var_reset(var, sw_is2013)
         )
 
     async def var_rel(
@@ -1088,7 +1101,7 @@ class AbstractConnection(LcnAddr):
             sw_is2013 = False
 
         return await self.send_command(
-            not self.is_group(),
+            not self.is_group,
             PckGenerator.var_rel(var, value_ref, value.to_native(), sw_is2013),
         )
 
@@ -1103,7 +1116,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(), PckGenerator.lock_regulator(reg_id, state)
+            not self.is_group, PckGenerator.lock_regulator(reg_id, state)
         )
 
     async def control_led(
@@ -1115,7 +1128,7 @@ class AbstractConnection(LcnAddr):
         :param    LedStatus    state:      Led status
         """
         return await self.send_command(
-            not self.is_group(), PckGenerator.control_led(led.value, state)
+            not self.is_group, PckGenerator.control_led(led.value, state)
         )
 
     async def send_keys(
@@ -1138,7 +1151,7 @@ class AbstractConnection(LcnAddr):
                 cmds[table_id] = cmd
                 coros.append(
                     self.send_command(
-                        not self.is_group(), PckGenerator.send_keys(cmds, key_states)
+                        not self.is_group, PckGenerator.send_keys(cmds, key_states)
                     )
                 )
         results = await asyncio.gather(*coros)
@@ -1164,7 +1177,7 @@ class AbstractConnection(LcnAddr):
             if True in key_states:
                 coros.append(
                     self.send_command(
-                        not self.is_group(),
+                        not self.is_group,
                         PckGenerator.send_keys_hit_deferred(
                             table_id, delay_time, delay_unit, key_states
                         ),
@@ -1186,7 +1199,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(), PckGenerator.lock_keys(table_id, states)
+            not self.is_group, PckGenerator.lock_keys(table_id, states)
         )
 
     async def lock_keys_tab_a_temporary(
@@ -1203,7 +1216,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(),
+            not self.is_group,
             PckGenerator.lock_keys_tab_a_temporary(delay_time, delay_unit, states),
         )
 
@@ -1223,7 +1236,7 @@ class AbstractConnection(LcnAddr):
             if part:
                 coros.append(
                     self.send_command(
-                        not self.is_group(),
+                        not self.is_group,
                         PckGenerator.dyn_text_part(row_id, part_id, part),
                     )
                 )
@@ -1240,7 +1253,7 @@ class AbstractConnection(LcnAddr):
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group(), PckGenerator.beep(sound, count)
+            not self.is_group, PckGenerator.beep(sound, count)
         )
 
     async def ping(self) -> bool:
@@ -1255,7 +1268,7 @@ class AbstractConnection(LcnAddr):
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.send_command(not self.is_group(), pck)
+        return await self.send_command(not self.is_group, pck)
 
 
 class GroupConnection(AbstractConnection):
@@ -1267,12 +1280,12 @@ class GroupConnection(AbstractConnection):
     def __init__(
         self,
         conn: "PchkConnectionManager",
-        seg_id: int,
-        grp_id: int,
+        addr: LcnAddr,
         sw_age: int = 0x170206,
     ):
         """Construct GroupConnection instance."""
-        super().__init__(conn, seg_id, grp_id, True, sw_age=sw_age)
+        assert addr.is_group
+        super().__init__(conn, addr, sw_age=sw_age)
 
     async def var_abs(
         self,
@@ -1370,14 +1383,14 @@ class ModuleConnection(AbstractConnection):
     def __init__(
         self,
         conn: "PchkConnectionManager",
-        seg_id: int,
-        mod_id: int,
+        addr: LcnAddr,
         activate_status_requests: bool = False,
         has_s0_enabled: bool = False,
         sw_age: Optional[int] = None,
     ):
         """Construct ModuleConnection instance."""
-        super().__init__(conn, seg_id, mod_id, False, sw_age=sw_age)
+        assert not addr.is_group
+        super().__init__(conn, addr, sw_age=sw_age)
         self.activate_status_requests = activate_status_requests
         self.has_s0_enabled = has_s0_enabled
 
