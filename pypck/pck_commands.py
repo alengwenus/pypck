@@ -344,7 +344,7 @@ class PckGenerator:
         return "SMA{:d}".format(output_id + 1)
 
     @staticmethod
-    def dim_ouput(output_id: int, percent: float, ramp: int) -> str:
+    def dim_output(output_id: int, percent: float, ramp: int) -> str:
         """Generate a dim command for a single output-port.
 
         :param    int    output_id:    Output id 0..3

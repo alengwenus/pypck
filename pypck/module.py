@@ -800,7 +800,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group, PckGenerator.dim_ouput(output_id, percent, ramp)
+            not self.is_group, PckGenerator.dim_output(output_id, percent, ramp)
         )
 
     async def dim_all_outputs(
