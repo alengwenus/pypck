@@ -245,7 +245,7 @@ class PckGenerator:
         return ">{:s}{:03d}{:03d}{:s}".format(
             "G" if addr.is_group else "M",
             addr.get_physical_seg_id(local_seg_id),
-            addr.get_id(),
+            addr.addr_id,
             "!" if wants_ack else ".",
         )
 

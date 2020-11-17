@@ -383,11 +383,11 @@ class PchkConnectionManager(PchkConnection):
         # replace all address_conns with current local_seg_id with new
         # local_seg_id
         for addr in list(self.address_conns):
-            if addr.get_seg_id() == old_local_seg_id:
+            if addr.seg_id == old_local_seg_id:
                 address_conn = self.address_conns.pop(addr)
                 address_conn.seg_id = self.local_seg_id
                 self.address_conns[
-                    LcnAddr(self.local_seg_id, addr.get_id(), addr.is_group)
+                    LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
                 ] = address_conn
 
     def physical_to_logical(self, addr: LcnAddr) -> LcnAddr:
@@ -400,8 +400,8 @@ class PchkConnectionManager(PchkConnection):
         :rtype:      :class:`~LcnAddr`
         """
         return LcnAddr(
-            self.local_seg_id if addr.get_seg_id() == 0 else addr.get_seg_id(),
-            addr.get_id(),
+            self.local_seg_id if addr.seg_id == 0 else addr.seg_id,
+            addr.addr_id,
             addr.is_group,
         )
 
@@ -435,7 +435,7 @@ class PchkConnectionManager(PchkConnection):
         >>> module = pchk_connection.get_address_conn(address)
         >>> module.toggle_output(0, 5)
         """
-        if addr.get_seg_id() == 0 and self.local_seg_id != -1:
+        if addr.seg_id == 0 and self.local_seg_id != -1:
             addr.seg_id = self.local_seg_id
         address_conn = self.address_conns.get(addr, None)
         if address_conn is None:

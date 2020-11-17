@@ -54,14 +54,6 @@ class LcnAddr:
     addr_id: int
     is_group: bool = False
 
-    def get_seg_id(self) -> int:
-        """Get the logical segment id.
-
-        :return:    The (logical) segment id
-        :rtype:     int
-        """
-        return self.seg_id
-
     def get_physical_seg_id(self, local_seg_id: int) -> int:
         """Get the physical segment id ("local" segment replaced with 0).
 
@@ -73,14 +65,6 @@ class LcnAddr:
         :rtype:     int
         """
         return 0 if (self.seg_id == local_seg_id) else self.seg_id
-
-    def get_id(self) -> int:
-        """Get the module id.
-
-        :return:    The module id
-        :rtype:     int
-        """
-        return self.addr_id
 
     def is_valid(self) -> bool:
         """Return if the current address is valid.
