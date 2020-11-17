@@ -1225,7 +1225,7 @@ class MotorStateModifier(Enum):
     DOWN = "D"
     STOP = "S"
     TOGGLEONOFF = "T"  # toggle on/off
-    TOGGLEDIR = "D"  # toggle direction
+    TOGGLEDIR = "R"  # toggle direction
     CYCLE = "C"  # up, stop, down, stop, ...
     NOCHANGE = "-"
 
