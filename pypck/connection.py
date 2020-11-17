@@ -584,8 +584,8 @@ class PchkConnectionManager(PchkConnection):
         # Inputs from bus
         elif self.is_ready():
             assert isinstance(inp, inputs.ModInput)
-            inp.logical_source_addr = self.physical_to_logical(inp.physical_source_addr)
-            module_conn = self.get_address_conn(inp.logical_source_addr)
+            logical_source_addr = self.physical_to_logical(inp.physical_source_addr)
+            module_conn = self.get_address_conn(logical_source_addr)
             if isinstance(inp, inputs.ModSn):
                 if self.module_serial_number_received.locked():
                     self.module_serial_number_received.release()

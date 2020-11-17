@@ -61,15 +61,6 @@ class ModInput(Input):
         """Construct ModInput object."""
         super().__init__()
         self.physical_source_addr = physical_source_addr
-        self.logical_source_addr = LcnAddr()
-
-    def get_logical_source_addr(self) -> LcnAddr:
-        """Return the logical source id.
-
-        :return:   Logical source address.
-        :rtype:    :class:`~pypck.lcn_addr.LcnAddr`
-        """
-        return self.logical_source_addr
 
 
 # ## Plain text inputs
