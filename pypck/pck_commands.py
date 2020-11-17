@@ -370,7 +370,7 @@ class PckGenerator:
     def dim_all_outputs(percent: float, ramp: int, is1805: bool = False) -> str:
         """Generate a dim command for all output-ports.
 
-        :param    float    percent:    Brightness in percent 0..100
+        :param    float  percent:    Brightness in percent 0..100
         :param    int    ramp:       Ramp value
         :param    bool   is1805:     True if the target module's firmware is
                                      180501 or newer, otherwise False
@@ -395,7 +395,7 @@ class PckGenerator:
         """Generate a command to change the value of an output-port.
 
         :param    int    output_id:    Output id 0..3
-        :param    float    percent:      Relative percentage -100..100
+        :param    float  percent:      Relative percentage -100..100
         :return:    The PCK command (without address header) as text
         :rtype:    str
         """
@@ -806,7 +806,7 @@ class PckGenerator:
         """
         if (led_id < 0) or (led_id > 11):
             raise ValueError("Bad led_id.")
-        return "LA{:03d}{:2}".format(led_id + 1, state.value)
+        return "LA{:03d}{:s}".format(led_id + 1, state.value)
 
     @staticmethod
     def send_keys(cmds: List[lcn_defs.SendKeyCommand], keys: List[bool]) -> str:
