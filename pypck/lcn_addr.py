@@ -50,8 +50,8 @@ class LcnAddr:
                                 5..254)
     """
 
-    seg_id: int = -1
-    addr_id: int = -1
+    seg_id: int
+    addr_id: int
     is_group: bool = False
 
     def get_seg_id(self) -> int:
