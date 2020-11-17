@@ -65,39 +65,3 @@ class LcnAddr:
         :rtype:     int
         """
         return 0 if (self.seg_id == local_seg_id) else self.seg_id
-
-    def is_valid(self) -> bool:
-        """Return if the current address is valid.
-
-        :return:    True, if address is a valid group/module address,
-                    otherwise False
-        :rtype:     bool
-        """
-        if self.is_group:
-            # seg_id:
-            # 0 = Local, 1..2 = Not allowed (but "seen in the wild")
-            # 3 = Broadcast, 4 = Status messages, 5..127, 128 = Segment-bus
-            #     disabled (valid value)
-            # addr_id:
-            # 3 = Broadcast, 4 = Status messages, 5..254
-            is_valid = (
-                (self.seg_id >= 0)
-                & (self.seg_id <= 128)
-                & (self.addr_id >= 3)
-                & (self.addr_id <= 254)
-            )
-        else:
-            # seg_id:
-            # 0 = Local, 1..2 = Not allowed (but "seen in the wild")
-            # 3 = Broadcast, 4 = Status messages, 5..127, 128 = Segment-bus
-            #     disabled (valid value)
-            # addr_id:
-            # 1 = LCN-PRO, 2 = LCN-GVS/LCN-W, 4 = PCHK, 5..254, 255 = Unprog.
-            #     (valid, but irrelevant here)
-            is_valid = (
-                (self.seg_id >= 0)
-                & (self.seg_id <= 128)
-                & (self.addr_id >= 1)
-                & (self.addr_id <= 254)
-            )
-        return is_valid
