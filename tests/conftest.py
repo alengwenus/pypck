@@ -1,7 +1,6 @@
 """Core testing functionality."""
 
 import asyncio
-from asyncio.tasks import all_tasks, wait_for
 
 import pytest
 from pypck.connection import PchkConnectionManager
@@ -17,15 +16,21 @@ PASSWORD = "lcn_password"
 
 
 class MockPchkConnectionManager(PchkConnectionManager):
+    """Mock the PchkCOnnectionManager."""
+
     def __init__(self, *args, **kwargs):
+        """Construct mock for PchkCOnnectionManager."""
         self.data_received = []
         super().__init__(*args, **kwargs)
 
     async def process_message(self, message):
+        """Process incoming message."""
         await super().process_message(message)
         self.data_received.append(message)
 
     async def received(self, message, timeout=5, remove=True):
+        """Return if given message was received."""
+
         async def receive_loop(data, remove):
             while data not in self.data_received:
                 await asyncio.sleep(0.05)
@@ -60,7 +65,6 @@ async def pypck_client():
     Create a PchkConnection Manager for testing. Add a received coroutine method
     which returns if the specified message was received (and processed).
     """
-    loop = None
     pcm = MockPchkConnectionManager(
         HOST, PORT, USERNAME, PASSWORD, settings={"SK_NUM_TRIES": 0}
     )
@@ -70,6 +74,7 @@ async def pypck_client():
 
 @pytest.fixture
 async def module10(pypck_client):
+    """Create test module with addr_id 10."""
     lcn_addr = LcnAddr(0, 10, False)
     address_connection = pypck_client.get_address_conn(lcn_addr)
     yield address_connection

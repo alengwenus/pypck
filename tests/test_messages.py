@@ -1,4 +1,4 @@
-"""Tests for input message parsing for bus messages"""
+"""Tests for input message parsing for bus messages."""
 
 import pytest
 from pypck.inputs import (
@@ -8,8 +8,8 @@ from pypck.inputs import (
     ModSendCommandHost,
     ModSk,
     ModSn,
-    ModStatusGroups,
     ModStatusBinSensors,
+    ModStatusGroups,
     ModStatusKeyLocks,
     ModStatusLedsAndLogicOps,
     ModStatusOutput,
@@ -24,7 +24,6 @@ from pypck.lcn_defs import (
     LogicOpStatus,
     OutputPort,
     Var,
-    VarUnit,
     VarValue,
 )
 
@@ -162,6 +161,7 @@ MESSAGES = {
 
 @pytest.mark.parametrize("message, expected", MESSAGES.items())
 def test_message_parsing_single_mod_input(message, expected):
+    """Test if InputMod parses message correctly."""
     exp = (expected[0])(LcnAddr(0, 10, False), *expected[1:])
     inp = InputParser.parse(message)
     assert len(inp) == 1

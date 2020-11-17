@@ -1,4 +1,4 @@
-"""Fake PCHK server used for testing"""
+"""Fake PCHK server used for testing."""
 
 import asyncio
 
@@ -26,7 +26,10 @@ async def readuntil_timeout(reader, separator, timeout):
 
 
 class PchkServer:
+    """Fake PCHK server for integration tests."""
+
     def __init__(self, host=HOST, port=PORT, username=USERNAME, password=PASSWORD):
+        """Construct PchkServer."""
         self.host = host
         self.port = port
         self.username = username
@@ -39,11 +42,13 @@ class PchkServer:
         self.writer = None
 
     async def run(self):
+        """Start the server."""
         self.server = await asyncio.start_server(
             self.client_connected, host=self.host, port=self.port
         )
 
     async def stop(self):
+        """Stop the server and close connection."""
         if self.server and self.server.is_serving():
             if not (self.writer is None or self.writer.is_closing()):
                 self.writer.close()
@@ -52,6 +57,7 @@ class PchkServer:
             await self.server.wait_closed()
 
     async def client_connected(self, reader, writer):
+        """Client connected callback."""
         # Accept only one connection.
         if self.reader or self.writer:
             return
@@ -66,9 +72,11 @@ class PchkServer:
         await self.main_loop()
 
     def set_license_error(self, license_error=False):
+        """Raise a license error during authentication."""
         self.license_error = license_error
 
     async def authentication(self):
+        """Run authentication procedure."""
         self.writer.write(b"LCN-PCK/IP 1.0" + self.separator)
         await self.writer.drain()
 
@@ -108,7 +116,7 @@ class PchkServer:
         return True
 
     async def main_loop(self):
-        """Main loop"""
+        """Query the socket."""
         while True:
             # Read data from socket
             data = await readuntil_timeout(self.reader, self.separator, 1.0)
@@ -119,15 +127,19 @@ class PchkServer:
             await self.process_data(data)
 
     async def process_data(self, data):
+        """Process incoming data."""
         self.data_received.append(data.decode())
         if data == b"!CHD":
             self.writer.write(b"(dec-mode)" + self.separator)
             await self.writer.drain()
 
     async def send_message(self, message):
+        """Send the given message to the socket."""
         self.writer.write(message.encode() + self.separator)
 
     async def received(self, message, timeout=5, remove=True):
+        """Return if given message was received."""
+
         async def receive_loop(data, remove):
             while data not in self.data_received:
                 await asyncio.sleep(0.05)

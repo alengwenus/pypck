@@ -21,4 +21,4 @@ repos:
         additional_dependencies:
           - flake8-docstrings==1.5.0
           - pydocstyle==5.1.1
-        files: ^(homeassistant|script|tests)/.+\.py$
+        files: ^(pypck|tests)/.+\.py$

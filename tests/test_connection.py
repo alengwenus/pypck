@@ -1,6 +1,7 @@
 """Connection tests."""
 
 import asyncio
+
 import asynctest
 import pytest
 from pypck.connection import PchkAuthenticationError, PchkLicenseError
@@ -56,7 +57,6 @@ async def test_timeout_error(pchk_server, pypck_client):
 @pytest.mark.asyncio
 async def test_lcn_connected(pchk_server, pypck_client):
     """Test lcn disconnected event."""
-
     pypck_client.event_handler = asynctest.CoroutineMock()
     await pypck_client.async_connect()
     await pchk_server.send_message("$io:#LCN:connected")
