@@ -232,6 +232,50 @@ def ramp_value_to_time(ramp_value: int) -> int:
     return ramp_time
 
 
+def time_to_native_value(time_msec: int) -> int:
+    """Convert time to native LCN time value.
+
+    Scales the given time value in milliseconds to a byte value (0..255).
+    Used for RelayTimer.
+
+    :param    int    time_msec:    Duration of timer in milliseconds
+
+    :returns: The duration in native LCN units
+    :rtype: int
+    """
+    if not 0 <= time_msec <= 240960:
+        raise ValueError("Time has to be in range 0..240960ms.")
+    time_scaled = time_msec / (1000 * 0.03 * 32.0) + 1.0
+
+    pre_decimal = int(time_scaled).bit_length() - 1
+    decimal = time_scaled / (1 << pre_decimal) - 1
+
+    value = pre_decimal + decimal
+    return int(32 * value)
+
+
+def native_value_to_time(value: int) -> int:
+    """Convert native LCN value to time.
+
+    Scales the given byte value (0..255) to a time value in milliseconds.
+    Inverse to time_to_native_value().
+
+    :param    int    value:    Duration of timer in native LCN units
+
+    :returns: The duration in milliseconds
+    :rtype: int
+    """
+    if not 0 <= value <= 255:
+        raise ValueError("Value has to be in range 0..255.")
+    pre_decimal = value // 32
+    decimal = value / 32 - pre_decimal
+
+    time_scaled = (1 << pre_decimal) * (decimal + 1)
+
+    time_msec = (time_scaled - 1) * 1000 * 0.03 * 32
+    return int(time_msec)
+
+
 class Var(Enum):
     """LCN variable types."""
 

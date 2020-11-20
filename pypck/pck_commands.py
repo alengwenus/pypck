@@ -460,6 +460,33 @@ class PckGenerator:
         return ret
 
     @staticmethod
+    def control_relays_timer(
+        time_msec: int, states: List[lcn_defs.RelayStateModifier]
+    ) -> str:
+        """Generate a command to control relays.
+
+        :param     int                   time_msec: Duration of timer in
+                                                    milliseconds
+        :param     RelayStateModifier    states:    The 8 modifiers for the
+                                                    relay states as a list
+                                                    (only ON and OFF allowed)
+        :return:   The PCK command (without address header) as text
+        :rtype:    str
+        """
+        if len(states) != 8:
+            raise ValueError("Invalid states length.")
+        value = lcn_defs.time_to_native_value(time_msec)
+        ret = "R8T{:03d}".format(value)
+        for state in states:
+            assert state in (
+                lcn_defs.RelayStateModifier.ON,
+                lcn_defs.RelayStateModifier.OFF,
+            )
+            ret += state.value
+
+        return ret
+
+    @staticmethod
     def control_motors_relays(states: List[lcn_defs.MotorStateModifier]) -> str:
         """Generate a command to control motors via relays.
 

@@ -872,6 +872,22 @@ class AbstractConnection:
             not self.is_group, PckGenerator.control_relays(states)
         )
 
+    async def control_relays_timer(
+        self, time_msec: int, states: List[lcn_defs.RelayStateModifier]
+    ) -> bool:
+        """Send a command to control relays.
+
+        :param      int     time_msec:  Duration of timer in milliseconds
+        :param    states:   The 8 modifiers for the relay states as alist
+        :type     states:   list(:class:`~pypck.lcn_defs.RelayStateModifier`)
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.send_command(
+            not self.is_group, PckGenerator.control_relays_timer(time_msec, states)
+        )
+
     async def control_motors_relays(
         self, states: List[lcn_defs.MotorStateModifier]
     ) -> bool:
