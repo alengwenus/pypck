@@ -889,6 +889,74 @@ class ModSendCommandHost(ModInput):
         return None
 
 
+class ModSendKeysHost(ModInput):
+    """Send command to host message from module."""
+
+    def __init__(
+        self,
+        physical_source_addr: LcnAddr,
+        actions: List[lcn_defs.SendKeyCommand],
+        keys: List[bool],
+    ):
+        """Construct ModSendKeysHost object."""
+        super().__init__(physical_source_addr)
+        self.actions = actions
+        self.keys = keys
+
+    def get_actions(self) -> List[lcn_defs.SendKeyCommand]:
+        """Get key actions for each table.
+
+        :returns:   List of length 3 with key actions for each table A, B, C.
+        :rtype:     list(:class:`~pypck.lcn_defs.SendKeyCommand`)
+        """
+        return self.actions
+
+    def get_keys(self) -> List[bool]:
+        """Get keys which should be triggered.
+
+        :returns:   List of booleans (length 8) for each key
+                    (True: trigger, False: do nothing).
+        :rtype:     list(bool)
+        """
+        return self.keys
+
+    @staticmethod
+    def try_parse(data: str) -> Optional[List[Input]]:
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_SEND_KEYS_HOST.match(data)
+        if matcher:
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            actions_value = int(matcher.group("actions"))
+            keys_value = int(matcher.group("keys"))
+
+            mapping = (
+                lcn_defs.SendKeyCommand.DONTSEND,
+                lcn_defs.SendKeyCommand.HIT,
+                lcn_defs.SendKeyCommand.MAKE,
+                lcn_defs.SendKeyCommand.BREAK,
+            )
+
+            actions = []
+            for idx in range(3):
+                action = mapping[(actions_value >> 2 * idx) & 0x03]
+                actions.append(action)
+
+            keys = [bool(keys_value >> bit & 0x01) for bit in range(8)]
+
+            return [ModSendKeysHost(addr, actions, keys)]
+
+        return None
+
+
 # ## Other inputs
 
 
@@ -949,6 +1017,7 @@ class InputParser:
         ModStatusLedsAndLogicOps,
         ModStatusKeyLocks,
         ModSendCommandHost,
+        ModSendKeysHost,
         Unknown,
     ]
 
