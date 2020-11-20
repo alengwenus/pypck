@@ -1,4 +1,4 @@
-"""Copyright (c) 2010-2020 by the respective copyright holders.
+"""Copyright (c) 2006-2020 by the respective copyright holders.
 
 See the NOTICE file(s) distributed with this work for additional
 information.
