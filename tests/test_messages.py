@@ -6,6 +6,7 @@ from pypck.inputs import (
     ModAck,
     ModNameComment,
     ModSendCommandHost,
+    ModSendKeysHost,
     ModSk,
     ModSn,
     ModStatusBinSensors,
@@ -23,6 +24,7 @@ from pypck.lcn_defs import (
     LedStatus,
     LogicOpStatus,
     OutputPort,
+    SendKeyCommand,
     Var,
     VarValue,
 )
@@ -155,6 +157,17 @@ MESSAGES = {
     "+M004000010.SKH000001002003004005006": (
         ModSendCommandHost,
         tuple(i for i in range(6)),
+    ),
+    # STH
+    "+M004000010.STH000000": (
+        ModSendKeysHost,
+        [SendKeyCommand.DONTSEND] * 3,
+        [False] * 8,
+    ),
+    "+M004000010.STH057078": (
+        ModSendKeysHost,
+        [SendKeyCommand.HIT, SendKeyCommand.MAKE, SendKeyCommand.BREAK],
+        [False, True, True, True, False, False, True, False],
     ),
 }
 
