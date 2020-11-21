@@ -723,7 +723,7 @@ class PckGenerator:
                 )
             elif thrs_register_id == 0:
                 # Old command for register 1 (before 170206)
-                pck = "SS{:s}{:4d}{:s}{:s}{:s}{:s}{:s}{:s}".format(
+                pck = "SS{:s}{:04d}{:s}{:s}{:s}{:s}{:s}{:s}".format(
                     "R" if rel_var_ref == lcn_defs.RelVarRef.CURRENT else "E",
                     abs(value),
                     "A" if value >= 0 else "S",
