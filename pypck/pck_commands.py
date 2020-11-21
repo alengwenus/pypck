@@ -344,11 +344,11 @@ class PckGenerator:
         return "SMA{:d}".format(output_id + 1)
 
     @staticmethod
-    def dim_ouput(output_id: int, percent: float, ramp: int) -> str:
+    def dim_output(output_id: int, percent: float, ramp: int) -> str:
         """Generate a dim command for a single output-port.
 
-        :param    int    output_it:    Output id 0..3
-        :param    float    percent:      Brightness in percent 0..100
+        :param    int    output_id:    Output id 0..3
+        :param    float  percent:      Brightness in percent 0..100
         :param    int    ramp:         Ramp value
         :return:    The PCK command (without address header) as text
         :rtype:    str
@@ -370,7 +370,7 @@ class PckGenerator:
     def dim_all_outputs(percent: float, ramp: int, is1805: bool = False) -> str:
         """Generate a dim command for all output-ports.
 
-        :param    float    percent:    Brightness in percent 0..100
+        :param    float  percent:    Brightness in percent 0..100
         :param    int    ramp:       Ramp value
         :param    bool   is1805:     True if the target module's firmware is
                                      180501 or newer, otherwise False
@@ -395,7 +395,7 @@ class PckGenerator:
         """Generate a command to change the value of an output-port.
 
         :param    int    output_id:    Output id 0..3
-        :param    float    percent:      Relative percentage -100..100
+        :param    float  percent:      Relative percentage -100..100
         :return:    The PCK command (without address header) as text
         :rtype:    str
         """
@@ -723,7 +723,7 @@ class PckGenerator:
                 )
             elif thrs_register_id == 0:
                 # Old command for register 1 (before 170206)
-                pck = "SS{:s}{:4d}{:s}{:s}{:s}{:s}{:s}{:s}".format(
+                pck = "SS{:s}{:04d}{:s}{:s}{:s}{:s}{:s}{:s}".format(
                     "R" if rel_var_ref == lcn_defs.RelVarRef.CURRENT else "E",
                     abs(value),
                     "A" if value >= 0 else "S",
@@ -806,7 +806,7 @@ class PckGenerator:
         """
         if (led_id < 0) or (led_id > 11):
             raise ValueError("Bad led_id.")
-        return "LA{:03d}{:2}".format(led_id + 1, state.value)
+        return "LA{:03d}{:s}".format(led_id + 1, state.value)
 
     @staticmethod
     def send_keys(cmds: List[lcn_defs.SendKeyCommand], keys: List[bool]) -> str:
@@ -1150,7 +1150,7 @@ class PckGenerator:
         """
         if (count < 1) or (count > 15):
             raise ValueError("Wrong number of beeps.")
-        return "PI{:s}{:03d}".format(sound, count)
+        return "PI{:s}{:03d}".format(sound.value, count)
 
     @staticmethod
     def empty() -> str:
