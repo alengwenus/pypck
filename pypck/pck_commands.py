@@ -1019,6 +1019,30 @@ class PckGenerator:
         return "SZW{:03d}".format(register_id)
 
     @staticmethod
+    def store_scene_outputs_direct(
+        register_id: int, scene_id: int, percents: Sequence[float], ramps: Sequence[int]
+    ) -> str:
+        """Store the given output values and ramps in the given scene.
+
+        :param    int           register_id: Register id 0..9
+        :param    int           scene_id:    Scene id 0..9
+        :param    list(float)   percents:    Output values in percent as list
+        :param    list(int)     ramp:        Ramp values as list
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        if (scene_id < 0) or (scene_id > 9):
+            raise ValueError("Wrong scene_id.")
+        if len(percents) not in (2, 4):
+            raise ValueError("Need 2 or 4 output percent values.")
+        if len(ramps) != len(percents):
+            raise ValueError("Need as many ramp values as output percent values.")
+        cmd = f"SZD{register_id:03d}{scene_id:03d}"
+        for i, percent in enumerate(percents):
+            cmd += f"{int(percent * 2):03d}{ramps[i]:03d}"
+        return cmd
+
+    @staticmethod
     def activate_scene_output(
         scene_id: int,
         output_ports: Sequence[lcn_defs.OutputPort] = (),

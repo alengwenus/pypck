@@ -892,8 +892,6 @@ class ModStatusSceneOutputs(ModInput):
 
         return None
 
-    pass
-
 
 class ModSendCommandHost(ModInput):
     """Send command to host message from module."""
