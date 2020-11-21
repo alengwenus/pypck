@@ -16,6 +16,7 @@ from pypck.inputs import (
     ModStatusOutput,
     ModStatusOutputNative,
     ModStatusRelays,
+    ModStatusSceneOutputs,
     ModStatusVar,
 )
 from pypck.lcn_addr import LcnAddr
@@ -140,6 +141,13 @@ MESSAGES = {
             [True, True, True, True, True, True, False, False],
             [False, False, True, True, False, False, True, True],
         ],
+    ),
+    # Status scene outputs
+    "=M000010.SZ003025150075100140000033200": (
+        ModStatusSceneOutputs,
+        3,
+        [25, 75, 140, 33],
+        [150, 100, 0, 200],
     ),
     # SKH
     "+M004000010.SKH000001": (ModSendCommandHost, (0, 1)),

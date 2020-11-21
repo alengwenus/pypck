@@ -387,6 +387,7 @@ COMMANDS = {
         for reg in range(2)
     },
     # scenes
+    "SZR003007": (PckGenerator.request_status_scene, 3, 7),
     "SZW004": (PckGenerator.change_scene_register, 4),
     "SZA7001": (PckGenerator.activate_scene_output, 1, OutputPort),
     "SZA7001133": (PckGenerator.activate_scene_output, 1, OutputPort, 133),
