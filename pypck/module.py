@@ -637,6 +637,16 @@ class AbstractConnection:
             PckGenerator.lock_keys_tab_a_temporary(delay_time, delay_unit, states),
         )
 
+    async def clear_dyn_text(self, row_id: int) -> bool:
+        """Clear previously sent dynamic text.
+
+        :param    int    row_id:    Row id 0..3
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.dyn_text(row_id, "")
+
     async def dyn_text(self, row_id: int, text: str) -> bool:
         """Send dynamic text to a module.
 
