@@ -966,7 +966,7 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def dyn_text_part(row_id: int, part_id: int, part: bytes) -> str:
+    def dyn_text_part(row_id: int, part_id: int, part: bytes) -> bytes:
         """Generate the command header / start for sending dynamic texts.
 
         Used by LCN-GTxD periphery (supports 4 text rows).
@@ -978,8 +978,8 @@ class PckGenerator:
         :param    int    part_id:   Part id 0..4
         :param    bytes  part:      Text part (up to 12 bytes), encoded as
                                     lcn_defs.LCN_ENCODING
-        :return:  The PCK command (without address header) as text
-        :rtype:   str
+        :return:  The PCK command (without address header) as encoded bytes
+        :rtype:   bytes
         """
         if (
             (row_id < 0)
@@ -989,9 +989,7 @@ class PckGenerator:
             or (len(part) > 12)
         ):
             raise ValueError("Wrong row_id, part_id or part length.")
-        return "GTDT{:d}{:d}{:s}".format(
-            row_id + 1, part_id + 1, part.decode(lcn_defs.LCN_ENCODING)
-        )
+        return "GTDT{:d}{:d}".format(row_id + 1, part_id + 1).encode("utf-8") + part
 
     @staticmethod
     def lock_regulator(reg_id: int, state: bool) -> str:

@@ -650,13 +650,12 @@ class AbstractConnection:
         coros = []
         parts = [encoded_text[12 * part : 12 * part + 12] for part in range(5)]
         for part_id, part in enumerate(parts):
-            if part:
-                coros.append(
-                    self.send_command(
-                        not self.is_group,
-                        PckGenerator.dyn_text_part(row_id, part_id, part),
-                    )
+            coros.append(
+                self.send_command(
+                    not self.is_group,
+                    PckGenerator.dyn_text_part(row_id, part_id, part),
                 )
+            )
         results = await asyncio.gather(*coros)
         return all(results)
 
