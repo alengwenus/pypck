@@ -367,18 +367,18 @@ class PckGenerator:
         return pck
 
     @staticmethod
-    def dim_all_outputs(percent: float, ramp: int, is1805: bool = False) -> str:
+    def dim_all_outputs(percent: float, ramp: int, sw_age: int) -> str:
         """Generate a dim command for all output-ports.
 
         :param    float  percent:    Brightness in percent 0..100
         :param    int    ramp:       Ramp value
-        :param    bool   is1805:     True if the target module's firmware is
-                                     180501 or newer, otherwise False
+        :param    int    sw_age:     The expected firmware version of all
+                                     receiving modules.
         :return:    The PCK command (without address header) as text
         :rtype:    str
         """
         percent_round = int(round(percent * 2))
-        if is1805:
+        if sw_age >= 0x180501:
             # Supported since LCN-PCHK 2.61
             pck = "OY{0:03d}{0:03d}{0:03d}{0:03d}{1:03d}".format(percent_round, ramp)
         elif percent_round == 0:  # All off
@@ -635,18 +635,18 @@ class PckGenerator:
         raise ValueError("Wrong variable type.")
 
     @staticmethod
-    def var_reset(var: lcn_defs.Var, is2013: bool = True) -> str:
+    def var_reset(var: lcn_defs.Var, sw_age: int) -> str:
         """Generate a command that resets a variable to 0.
 
         :param    Var    var:    The target variable to set 0
-        :param    bool   is2013: True if the target module's firmware version
-                                 is 170101 or newer, otherwise False
+        :param    int    sw_age: The expected firmware version of all
+                                 receiving modules.
         :return:    The PCK command (without address header) as text
         :rtype:    str
         """
         var_id = lcn_defs.Var.to_var_id(var)
         if var_id != -1:
-            if is2013:
+            if sw_age >= 0x170206:
                 pck = "Z-{:03d}{:04d}".format(var_id + 1, 4090)
             else:
                 if var_id == 0:
@@ -671,17 +671,16 @@ class PckGenerator:
         var: lcn_defs.Var,
         rel_var_ref: lcn_defs.RelVarRef,
         value: int,
-        is2013: bool = True,
+        sw_age: int,
     ) -> str:
         """Generate a command to change the value of a variable.
 
-        :param    Var          var:    The target variable to change
-        :param    RelVarRef    rel_var_ref:   The reference-point
-        :param    int          value:  The native LCN value to add/subtract
-                                       (can be negative)
-        :param    bool         is2013: True if the target module's firmware
-                                       version is 170101 or newer, otherwise
-                                       False
+        :param    Var       var:         The target variable to change
+        :param    RelVarRef rel_var_ref: The reference-point
+        :param    int       value:       The native LCN value to add/subtract
+                                         (can be negative)
+        :param    int       sw_age:      The expected firmware version of all
+                                         receiving modules.
         :return:    The PCK command (without address header) as text
         :rtype:    str
         """
@@ -712,7 +711,7 @@ class PckGenerator:
         thrs_register_id = lcn_defs.Var.to_thrs_register_id(var)
         thrs_id = lcn_defs.Var.to_thrs_id(var)
         if (thrs_register_id != -1) and (thrs_id != -1):
-            if is2013:
+            if sw_age >= 0x170206:
                 # New command for registers 1-4 (since 170206, LCN-PCHK 2.8)
                 pck = "SS{:s}{:04d}{:s}R{:d}{:d}".format(
                     "R" if rel_var_ref == lcn_defs.RelVarRef.CURRENT else "E",
@@ -738,7 +737,7 @@ class PckGenerator:
         raise ValueError("Wrong variable type.")
 
     @staticmethod
-    def request_var_status(var: lcn_defs.Var, sw_age: int = 0x170206) -> str:
+    def request_var_status(var: lcn_defs.Var, sw_age: int) -> str:
         """Generate a variable value request.
 
         :param    Var    var:    The variable to request
