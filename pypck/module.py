@@ -124,18 +124,18 @@ class AbstractConnection:
         """Request module serials."""
         return self.serials
 
-    async def send_command(self, wants_ack: bool, pck: str) -> bool:
+    async def send_command(self, wants_ack: bool, pck: Union[str, bytes]) -> bool:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
         :param    str     pck:          PCK command (without header).
         """
-        return await self.conn.send_command(
-            PckGenerator.generate_address_header(
-                self.addr, self.conn.local_seg_id, wants_ack
-            )
-            + pck
+        header = PckGenerator.generate_address_header(
+            self.addr, self.conn.local_seg_id, wants_ack
         )
+        if isinstance(pck, str):
+            return await self.conn.send_command(header + pck)
+        return await self.conn.send_command(header.encode() + pck)
 
     # ##
     # ## Methods for handling input objects
@@ -851,7 +851,7 @@ class ModuleConnection(AbstractConnection):
                 self.activate_status_request_handlers()
             )
 
-    async def send_command(self, wants_ack: bool, pck: str) -> bool:
+    async def send_command(self, wants_ack: bool, pck: Union[str, bytes]) -> bool:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
@@ -866,7 +866,7 @@ class ModuleConnection(AbstractConnection):
     # ## Retry logic if an acknowledge is requested
     # ##
 
-    async def send_command_with_ack(self, pck: str) -> bool:
+    async def send_command_with_ack(self, pck: Union[str, bytes]) -> bool:
         """Send a PCK command and ensure receiving of an acknowledgement.
 
         Resends the PCK command if no acknowledgement has been received
