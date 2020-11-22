@@ -153,6 +153,13 @@ class PckParser:
         r"(?P<table1>\d{3})(?P<table2>\d{3})((?P<table3>\d{3}))?"
     )
 
+    # Pattern to parse scene output status messages.
+    PATTERN_STATUS_SCENE_OUTPUTS = re.compile(
+        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.SZ(?P<scene_id>\d{3})"
+        r"(?P<output1>\d{3})(?P<ramp1>\d{3})(?P<output2>\d{3})(?P<ramp2>\d{3})"
+        r"(?P<output3>\d{3})(?P<ramp3>\d{3})(?P<output4>\d{3})(?P<ramp4>\d{3})"
+    )
+
     # Pattern to parse send command to host messages.
     PATTERN_SEND_COMMAND_HOST = re.compile(
         r"\+M004(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.SKH"
@@ -1001,7 +1008,7 @@ class PckGenerator:
 
     @staticmethod
     def change_scene_register(register_id: int) -> str:
-        """Change the scene register id.
+        """Change the active scene register.
 
         :param    int    register_id:    Register id 0..9
         :return:  The PCK command (without address header) as text
@@ -1010,6 +1017,30 @@ class PckGenerator:
         if (register_id < 0) or (register_id > 9):
             raise ValueError("Wrong register_id.")
         return "SZW{:03d}".format(register_id)
+
+    @staticmethod
+    def store_scene_outputs_direct(
+        register_id: int, scene_id: int, percents: Sequence[float], ramps: Sequence[int]
+    ) -> str:
+        """Store the given output values and ramps in the given scene.
+
+        :param    int           register_id: Register id 0..9
+        :param    int           scene_id:    Scene id 0..9
+        :param    list(float)   percents:    Output values in percent as list
+        :param    list(int)     ramp:        Ramp values as list
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        if (scene_id < 0) or (scene_id > 9):
+            raise ValueError("Wrong scene_id.")
+        if len(percents) not in (2, 4):
+            raise ValueError("Need 2 or 4 output percent values.")
+        if len(ramps) != len(percents):
+            raise ValueError("Need as many ramp values as output percent values.")
+        cmd = f"SZD{register_id:03d}{scene_id:03d}"
+        for i, percent in enumerate(percents):
+            cmd += f"{int(percent * 2):03d}{ramps[i]:03d}"
+        return cmd
 
     @staticmethod
     def activate_scene_output(
@@ -1138,6 +1169,21 @@ class PckGenerator:
         else:
             action = "A"
         return "SZ{:s}0{:03d}{:s}".format(action, scene_id, "".join(relays_mask))
+
+    @staticmethod
+    def request_status_scene(register_id: int, scene_id: int) -> str:
+        """Request the stored output and ramp values for the given scene.
+
+        :param    int    register_id:    Register id 0..9
+        :param    int    register_id:    Scene id 0..9
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        if (register_id < 0) or (register_id > 9):
+            raise ValueError("Wrong register_id.")
+        if (scene_id < 0) or (scene_id > 9):
+            raise ValueError("Wrong scene_id.")
+        return "SZR{:03d}{:03d}".format(register_id, scene_id)
 
     @staticmethod
     def beep(sound: lcn_defs.BeepSound, count: int) -> str:

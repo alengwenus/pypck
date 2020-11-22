@@ -854,6 +854,45 @@ class ModStatusKeyLocks(ModInput):
         return None
 
 
+class ModStatusSceneOutputs(ModInput):
+    """Status of the output values and ramp values received from an LCN module."""
+
+    def __init__(
+        self,
+        physical_source_addr: LcnAddr,
+        scene_id: int,
+        values: List[int],
+        ramps: List[int],
+    ):
+        """Construct ModInput object."""
+        super().__init__(physical_source_addr)
+        self.scene_id = scene_id
+        self.values = values
+        self.ramps = ramps
+
+    @staticmethod
+    def try_parse(data: str) -> Optional[List[Input]]:
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_STATUS_SCENE_OUTPUTS.match(data)
+        if matcher:
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            scene_id = int(matcher.group("scene_id"))
+            values = [int(matcher.group(f"output{i+1:d}")) for i in range(4)]
+            ramps = [int(matcher.group(f"ramp{i+1:d}")) for i in range(4)]
+            return [ModStatusSceneOutputs(addr, scene_id, values, ramps)]
+
+        return None
+
+
 class ModSendCommandHost(ModInput):
     """Send command to host message from module."""
 
@@ -1020,6 +1059,7 @@ class InputParser:
         ModStatusVar,
         ModStatusLedsAndLogicOps,
         ModStatusKeyLocks,
+        ModStatusSceneOutputs,
         ModSendCommandHost,
         ModSendKeysHost,
         Unknown,

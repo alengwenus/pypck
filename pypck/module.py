@@ -1018,6 +1018,30 @@ class AbstractConnection:
         results = await asyncio.gather(*coros)
         return all(results)
 
+    async def store_scene_outputs_direct(
+        self,
+        register_id: int,
+        scene_id: int,
+        percents: Sequence[float],
+        ramps: Sequence[int],
+    ) -> bool:
+        """Store the given output values and ramps in the given scene.
+
+        :param    int           register_id: Register id 0..9
+        :param    int           scene_id:    Scene id 0..9
+        :param    list(float)   percents:    Output values in percent as list
+        :param    list(int)     ramp:        Ramp values as list
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.send_command(
+            not self.is_group,
+            PckGenerator.store_scene_outputs_direct(
+                register_id, scene_id, percents, ramps
+            ),
+        )
+
     async def var_abs(
         self,
         var: lcn_defs.Var,
