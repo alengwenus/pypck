@@ -100,12 +100,12 @@ COMMANDS = {
         f"O{output+1:d}DI101123": (PckGenerator.dim_output, output, 50.5, 123)
         for output in range(4)
     },
-    "OY100100100100123": (PckGenerator.dim_all_outputs, 50.0, 123, True),
-    "OY000000000000123": (PckGenerator.dim_all_outputs, 0.0, 123, True),
-    "OY200200200200123": (PckGenerator.dim_all_outputs, 100.0, 123, True),
-    "AA123": (PckGenerator.dim_all_outputs, 0.0, 123),
-    "AE123": (PckGenerator.dim_all_outputs, 100.0, 123),
-    "AH050": (PckGenerator.dim_all_outputs, 50.0, 123),
+    "OY100100100100123": (PckGenerator.dim_all_outputs, 50.0, 123, 0x180501),
+    "OY000000000000123": (PckGenerator.dim_all_outputs, 0.0, 123, 0x180501),
+    "OY200200200200123": (PckGenerator.dim_all_outputs, 100.0, 123, 0x180501),
+    "AA123": (PckGenerator.dim_all_outputs, 0.0, 123, 0x180500),
+    "AE123": (PckGenerator.dim_all_outputs, 100.0, 123, 0x180500),
+    "AH050": (PckGenerator.dim_all_outputs, 50.0, 123, 0x180500),
     **{
         f"A{output+1:d}AD050": (PckGenerator.rel_output, output, 50.0)
         for output in range(4)
@@ -218,22 +218,22 @@ COMMANDS = {
     },
     "X2030044129": (PckGenerator.var_abs, Var.R1VARSETPOINT, 4201),
     "X2030108129": (PckGenerator.var_abs, Var.R2VARSETPOINT, 4201),
-    "X2030032000": (PckGenerator.var_reset, Var.R1VARSETPOINT),
-    "X2030096000": (PckGenerator.var_reset, Var.R2VARSETPOINT),
-    "ZS30000": (PckGenerator.var_reset, Var.TVAR, False),
+    "X2030032000": (PckGenerator.var_reset, Var.R1VARSETPOINT, 0x170206),
+    "X2030096000": (PckGenerator.var_reset, Var.R2VARSETPOINT, 0x170206),
+    "ZS30000": (PckGenerator.var_reset, Var.TVAR, 0x170205),
     **{
-        f"Z-{var.value + 1:03d}4090": (PckGenerator.var_reset, var)
+        f"Z-{var.value + 1:03d}4090": (PckGenerator.var_reset, var, 0x170206)
         for var in Var.variables
     },
-    "ZA23423": (PckGenerator.var_rel, Var.TVAR, RelVarRef.CURRENT, 23423, False),
-    "ZS23423": (PckGenerator.var_rel, Var.TVAR, RelVarRef.CURRENT, -23423, False),
+    "ZA23423": (PckGenerator.var_rel, Var.TVAR, RelVarRef.CURRENT, 23423, 0x170205),
+    "ZS23423": (PckGenerator.var_rel, Var.TVAR, RelVarRef.CURRENT, -23423, 0x170205),
     **{
         f"Z-{var.value + 1:03d}3000": (
             PckGenerator.var_rel,
             var,
             RelVarRef.CURRENT,
             -3000,
-            True,
+            0x170206,
         )
         for var in Var.variables
         if var != Var.TVAR
@@ -244,11 +244,11 @@ COMMANDS = {
             var,
             ref,
             -500,
-            new,
+            sw_age,
         )
         for nvar, var in enumerate(Var.set_points)
         for nref, ref in enumerate(RelVarRef)
-        for new in (True, False)
+        for sw_age in (0x170206, 0x170205)
     },
     **{
         f"RE{('A','B')[nvar]}S{('A','P')[nref]}+500": (
@@ -256,11 +256,11 @@ COMMANDS = {
             var,
             ref,
             500,
-            new,
+            sw_age,
         )
         for nvar, var in enumerate(Var.set_points)
         for nref, ref in enumerate(RelVarRef)
-        for new in (True, False)
+        for sw_age in (0x170206, 0x170205)
     },
     **{
         f"SS{('R','E')[nref]}0500SR{r+1}{i+1}": (
@@ -268,7 +268,7 @@ COMMANDS = {
             Var.thresholds[r][i],
             ref,
             -500,
-            True,
+            0x170206,
         )
         for r in range(4)
         for i in range(4)
@@ -280,7 +280,7 @@ COMMANDS = {
             Var.thresholds[r][i],
             ref,
             500,
-            True,
+            0x170206,
         )
         for r in range(4)
         for i in range(4)
@@ -292,7 +292,7 @@ COMMANDS = {
             Var.thresholds[0][i],
             ref,
             -500,
-            False,
+            0x170205,
         )
         for i in range(5)
         for nref, ref in enumerate(RelVarRef)
@@ -303,7 +303,7 @@ COMMANDS = {
             Var.thresholds[0][i],
             ref,
             500,
-            False,
+            0x170205,
         )
         for i in range(5)
         for nref, ref in enumerate(RelVarRef)

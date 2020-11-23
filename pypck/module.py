@@ -804,20 +804,21 @@ class AbstractConnection:
         )
 
     async def dim_all_outputs(
-        self, percent: float, ramp: int, is1805: bool = False
+        self, percent: float, ramp: int, sw_age: Optional[int] = None
     ) -> bool:
         """Send a dim command for all output-ports.
 
-        :param    float    percent:    Brightness in percent 0..100
+        :param    float  percent:    Brightness in percent 0..100
         :param    int    ramp:       Ramp time in milliseconds.
-        :param    bool   is1805:     True if the target module's firmware is
-                                     180501 or newer, otherwise False
+        :param    int    sw_age:     The minimum firmware version expected by
+                                     any receiving module.
 
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
+        swa = sw_age or (self._sw_age or 0)
         return await self.send_command(
-            not self.is_group, PckGenerator.dim_all_outputs(percent, ramp, is1805)
+            not self.is_group, PckGenerator.dim_all_outputs(percent, ramp, swa)
         )
 
     async def rel_output(self, output_id: int, percent: float) -> bool:
@@ -1047,7 +1048,7 @@ class AbstractConnection:
         var: lcn_defs.Var,
         value_or_float: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
-        is2013: Optional[bool] = None,
+        sw_age: Optional[int] = None,
     ) -> bool:
         """Send a command to set the absolute value to a variable.
 
@@ -1063,12 +1064,7 @@ class AbstractConnection:
         else:
             value = lcn_defs.VarValue.from_var_unit(value_or_float, unit, True)
 
-        if is2013 is not None:
-            sw_is2013 = is2013
-        elif self._sw_age is not None:
-            sw_is2013 = self._sw_age >= 0x170206
-        else:
-            sw_is2013 = False
+        swa = sw_age or (self._sw_age or 0)
 
         if lcn_defs.Var.to_var_id(var) != -1:
             # Absolute commands for variables 1-12 are not supported
@@ -1081,21 +1077,21 @@ class AbstractConnection:
             # We fake the missing command by using reset and relative
             # commands.
             success = await self.send_command(
-                not self.is_group, PckGenerator.var_reset(var, sw_is2013)
+                not self.is_group, PckGenerator.var_reset(var, swa)
             )
             if not success:
                 return False
             return await self.send_command(
                 not self.is_group,
                 PckGenerator.var_rel(
-                    var, lcn_defs.RelVarRef.CURRENT, value.to_native(), sw_is2013
+                    var, lcn_defs.RelVarRef.CURRENT, value.to_native(), swa
                 ),
             )
         return await self.send_command(
             not self.is_group, PckGenerator.var_abs(var, value.to_native())
         )
 
-    async def var_reset(self, var: lcn_defs.Var, is2013: Optional[bool] = None) -> bool:
+    async def var_reset(self, var: lcn_defs.Var, sw_age: Optional[int] = None) -> bool:
         """Send a command to reset the variable value.
 
         :param    Var    var:    Variable
@@ -1103,15 +1099,9 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        if is2013 is not None:
-            sw_is2013 = is2013
-        elif self._sw_age is not None:
-            sw_is2013 = self._sw_age >= 0x170206
-        else:
-            sw_is2013 = False
-
+        swa = sw_age or (self._sw_age or 0)
         return await self.send_command(
-            not self.is_group, PckGenerator.var_reset(var, sw_is2013)
+            not self.is_group, PckGenerator.var_reset(var, swa)
         )
 
     async def var_rel(
@@ -1120,7 +1110,7 @@ class AbstractConnection:
         value_or_float: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         value_ref: lcn_defs.RelVarRef = lcn_defs.RelVarRef.CURRENT,
-        is2013: Optional[bool] = None,
+        sw_age: Optional[int] = None,
     ) -> bool:
         """Send a command to change the value of a variable.
 
@@ -1137,16 +1127,11 @@ class AbstractConnection:
         else:
             value = lcn_defs.VarValue.from_var_unit(value_or_float, unit, True)
 
-        if is2013 is not None:
-            sw_is2013 = is2013
-        elif self._sw_age is not None:
-            sw_is2013 = self._sw_age >= 0x170206
-        else:
-            sw_is2013 = False
+        swa = sw_age or (self._sw_age or 0)
 
         return await self.send_command(
             not self.is_group,
-            PckGenerator.var_rel(var, value_ref, value.to_native(), sw_is2013),
+            PckGenerator.var_rel(var, value_ref, value.to_native(), swa),
         )
 
     async def lock_regulator(self, reg_id: int, state: bool) -> bool:
@@ -1336,7 +1321,7 @@ class GroupConnection(AbstractConnection):
         var: lcn_defs.Var,
         value: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
-        is2013: Optional[bool] = None,
+        sw_age: Optional[int] = None,
     ) -> bool:
         """Send a command to set the absolute value to a variable.
 
@@ -1346,7 +1331,7 @@ class GroupConnection(AbstractConnection):
         """
         coros = []
         # for new modules (>=0x170206)
-        coros.append(super().var_abs(var, value, unit, is2013=True))
+        coros.append(super().var_abs(var, value, unit, 0x170206))
 
         # for old modules (<0x170206)
         if var in [
@@ -1356,17 +1341,17 @@ class GroupConnection(AbstractConnection):
             lcn_defs.Var.R1VARSETPOINT,
             lcn_defs.Var.R2VARSETPOINT,
         ]:
-            coros.append(super().var_abs(var, value, unit, is2013=False))
+            coros.append(super().var_abs(var, value, unit, 0x000000))
         results = await asyncio.gather(*coros)
         return all(results)
 
-    async def var_reset(self, var: lcn_defs.Var, is2013: Optional[bool] = None) -> bool:
+    async def var_reset(self, var: lcn_defs.Var, sw_age: Optional[int] = None) -> bool:
         """Send a command to reset the variable value.
 
         :param    Var    var:    Variable
         """
         coros = []
-        coros.append(super().var_reset(var, is2013=True))
+        coros.append(super().var_reset(var, 0x170206))
         if var in [
             lcn_defs.Var.TVAR,
             lcn_defs.Var.R1VAR,
@@ -1374,7 +1359,7 @@ class GroupConnection(AbstractConnection):
             lcn_defs.Var.R1VARSETPOINT,
             lcn_defs.Var.R2VARSETPOINT,
         ]:
-            coros.append(super().var_reset(var, is2013=False))
+            coros.append(super().var_reset(var, 0))
         results = await asyncio.gather(*coros)
         return all(results)
 
@@ -1384,7 +1369,7 @@ class GroupConnection(AbstractConnection):
         value: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         value_ref: lcn_defs.RelVarRef = lcn_defs.RelVarRef.CURRENT,
-        is2013: Optional[bool] = None,
+        sw_age: Optional[int] = None,
     ) -> bool:
         """Send a command to change the value of a variable.
 
@@ -1394,7 +1379,7 @@ class GroupConnection(AbstractConnection):
         :param     VarUnit    unit:     Unit of variable
         """
         coros = []
-        coros.append(super().var_rel(var, value, is2013=True))
+        coros.append(super().var_rel(var, value, sw_age=0x170206))
         if var in [
             lcn_defs.Var.TVAR,
             lcn_defs.Var.R1VAR,
@@ -1407,7 +1392,7 @@ class GroupConnection(AbstractConnection):
             lcn_defs.Var.THRS4,
             lcn_defs.Var.THRS5,
         ]:
-            coros.append(super().var_rel(var, value, is2013=False))
+            coros.append(super().var_rel(var, value, sw_age=0))
         results = await asyncio.gather(*coros)
         return all(results)
 
