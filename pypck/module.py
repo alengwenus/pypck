@@ -25,6 +25,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Union,
 )
@@ -32,397 +33,18 @@ from typing import (
 from pypck import inputs, lcn_defs
 from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
+from pypck.request_handlers import (
+    CommentRequestHandler,
+    GroupMembershipDynamicRequestHandler,
+    GroupMembershipStaticRequestHandler,
+    NameRequestHandler,
+    OemTextRequestHandler,
+    SerialRequestHandler,
+)
 from pypck.timeout_retry import TimeoutRetryHandler
 
 if TYPE_CHECKING:
     from pypck.connection import PchkConnectionManager
-
-
-class SerialRequestHandler:
-    """Request handler to request serial number information from module."""
-
-    def __init__(
-        self,
-        addr_conn: "ModuleConnection",
-        num_tries: int = 3,
-        timeout_msec: int = 1500,
-        software_serial: Optional[int] = None,
-    ):
-        """Initialize class instance."""
-        self.addr_conn = addr_conn
-
-        self.hardware_serial = -1
-        self.manu = -1
-        if software_serial is None:
-            software_serial = -1
-        self.software_serial = software_serial
-        self.hardware_type = lcn_defs.HardwareType.UNKNOWN
-
-        # Serial Number request
-        self.trh = TimeoutRetryHandler(num_tries, timeout_msec)
-        self.trh.set_timeout_callback(self.timeout)
-
-        # callback
-        addr_conn.register_for_inputs(self.process_input)
-
-        # events
-        self.serial_known = asyncio.Event()
-
-    def process_input(self, inp: inputs.Input) -> None:
-        """Create a task to process the input object concurrently."""
-        asyncio.create_task(self.async_process_input(inp))
-
-    async def async_process_input(self, inp: inputs.Input) -> None:
-        """Process incoming input object.
-
-        Method to handle incoming commands for this specific request handler.
-        """
-        if isinstance(inp, inputs.ModSn):
-            self.hardware_serial = inp.serial
-            self.manu = inp.manu
-            self.software_serial = inp.sw_age
-            self.hardware_type = inp.hw_type
-
-            self.serial_known.set()
-            await self.cancel()
-
-    async def timeout(self, failed: bool = False) -> None:
-        """Is called on serial request timeout."""
-        if not failed:
-            await self.addr_conn.send_command(False, PckGenerator.request_serial())
-        else:
-            self.serial_known.set()
-
-    async def request(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
-        """Request serial number."""
-        await self.addr_conn.conn.segment_scan_completed_event.wait()
-        self.serial_known.clear()
-        self.trh.activate()
-        await self.serial_known.wait()
-        return self.serial
-
-    async def cancel(self) -> None:
-        """Cancel serial number request."""
-        await self.trh.cancel()
-
-    @property
-    def serial(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
-        """Return serial numbers of a module."""
-        return {
-            "hardware_serial": self.hardware_serial,
-            "manu": self.manu,
-            "software_serial": self.software_serial,
-            "hardware_type": self.hardware_type,
-        }
-
-
-class NameCommentRequestHandler:
-    """Request handler to request name, comment and OEM text of a module."""
-
-    def __init__(
-        self,
-        addr_conn: "ModuleConnection",
-        num_tries: int = 3,
-        timeout_msec: int = 1500,
-    ):
-        """Initialize class instance."""
-        self.addr_conn = addr_conn
-
-        self._name: List[Optional[str]] = [None] * 2
-        self._comment: List[Optional[str]] = [None] * 3
-        self._oem_text: List[Optional[str]] = [None] * 4
-
-        # Name requests
-        self.name_trhs = []
-        for block_id in range(2):
-            trh = TimeoutRetryHandler(num_tries, timeout_msec)
-            trh.set_timeout_callback(self.timeout_name, block_id=block_id)
-            self.name_trhs.append(trh)
-
-        self.comment_trhs = []
-        for block_id in range(3):
-            trh = TimeoutRetryHandler(num_tries, timeout_msec)
-            trh.set_timeout_callback(self.timeout_comment, block_id=block_id)
-            self.comment_trhs.append(trh)
-
-        self.oem_text_trhs = []
-        for block_id in range(4):
-            trh = TimeoutRetryHandler(num_tries, timeout_msec)
-            trh.set_timeout_callback(self.timeout_oem_text, block_id=block_id)
-            self.oem_text_trhs.append(trh)
-
-        # callback
-        addr_conn.register_for_inputs(self.process_input)
-
-        # events
-        self.name_known = asyncio.Event()
-        self.comment_known = asyncio.Event()
-        self.oem_text_known = asyncio.Event()
-
-    def process_input(self, inp: inputs.Input) -> None:
-        """Create a task to process the input object concurrently."""
-        asyncio.create_task(self.async_process_input(inp))
-
-    async def async_process_input(self, inp: inputs.Input) -> None:
-        """Process incoming input object.
-
-        Method to handle incoming commands for this specific request handler.
-        """
-        if isinstance(inp, inputs.ModNameComment):
-            command = inp.command
-            block_id = inp.block_id
-            text = inp.text
-
-            if command == "N":
-                self._name[block_id] = f"{text:10s}"
-                await self.cancel_name(block_id)
-                if None not in self._name:
-                    self.name_known.set()
-                    await self.cancel_name()
-
-            elif command == "K":
-                self._comment[block_id] = f"{text:12s}"
-                await self.cancel_comment(block_id)
-                if None not in self._comment:
-                    self.comment_known.set()
-                    await self.cancel_comment()
-
-            elif command == "O":
-                self._oem_text[block_id] = f"{text:12s}"
-                await self.cancel_oem_text(block_id)
-                if None not in self._oem_text:
-                    self.oem_text_known.set()
-                    await self.cancel_oem_text()
-
-    async def timeout_name(self, failed: bool = False, block_id: int = 0) -> None:
-        """Is called on serial request timeout."""
-        if not failed:
-            await self.addr_conn.send_command(
-                False, PckGenerator.request_name(block_id)
-            )
-        else:
-            self.name_known.set()
-
-    async def timeout_comment(self, failed: bool = False, block_id: int = 0) -> None:
-        """Is called on serial request timeout."""
-        if not failed:
-            await self.addr_conn.send_command(
-                False, PckGenerator.request_comment(block_id)
-            )
-        else:
-            self.comment_known.set()
-
-    async def timeout_oem_text(self, failed: bool = False, block_id: int = 0) -> None:
-        """Is called on serial request timeout."""
-        if not failed:
-            await self.addr_conn.send_command(
-                False, PckGenerator.request_oem_text(block_id)
-            )
-        else:
-            self.oem_text_known.set()
-
-    async def request_name(self) -> str:
-        """Request name from a module."""
-        self._name = [None] * 2
-        await self.addr_conn.conn.segment_scan_completed_event.wait()
-        self.name_known.clear()
-        for trh in self.name_trhs:
-            trh.activate()
-        await self.name_known.wait()
-        return self.name
-
-    async def request_comment(self) -> str:
-        """Request comments from a module."""
-        self._comment = [None] * 3
-        await self.addr_conn.conn.segment_scan_completed_event.wait()
-        self.comment_known.clear()
-        for trh in self.comment_trhs:
-            trh.activate()
-        await self.comment_known.wait()
-        return self.comment
-
-    async def request_oem_text(self) -> List[str]:
-        """Request OEM text from a module."""
-        self._oem_text = [None] * 4
-        await self.addr_conn.conn.segment_scan_completed_event.wait()
-        self.oem_text_known.clear()
-        for trh in self.oem_text_trhs:
-            trh.activate()
-        await self.oem_text_known.wait()
-        return self.oem_text
-
-    async def request(self) -> Tuple[str, str, List[str]]:
-        """Request name, comments and OEM text from a module."""
-        return await asyncio.gather(
-            self.request_name(), self.request_comment(), self.request_oem_text()
-        )
-
-    async def cancel_name(self, block_id: Optional[int] = None) -> None:
-        """Cancel name request task."""
-        if block_id is None:  # cancel all
-            for trh in self.name_trhs:
-                await trh.cancel()
-        else:
-            await self.name_trhs[block_id].cancel()
-
-    async def cancel_comment(self, block_id: Optional[int] = None) -> None:
-        """Cancel comment request task."""
-        if block_id is None:  # cancel all
-            for trh in self.comment_trhs:
-                await trh.cancel()
-        else:
-            await self.comment_trhs[block_id].cancel()
-
-    async def cancel_oem_text(self, block_id: Optional[int] = None) -> None:
-        """Cancel OEM text request task."""
-        if block_id is None:  # cancel all
-            for trh in self.oem_text_trhs:
-                await trh.cancel()
-        else:
-            await self.oem_text_trhs[block_id].cancel()
-
-    async def cancel(self) -> None:
-        """Cancel all name, comment and OEM text request tasks."""
-        await asyncio.gather(
-            self.cancel_name(), self.cancel_comment(), self.cancel_oem_text()
-        )
-
-    @property
-    def name(self) -> str:
-        """Return stored name."""
-        return "".join([block for block in self._name if block]).strip()
-
-    @property
-    def comment(self) -> str:
-        """Return stored comment."""
-        return "".join([block for block in self._comment if block]).strip()
-
-    @property
-    def oem_text(self) -> List[str]:
-        """Return stored OEM text."""
-        return [block.strip() if block else "" for block in self._oem_text]
-        # return {'block{}'.format(idx):text
-        #         for idx, text in enumerate(self._oem_text)}
-
-        # return ''.join([block for block in self._oem_text if block])
-
-
-class GroupMembershipRequestHandler:
-    """Request handler to request static and dynamic group membership of a module."""
-
-    def __init__(
-        self,
-        addr_conn: "ModuleConnection",
-        num_tries: int = 3,
-        timeout_msec: int = 1500,
-    ):
-        """Initialize class instance."""
-        self.addr_conn = addr_conn
-
-        self._static_groups: List[LcnAddr] = []
-        self._dynamic_groups: List[LcnAddr] = []
-
-        self.static_groups_trh = TimeoutRetryHandler(num_tries, timeout_msec)
-        self.static_groups_trh.set_timeout_callback(self.timeout_static_groups)
-        self.dynamic_groups_trh = TimeoutRetryHandler(num_tries, timeout_msec)
-        self.dynamic_groups_trh.set_timeout_callback(self.timeout_dynamic_groups)
-
-        # callback
-        addr_conn.register_for_inputs(self.process_input)
-
-        # events
-        self.static_groups_known = asyncio.Event()
-        self.dynamic_groups_known = asyncio.Event()
-
-    def process_input(self, inp: inputs.Input) -> None:
-        """Create a task to process the input object concurrently."""
-        asyncio.create_task(self.async_process_input(inp))
-
-    async def async_process_input(self, inp: inputs.Input) -> None:
-        """Process incoming input object.
-
-        Method to handle incoming commands for this specific request handler.
-        """
-        if isinstance(inp, inputs.ModStatusGroups):
-            if inp.dynamic:
-                self._dynamic_groups = inp.groups
-                self.dynamic_groups_known.set()
-                await self.cancel_dynamic_groups()
-            else:
-                self._static_groups = inp.groups
-                self.static_groups_known.set()
-                await self.cancel_static_groups()
-
-    async def timeout_static_groups(self, failed: bool = False) -> None:
-        """Is called on static group membership request timeout."""
-        if not failed:
-            await self.addr_conn.send_command(
-                False, PckGenerator.request_group_membership_static()
-            )
-        else:
-            self.static_groups_known.set()
-
-    async def timeout_dynamic_groups(self, failed: bool = False) -> None:
-        """Is called on dynamic group membership request timeout."""
-        if not failed:
-            await self.addr_conn.send_command(
-                False, PckGenerator.request_group_membership_dynamic()
-            )
-        else:
-            self.dynamic_groups_known.set()
-
-    async def request_static_groups(self) -> List[LcnAddr]:
-        """Request static group membership from a module."""
-        await self.addr_conn.conn.segment_scan_completed_event.wait()
-        self.static_groups_known.clear()
-        self.static_groups_trh.activate()
-        await self.static_groups_known.wait()
-        return self.static_groups
-
-    async def request_dynamic_groups(self) -> List[LcnAddr]:
-        """Request dynamic group membership from a module."""
-        await self.addr_conn.conn.segment_scan_completed_event.wait()
-        self.dynamic_groups_known.clear()
-        self.dynamic_groups_trh.activate()
-        await self.dynamic_groups_known.wait()
-        return self.dynamic_groups
-
-    async def request_groups(self) -> List[LcnAddr]:
-        """Request group memberships from a module."""
-        return [
-            group
-            for groups in await asyncio.gather(
-                self.request_static_groups(), self.request_dynamic_groups()
-            )
-            for group in groups
-        ]
-
-    async def cancel_static_groups(self) -> None:
-        """Cancel static groups request task."""
-        await self.static_groups_trh.cancel()
-
-    async def cancel_dynamic_groups(self) -> None:
-        """Cancel dynamic groups request task."""
-        await self.dynamic_groups_trh.cancel()
-
-    async def cancel(self) -> None:
-        """Cancel all group membership request tasks."""
-        await asyncio.gather(self.cancel_static_groups(), self.cancel_dynamic_groups())
-
-    @property
-    def static_groups(self) -> List[LcnAddr]:
-        """Return static groups."""
-        return self._static_groups
-
-    @property
-    def dynamic_groups(self) -> List[LcnAddr]:
-        """Return dynamic groups."""
-        return self._dynamic_groups
-
-    @property
-    def groups(self) -> List[LcnAddr]:
-        """Return static and dynamic groups."""
-        return [*self._static_groups, *self._dynamic_groups]
 
 
 class ModulePropertiesRequestHandler:
@@ -446,20 +68,21 @@ class ModulePropertiesRequestHandler:
         self.serials = SerialRequestHandler(
             addr_conn,
             num_tries,
-            timeout_msec=timeout_msec,
+            timeout_msec,
             software_serial=software_serial,
         )
 
-        # NameComment request
-        self.name_comment = NameCommentRequestHandler(
-            addr_conn,
-            num_tries,
-            timeout_msec=timeout_msec,
-        )
+        # Name, Comment, OemText requests
+        self.name = NameRequestHandler(addr_conn, num_tries, timeout_msec)
+        self.comment = CommentRequestHandler(addr_conn, num_tries, timeout_msec)
+        self.oem_text = OemTextRequestHandler(addr_conn, num_tries, timeout_msec)
 
         # Group membership request
-        self.groups = GroupMembershipRequestHandler(
-            addr_conn, num_tries, timeout_msec=timeout_msec
+        self.static_groups = GroupMembershipStaticRequestHandler(
+            addr_conn, num_tries, timeout_msec
+        )
+        self.dynamic_groups = GroupMembershipDynamicRequestHandler(
+            addr_conn, num_tries, timeout_msec
         )
 
     async def activate_all(self) -> None:
@@ -478,8 +101,11 @@ class ModulePropertiesRequestHandler:
             except asyncio.CancelledError:
                 pass
         await self.serials.cancel()
-        await self.name_comment.cancel()
-        await self.groups.cancel()
+        await self.name.cancel()
+        await self.comment.cancel()
+        await self.oem_text.cancel()
+        await self.static_groups.cancel()
+        await self.dynamic_groups.cancel()
 
 
 class StatusRequestsHandler:
@@ -1589,32 +1215,35 @@ class ModuleConnection(AbstractConnection):
     @property
     def name(self) -> str:
         """Return stored name."""
-        return self.properties_requests.name_comment.name
+        return self.properties_requests.name.name
 
     @property
     def comment(self) -> str:
         """Return stored comments."""
-        return self.properties_requests.name_comment.comment
+        return self.properties_requests.comment.comment
 
     @property
     def oem_text(self) -> List[str]:
         """Return stored OEM text."""
-        return self.properties_requests.name_comment.oem_text
+        return self.properties_requests.oem_text.oem_text
 
     @property
-    def static_groups(self) -> List[LcnAddr]:
+    def static_groups(self) -> Set[LcnAddr]:
         """Return static group membership."""
-        return self.properties_requests.groups.static_groups
+        return self.properties_requests.static_groups.groups
 
     @property
-    def dynamic_groups(self) -> List[LcnAddr]:
+    def dynamic_groups(self) -> Set[LcnAddr]:
         """Return dynamic group membership."""
-        return self.properties_requests.groups.dynamic_groups
+        return self.properties_requests.dynamic_groups.groups
 
     @property
-    def groups(self) -> List[LcnAddr]:
+    def groups(self) -> Set[LcnAddr]:
         """Return static and dynamic group membership."""
-        return self.properties_requests.groups.groups
+        return (
+            self.properties_requests.static_groups.groups
+            | self.properties_requests.dynamic_groups.groups
+        )
 
     # ## future properties
 
@@ -1625,24 +1254,28 @@ class ModuleConnection(AbstractConnection):
 
     async def request_name(self) -> str:
         """Request module name."""
-        return await self.properties_requests.name_comment.request_name()
+        return await self.properties_requests.name.request()
 
     async def request_comment(self) -> str:
         """Request comments from a module."""
-        return await self.properties_requests.name_comment.request_comment()
+        return await self.properties_requests.comment.request()
 
     async def request_oem_text(self) -> List[str]:
         """Request OEM text from a module."""
-        return await self.properties_requests.name_comment.request_oem_text()
+        return await self.properties_requests.oem_text.request()
 
-    async def request_static_groups(self) -> List[LcnAddr]:
+    async def request_static_groups(self) -> Set[LcnAddr]:
         """Request module static group memberships."""
-        return await self.properties_requests.groups.request_static_groups()
+        return set(await self.properties_requests.static_groups.request())
 
-    async def request_dynamic_groups(self) -> List[LcnAddr]:
+    async def request_dynamic_groups(self) -> Set[LcnAddr]:
         """Request module dynamic group memberships."""
-        return await self.properties_requests.groups.request_dynamic_groups()
+        return set(await self.properties_requests.dynamic_groups.request())
 
-    async def request_groups(self) -> List[LcnAddr]:
+    async def request_groups(self) -> Set[LcnAddr]:
         """Request module group memberships."""
-        return await self.properties_requests.groups.request_groups()
+        static_groups, dynamic_groups = await asyncio.gather(
+            self.properties_requests.static_groups.request(),
+            self.properties_requests.dynamic_groups.request(),
+        )
+        return static_groups | dynamic_groups
