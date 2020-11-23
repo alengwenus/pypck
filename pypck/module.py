@@ -15,7 +15,6 @@ Contributors:
 """
 
 import asyncio
-from asyncio import Task
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -45,67 +44,6 @@ from pypck.timeout_retry import TimeoutRetryHandler
 
 if TYPE_CHECKING:
     from pypck.connection import PchkConnectionManager
-
-
-class ModulePropertiesRequestHandler:
-    """Manages all property requestst for serial number, name, comments, ..."""
-
-    def __init__(
-        self, addr_conn: "ModuleConnection", software_serial: Optional[int] = None
-    ):
-        """Construct ModulePropertiesRequestHandler."""
-        self.addr_conn = addr_conn
-        self.settings = addr_conn.conn.settings
-
-        self.serial_request_task: Optional[
-            Task[Dict[str, Union[int, lcn_defs.HardwareType]]]
-        ] = None
-
-        num_tries: int = self.settings["NUM_TRIES"]
-        timeout_msec: int = self.settings["DEFAULT_TIMEOUT_MSEC"]
-
-        # Serial Number request
-        self.serials = SerialRequestHandler(
-            addr_conn,
-            num_tries,
-            timeout_msec,
-            software_serial=software_serial,
-        )
-
-        # Name, Comment, OemText requests
-        self.name = NameRequestHandler(addr_conn, num_tries, timeout_msec)
-        self.comment = CommentRequestHandler(addr_conn, num_tries, timeout_msec)
-        self.oem_text = OemTextRequestHandler(addr_conn, num_tries, timeout_msec)
-
-        # Group membership request
-        self.static_groups = GroupMembershipStaticRequestHandler(
-            addr_conn, num_tries, timeout_msec
-        )
-        self.dynamic_groups = GroupMembershipDynamicRequestHandler(
-            addr_conn, num_tries, timeout_msec
-        )
-
-    async def activate_all(self) -> None:
-        """Activate all properties requests."""
-        # software_serial is not given externally
-        await self.addr_conn.conn.segment_scan_completed_event.wait()
-        if self.serials.software_serial == -1:
-            self.serial_request_task = asyncio.create_task(self.serials.request())
-
-    async def cancel_all(self) -> None:
-        """Cancel all properties requests."""
-        if self.serial_request_task is not None:
-            self.serial_request_task.cancel()
-            try:
-                await self.serial_request_task
-            except asyncio.CancelledError:
-                pass
-        await self.serials.cancel()
-        await self.name.cancel()
-        await self.comment.cancel()
-        await self.oem_text.cancel()
-        await self.static_groups.cancel()
-        await self.dynamic_groups.cancel()
 
 
 class StatusRequestsHandler:
@@ -1071,14 +1009,36 @@ class ModuleConnection(AbstractConnection):
         # List of queued acknowledge codes from the LCN modules.
         self.acknowledges: "asyncio.Queue[int]" = asyncio.Queue()
 
-        self.properties_requests = ModulePropertiesRequestHandler(
-            self, software_serial=software_serial
-        )
-        self.status_requests = StatusRequestsHandler(self)
+        # RequestHandlers
+        num_tries: int = self.conn.settings["NUM_TRIES"]
+        timeout_msec: int = self.conn.settings["DEFAULT_TIMEOUT_MSEC"]
 
-        self.activate_prh_task = asyncio.create_task(
-            self.activate_properties_request_handlers()
+        # Serial Number request
+        self.serials_request_handler = SerialRequestHandler(
+            self,
+            num_tries,
+            timeout_msec,
+            software_serial=software_serial,
         )
+
+        # Name, Comment, OemText requests
+        self.name_request_handler = NameRequestHandler(self, num_tries, timeout_msec)
+        self.comment_request_handler = CommentRequestHandler(
+            self, num_tries, timeout_msec
+        )
+        self.oem_text_request_handler = OemTextRequestHandler(
+            self, num_tries, timeout_msec
+        )
+
+        # Group membership request
+        self.static_groups_request_handler = GroupMembershipStaticRequestHandler(
+            self, num_tries, timeout_msec
+        )
+        self.dynamic_groups_request_handler = GroupMembershipDynamicRequestHandler(
+            self, num_tries, timeout_msec
+        )
+
+        self.status_requests_handler = StatusRequestsHandler(self)
         if self.activate_status_requests:
             self.activate_srh_task = asyncio.create_task(
                 self.activate_status_request_handlers()
@@ -1133,39 +1093,33 @@ class ModuleConnection(AbstractConnection):
         """
         await self.acknowledges.put(code)
 
-    async def activate_properties_request_handlers(self) -> None:
-        """Activate all TimeoutRetryHandlers for property requests."""
-        await self.properties_requests.activate_all()
-
     async def activate_status_request_handler(self, item: Any) -> None:
         """Activate a specific TimeoutRetryHandler for status requests."""
-        await self.status_requests.activate(item)
+        await self.status_requests_handler.activate(item)
 
     async def activate_status_request_handlers(self) -> None:
         """Activate all TimeoutRetryHandlers for status requests."""
-        await self.status_requests.activate_all(activate_s0=self.has_s0_enabled)
-
-    async def cancel_properties_request_handlers(self) -> None:
-        """Canecl all TimeoutRetryHandlers for status requests."""
-        await self.properties_requests.cancel_all()
-        self.activate_prh_task.cancel()
-        await self.activate_prh_task
+        await self.status_requests_handler.activate_all(activate_s0=self.has_s0_enabled)
 
     async def cancel_status_request_handler(self, item: Any) -> None:
         """Cancel a specific TimeoutRetryHandler for status requests."""
-        await self.status_requests.cancel(item)
+        await self.status_requests_handler.cancel(item)
         if self.activate_status_requests:
             self.activate_srh_task.cancel()
             await self.activate_srh_task
 
     async def cancel_status_request_handlers(self) -> None:
         """Canecl all TimeoutRetryHandlers for status requests."""
-        await self.status_requests.cancel_all()
+        await self.status_requests_handler.cancel_all()
 
     async def cancel_requests(self) -> None:
         """Cancel all TimeoutRetryHandlers."""
         await self.cancel_status_request_handlers()
-        await self.cancel_properties_request_handlers()
+        await self.serials_request_handler.cancel()
+        await self.name_request_handler.cancel()
+        await self.oem_text_request_handler.cancel()
+        await self.static_groups_request_handler.cancel()
+        await self.dynamic_groups_request_handler.cancel()
 
     def set_s0_enabled(self, s0_enabled: bool) -> None:
         """Set the activation status for S0 variables.
@@ -1192,7 +1146,7 @@ class ModuleConnection(AbstractConnection):
 
         # handle typeless variable responses
         if isinstance(inp, inputs.ModStatusVar):
-            inp = self.status_requests.preprocess_modstatusvar(inp)
+            inp = self.status_requests_handler.preprocess_modstatusvar(inp)
 
         await super().async_process_input(inp)
 
@@ -1205,25 +1159,25 @@ class ModuleConnection(AbstractConnection):
     @property
     def hardware_serial(self) -> int:
         """Return hardware serial of module."""
-        return self.properties_requests.serials.hardware_serial
+        return self.serials_request_handler.hardware_serial
 
     @property
     def manu(self) -> int:
         """Return manufacturing of module."""
-        return self.properties_requests.serials.manu
+        return self.serials_request_handler.manu
 
     @property
     def software_serial(self) -> int:
         """Return software serial of module."""
-        return self.properties_requests.serials.software_serial
+        return self.serials_request_handler.software_serial
 
     @property
     def hardware_type(self) -> lcn_defs.HardwareType:
         """Return hardware type of module."""
-        return self.properties_requests.serials.hardware_type
+        return self.serials_request_handler.hardware_type
 
     @property
-    def serial(self) -> Tuple[int, int, int, lcn_defs.HardwareType]:
+    def serials(self) -> Tuple[int, int, int, lcn_defs.HardwareType]:
         """Return serials number information."""
         return (
             self.hardware_serial,
@@ -1235,67 +1189,68 @@ class ModuleConnection(AbstractConnection):
     @property
     def name(self) -> str:
         """Return stored name."""
-        return self.properties_requests.name.name
+        return self.name_request_handler.name
 
     @property
     def comment(self) -> str:
         """Return stored comments."""
-        return self.properties_requests.comment.comment
+        return self.comment_request_handler.comment
 
     @property
     def oem_text(self) -> List[str]:
         """Return stored OEM text."""
-        return self.properties_requests.oem_text.oem_text
+        return self.oem_text_request_handler.oem_text
 
     @property
     def static_groups(self) -> Set[LcnAddr]:
         """Return static group membership."""
-        return self.properties_requests.static_groups.groups
+        return self.static_groups_request_handler.groups
 
     @property
     def dynamic_groups(self) -> Set[LcnAddr]:
         """Return dynamic group membership."""
-        return self.properties_requests.dynamic_groups.groups
+        return self.dynamic_groups_request_handler.groups
 
     @property
     def groups(self) -> Set[LcnAddr]:
         """Return static and dynamic group membership."""
-        return (
-            self.properties_requests.static_groups.groups
-            | self.properties_requests.dynamic_groups.groups
-        )
+        return self.static_groups | self.dynamic_groups
 
     # ## future properties
 
     @property
     def serial_known(self) -> Awaitable[bool]:
         """Check if serials have already been received from module."""
-        return self.properties_requests.serials.serial_known.wait()
+        return self.serials_request_handler.serial_known.wait()
+
+    async def request_serials(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
+        """Request module serials."""
+        return await self.serials_request_handler.request()
 
     async def request_name(self) -> str:
         """Request module name."""
-        return await self.properties_requests.name.request()
+        return await self.name_request_handler.request()
 
     async def request_comment(self) -> str:
         """Request comments from a module."""
-        return await self.properties_requests.comment.request()
+        return await self.comment_request_handler.request()
 
     async def request_oem_text(self) -> List[str]:
         """Request OEM text from a module."""
-        return await self.properties_requests.oem_text.request()
+        return await self.oem_text_request_handler.request()
 
     async def request_static_groups(self) -> Set[LcnAddr]:
         """Request module static group memberships."""
-        return set(await self.properties_requests.static_groups.request())
+        return set(await self.static_groups_request_handler.request())
 
     async def request_dynamic_groups(self) -> Set[LcnAddr]:
         """Request module dynamic group memberships."""
-        return set(await self.properties_requests.dynamic_groups.request())
+        return set(await self.dynamic_groups_request_handler.request())
 
     async def request_groups(self) -> Set[LcnAddr]:
         """Request module group memberships."""
         static_groups, dynamic_groups = await asyncio.gather(
-            self.properties_requests.static_groups.request(),
-            self.properties_requests.dynamic_groups.request(),
+            self.static_groups_request_handler.request(),
+            self.dynamic_groups_request_handler.request(),
         )
         return static_groups | dynamic_groups

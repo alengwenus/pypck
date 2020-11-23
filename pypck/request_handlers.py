@@ -45,6 +45,7 @@ class RequestHandler:
 
     async def request(self) -> Any:
         """Request information from module."""
+        raise NotImplementedError()
 
     def process_input(self, inp: inputs.Input) -> None:
         """Create a task to process the input object concurrently."""
