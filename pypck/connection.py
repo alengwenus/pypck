@@ -162,10 +162,8 @@ class PchkConnection:
 
     async def async_close(self) -> None:
         """Close the active connection."""
-        if not (
-            self.read_data_loop_task is None
-            or asyncio.current_task() == self.read_data_loop_task
-        ):
+        if self.read_data_loop_task is not None:
+            # or asyncio.current_task() == self.read_data_loop_task
             await cancel(self.read_data_loop_task)
         if self.writer:
             self.writer.close()
@@ -249,6 +247,9 @@ class PchkConnectionManager(PchkConnection):
         # Tasks
         self.ping_task: Optional["asyncio.Task[None]"] = None
         self.read_data_loop_task: Optional["asyncio.Task[None]"] = None
+        self.request_serials_task: Optional[
+            "asyncio.Task[Dict[str, Union[int, lcn_defs.HardwareType]]]"
+        ] = None
 
         # Events, Futures, Locks for synchronization
         self.segment_scan_completed_event = asyncio.Event()
@@ -371,8 +372,10 @@ class PchkConnectionManager(PchkConnection):
     async def async_close(self) -> None:
         """Close the active connection."""
         await super().async_close()
-        if self.ping_task:
+        if self.ping_task is not None:
             await cancel(self.ping_task)
+        if self.request_serials_task is not None:
+            await cancel(self.request_serials_task)
         await self.cancel_requests()
         _LOGGER.debug("Connection to %s closed.", self.connection_id)
 
@@ -420,7 +423,7 @@ class PchkConnectionManager(PchkConnection):
         return self.segment_scan_completed_event.is_set()
 
     def get_address_conn(
-        self, addr: LcnAddr
+        self, addr: LcnAddr, request_serials: bool = True
     ) -> Union[ModuleConnection, GroupConnection]:
         """Create and/or return the given LCN module or group.
 
@@ -445,10 +448,14 @@ class PchkConnectionManager(PchkConnection):
         if address_conn is None:
             if addr.is_group:
                 address_conn = GroupConnection(self, addr)
+                self.address_conns[addr] = address_conn
             else:
                 address_conn = ModuleConnection(self, addr)
-
-            self.address_conns[addr] = address_conn
+                if request_serials:
+                    self.request_serials_task = asyncio.create_task(
+                        address_conn.request_serials()
+                    )
+                self.address_conns[addr] = address_conn
 
         return address_conn
 
