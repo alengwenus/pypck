@@ -343,17 +343,17 @@ class ModSn(ModInput):
     def __init__(
         self,
         physical_source_addr: LcnAddr,
-        serial: int,
+        hardware_serial: int,
         manu: int,
-        sw_age: int,
-        hw_type: lcn_defs.HardwareType,
+        software_serial: int,
+        hardware_type: lcn_defs.HardwareType,
     ):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
-        self.serial = serial
+        self.hardware_serial = hardware_serial
         self.manu = manu
-        self.sw_age = sw_age
-        self.hw_type = hw_type
+        self.software_serial = software_serial
+        self.hardware_type = hardware_type
 
     @staticmethod
     def try_parse(data: str) -> Optional[List[Input]]:
@@ -370,11 +370,11 @@ class ModSn(ModInput):
         matcher = PckParser.PATTERN_SN.match(data)
         if matcher:
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
-            serial = int(matcher.group("sn"), 16)
+            hardware_serial = int(matcher.group("hardware_serial"), 16)
             manu = int(matcher.group("manu"), 16)
-            sw_age = int(matcher.group("sw_age"), 16)
-            hw_type = lcn_defs.HardwareType(int(matcher.group("hw_type")))
-            return [ModSn(addr, serial, manu, sw_age, hw_type)]
+            software_serial = int(matcher.group("software_serial"), 16)
+            hardware_type = lcn_defs.HardwareType(int(matcher.group("hardware_type")))
+            return [ModSn(addr, hardware_serial, manu, software_serial, hardware_type)]
 
         return None
 

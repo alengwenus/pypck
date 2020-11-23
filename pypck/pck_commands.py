@@ -68,8 +68,9 @@ class PckParser:
 
     # Pattern to parse serial number and firmware date responses.
     PATTERN_SN = re.compile(
-        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.SN(?P<sn>[0-9|A-F]{10})"
-        r"(?P<manu>[0-9|A-F]{2})FW(?P<sw_age>[0-9|A-F]{6})HW(?P<hw_type>\d+)"
+        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.SN(?P<hardware_serial>[0-9|A-F]{10})"
+        r"(?P<manu>[0-9|A-F]{2})FW(?P<software_serial>[0-9|A-F]{6})"
+        r"HW(?P<hardware_type>\d+)"
     )
 
     # Pattern to parse module name and comment
@@ -374,18 +375,18 @@ class PckGenerator:
         return pck
 
     @staticmethod
-    def dim_all_outputs(percent: float, ramp: int, sw_age: int) -> str:
+    def dim_all_outputs(percent: float, ramp: int, software_serial: int) -> str:
         """Generate a dim command for all output-ports.
 
-        :param    float  percent:    Brightness in percent 0..100
-        :param    int    ramp:       Ramp value
-        :param    int    sw_age:     The expected firmware version of all
-                                     receiving modules.
+        :param    float  percent:           Brightness in percent 0..100
+        :param    int    ramp:              Ramp value
+        :param    int    software_serial:   The expected firmware version of all
+                                            receiving modules.
         :return:    The PCK command (without address header) as text
         :rtype:    str
         """
         percent_round = int(round(percent * 2))
-        if sw_age >= 0x180501:
+        if software_serial >= 0x180501:
             # Supported since LCN-PCHK 2.61
             pck = "OY{0:03d}{0:03d}{0:03d}{0:03d}{1:03d}".format(percent_round, ramp)
         elif percent_round == 0:  # All off
@@ -642,18 +643,18 @@ class PckGenerator:
         raise ValueError("Wrong variable type.")
 
     @staticmethod
-    def var_reset(var: lcn_defs.Var, sw_age: int) -> str:
+    def var_reset(var: lcn_defs.Var, software_serial: int) -> str:
         """Generate a command that resets a variable to 0.
 
-        :param    Var    var:    The target variable to set 0
-        :param    int    sw_age: The expected firmware version of all
-                                 receiving modules.
+        :param    Var    var:               The target variable to set 0
+        :param    int    software_serial:   The expected firmware version of all
+                                            receiving modules.
         :return:    The PCK command (without address header) as text
         :rtype:    str
         """
         var_id = lcn_defs.Var.to_var_id(var)
         if var_id != -1:
-            if sw_age >= 0x170206:
+            if software_serial >= 0x170206:
                 pck = "Z-{:03d}{:04d}".format(var_id + 1, 4090)
             else:
                 if var_id == 0:
@@ -678,16 +679,16 @@ class PckGenerator:
         var: lcn_defs.Var,
         rel_var_ref: lcn_defs.RelVarRef,
         value: int,
-        sw_age: int,
+        software_serial: int,
     ) -> str:
         """Generate a command to change the value of a variable.
 
-        :param    Var       var:         The target variable to change
-        :param    RelVarRef rel_var_ref: The reference-point
-        :param    int       value:       The native LCN value to add/subtract
-                                         (can be negative)
-        :param    int       sw_age:      The expected firmware version of all
-                                         receiving modules.
+        :param    Var       var:                The target variable to change
+        :param    RelVarRef rel_var_ref:        The reference-point
+        :param    int       value:              The native LCN value to add/subtract
+                                                (can be negative)
+        :param    int       software_serial:    The expected firmware version of all
+                                                receiving modules.
         :return:    The PCK command (without address header) as text
         :rtype:    str
         """
@@ -718,7 +719,7 @@ class PckGenerator:
         thrs_register_id = lcn_defs.Var.to_thrs_register_id(var)
         thrs_id = lcn_defs.Var.to_thrs_id(var)
         if (thrs_register_id != -1) and (thrs_id != -1):
-            if sw_age >= 0x170206:
+            if software_serial >= 0x170206:
                 # New command for registers 1-4 (since 170206, LCN-PCHK 2.8)
                 pck = "SS{:s}{:04d}{:s}R{:d}{:d}".format(
                     "R" if rel_var_ref == lcn_defs.RelVarRef.CURRENT else "E",
@@ -744,15 +745,15 @@ class PckGenerator:
         raise ValueError("Wrong variable type.")
 
     @staticmethod
-    def request_var_status(var: lcn_defs.Var, sw_age: int) -> str:
+    def request_var_status(var: lcn_defs.Var, software_serial: int) -> str:
         """Generate a variable value request.
 
-        :param    Var    var:    The variable to request
-        :param    int    swAge:  The target module's firmware version
+        :param    Var    var:               The variable to request
+        :param    int    software_serial:   The target module's firmware version
         :return:  The PCK command (without address header) as text
         :rtype:   str
         """
-        if sw_age >= 0x170206:
+        if software_serial >= 0x170206:
             var_id = lcn_defs.Var.to_var_id(var)
             if var_id != -1:
                 return "MWT{:03d}".format(var_id + 1)

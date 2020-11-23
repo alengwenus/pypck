@@ -95,10 +95,10 @@ class SerialRequestHandler(RequestHandler):
         Method to handle incoming commands for this specific request handler.
         """
         if isinstance(inp, inputs.ModSn):
-            self.hardware_serial = inp.serial
+            self.hardware_serial = inp.hardware_serial
             self.manu = inp.manu
-            self.software_serial = inp.sw_age
-            self.hardware_type = inp.hw_type
+            self.software_serial = inp.software_serial
+            self.hardware_type = inp.hardware_type
 
             self.serial_known.set()
             await self.cancel()
