@@ -157,7 +157,7 @@ async def test_module_sn_response(pchk_server, pypck_client):
     assert module.hardware_serial == 0x1AB20A1234
     assert module.manu == 1
     assert module.software_serial == 0x190B11
-    assert module.hw_type.value == 15
+    assert module.hardware_type.value == 15
 
 
 @pytest.mark.asyncio

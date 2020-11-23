@@ -529,7 +529,7 @@ class Var(Enum):
         return var not in [Var.S0INPUT1, Var.S0INPUT2, Var.S0INPUT3, Var.S0INPUT4]
 
     @staticmethod
-    def has_type_in_response(var: "Var", sw_age: int) -> bool:
+    def has_type_in_response(var: "Var", software_serial: int) -> bool:
         """Module-generation check.
 
         Check if the given variable type would receive a typed response if
@@ -542,7 +542,7 @@ class Var(Enum):
                     otherwise False
         :rtype:    bool
         """
-        if sw_age < 0x170206:
+        if software_serial < 0x170206:
             if var in [
                 Var.VAR1ORTVAR,
                 Var.VAR2ORR1VAR,
@@ -554,7 +554,7 @@ class Var(Enum):
         return True
 
     @staticmethod
-    def is_event_based(var: "Var", sw_age: int) -> bool:
+    def is_event_based(var: "Var", software_serial: int) -> bool:
         """Module-generation check.
 
         Check if the given variable type automatically sends status-updates
@@ -569,7 +569,7 @@ class Var(Enum):
         """
         if (Var.to_set_point_id(var) != -1) or (Var.to_s0_id(var) != -1):
             return True
-        return sw_age >= 0x170206
+        return software_serial >= 0x170206
 
     @staticmethod
     def should_poll_status_after_command(var: "Var", is2013: bool) -> bool:
@@ -604,7 +604,9 @@ class Var(Enum):
         return True
 
     @staticmethod
-    def should_poll_status_after_regulator_lock(sw_age: int, lock_state: int) -> bool:
+    def should_poll_status_after_regulator_lock(
+        software_serial: int, lock_state: int
+    ) -> bool:
         """Module-generation check.
 
         Check if the target LCN module would automatically send status-updates
@@ -619,7 +621,7 @@ class Var(Enum):
         """
         # LCN modules before 170206 will send an automatic status-message for
         # "lock", but not for "unlock"
-        return (not lock_state) and (sw_age < 0x170206)
+        return (not lock_state) and (software_serial < 0x170206)
 
 
 # Helper list to get var by numeric id.
@@ -1273,7 +1275,7 @@ class BeepSound(Enum):
     SPECIAL = "S"
 
 
-HARDWARE_NAMES = dict(
+HARDWARE_DESCRIPTIONS = dict(
     [
         (-1, "UnknownModuleType"),
         (1, "LCN-SW1.0"),
@@ -1341,14 +1343,14 @@ class HardwareType(Enum):
     SR6 = 30
 
     @property
-    def hw_id(self) -> Any:
-        """Get the LCN hardware id."""
+    def identifier(self) -> Any:
+        """Get the LCN hardware identifier."""
         return self.value
 
     @property
-    def hw_name(self) -> str:
+    def description(self) -> str:
         """Get the LCN hardware name."""
-        return HARDWARE_NAMES[self.value]
+        return HARDWARE_DESCRIPTIONS[self.value]
 
 
 @no_type_check

@@ -343,16 +343,15 @@ class AbstractConnection:
         self,
         conn: "PchkConnectionManager",
         addr: LcnAddr,
-        sw_age: Optional[int] = None,
+        software_serial: Optional[int] = None,
     ):
         """Construct AbstractConnection instance."""
         self.conn = conn
         self.addr = addr
 
-        self._sw_age: Optional[int] = sw_age
-        self._serial: Optional[int] = None
-        self._manu: Optional[int] = None
-        self._hw_type: Optional[int] = None
+        if software_serial is None:
+            software_serial = -1
+        self._software_serial: int = software_serial
 
         self.input_callbacks: List[Callable[[inputs.Input], None]] = []
 
@@ -371,9 +370,25 @@ class AbstractConnection:
         """Return whether this connection refers to a module or group."""
         return self.addr.is_group
 
-    def get_sw_age(self) -> Optional[int]:
-        """Return standard sw_age."""
-        return self._sw_age
+    @property
+    def hardware_serial(self) -> int:
+        """Get the hardware serial number."""
+        return -1
+
+    @property
+    def software_serial(self) -> int:
+        """Get the software serial number."""
+        return self._software_serial
+
+    @property
+    def manu(self) -> int:
+        """Get the manufacturing number."""
+        return -1
+
+    @property
+    def hardware_type(self) -> lcn_defs.HardwareType:
+        """Get the hardware type."""
+        return lcn_defs.HardwareType.UNKNOWN
 
     async def send_command(self, wants_ack: bool, pck: str) -> bool:
         """Send a command to the module represented by this class.
@@ -430,19 +445,19 @@ class AbstractConnection:
         )
 
     async def dim_all_outputs(
-        self, percent: float, ramp: int, sw_age: Optional[int] = None
+        self, percent: float, ramp: int, software_serial: Optional[int] = None
     ) -> bool:
         """Send a dim command for all output-ports.
 
-        :param    float  percent:    Brightness in percent 0..100
-        :param    int    ramp:       Ramp time in milliseconds.
-        :param    int    sw_age:     The minimum firmware version expected by
-                                     any receiving module.
+        :param    float  percent:           Brightness in percent 0..100
+        :param    int    ramp:              Ramp time in milliseconds.
+        :param    int    software_serial:   The minimum firmware version expected by
+                                            any receiving module.
 
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        swa = sw_age or (self._sw_age or 0)
+        swa = software_serial or (self.software_serial or 0)
         return await self.send_command(
             not self.is_group, PckGenerator.dim_all_outputs(percent, ramp, swa)
         )
@@ -674,7 +689,7 @@ class AbstractConnection:
         var: lcn_defs.Var,
         value_or_float: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
-        sw_age: Optional[int] = None,
+        software_serial: Optional[int] = None,
     ) -> bool:
         """Send a command to set the absolute value to a variable.
 
@@ -690,7 +705,7 @@ class AbstractConnection:
         else:
             value = lcn_defs.VarValue.from_var_unit(value_or_float, unit, True)
 
-        swa = sw_age or (self._sw_age or 0)
+        swa = software_serial or (self.software_serial or 0)
 
         if lcn_defs.Var.to_var_id(var) != -1:
             # Absolute commands for variables 1-12 are not supported
@@ -717,7 +732,9 @@ class AbstractConnection:
             not self.is_group, PckGenerator.var_abs(var, value.to_native())
         )
 
-    async def var_reset(self, var: lcn_defs.Var, sw_age: Optional[int] = None) -> bool:
+    async def var_reset(
+        self, var: lcn_defs.Var, software_serial: Optional[int] = None
+    ) -> bool:
         """Send a command to reset the variable value.
 
         :param    Var    var:    Variable
@@ -725,7 +742,7 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        swa = sw_age or (self._sw_age or 0)
+        swa = software_serial or (self.software_serial or 0)
         return await self.send_command(
             not self.is_group, PckGenerator.var_reset(var, swa)
         )
@@ -736,7 +753,7 @@ class AbstractConnection:
         value_or_float: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         value_ref: lcn_defs.RelVarRef = lcn_defs.RelVarRef.CURRENT,
-        sw_age: Optional[int] = None,
+        software_serial: Optional[int] = None,
     ) -> bool:
         """Send a command to change the value of a variable.
 
@@ -753,7 +770,7 @@ class AbstractConnection:
         else:
             value = lcn_defs.VarValue.from_var_unit(value_or_float, unit, True)
 
-        swa = sw_age or (self._sw_age or 0)
+        swa = software_serial or (self.software_serial or 0)
 
         return await self.send_command(
             not self.is_group,
@@ -936,18 +953,18 @@ class GroupConnection(AbstractConnection):
         self,
         conn: "PchkConnectionManager",
         addr: LcnAddr,
-        sw_age: int = 0x170206,
+        software_serial: int = 0x170206,
     ):
         """Construct GroupConnection instance."""
         assert addr.is_group
-        super().__init__(conn, addr, sw_age=sw_age)
+        super().__init__(conn, addr, software_serial=software_serial)
 
     async def var_abs(
         self,
         var: lcn_defs.Var,
         value: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
-        sw_age: Optional[int] = None,
+        software_serial: Optional[int] = None,
     ) -> bool:
         """Send a command to set the absolute value to a variable.
 
@@ -971,7 +988,9 @@ class GroupConnection(AbstractConnection):
         results = await asyncio.gather(*coros)
         return all(results)
 
-    async def var_reset(self, var: lcn_defs.Var, sw_age: Optional[int] = None) -> bool:
+    async def var_reset(
+        self, var: lcn_defs.Var, software_serial: Optional[int] = None
+    ) -> bool:
         """Send a command to reset the variable value.
 
         :param    Var    var:    Variable
@@ -995,7 +1014,7 @@ class GroupConnection(AbstractConnection):
         value: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         value_ref: lcn_defs.RelVarRef = lcn_defs.RelVarRef.CURRENT,
-        sw_age: Optional[int] = None,
+        software_serial: Optional[int] = None,
     ) -> bool:
         """Send a command to change the value of a variable.
 
@@ -1005,7 +1024,7 @@ class GroupConnection(AbstractConnection):
         :param     VarUnit    unit:     Unit of variable
         """
         coros = []
-        coros.append(super().var_rel(var, value, sw_age=0x170206))
+        coros.append(super().var_rel(var, value, software_serial=0x170206))
         if var in [
             lcn_defs.Var.TVAR,
             lcn_defs.Var.R1VAR,
@@ -1018,7 +1037,7 @@ class GroupConnection(AbstractConnection):
             lcn_defs.Var.THRS4,
             lcn_defs.Var.THRS5,
         ]:
-            coros.append(super().var_rel(var, value, sw_age=0))
+            coros.append(super().var_rel(var, value, software_serial=0))
         results = await asyncio.gather(*coros)
         return all(results)
 
@@ -1041,11 +1060,11 @@ class ModuleConnection(AbstractConnection):
         addr: LcnAddr,
         activate_status_requests: bool = False,
         has_s0_enabled: bool = False,
-        sw_age: Optional[int] = None,
+        software_serial: Optional[int] = None,
     ):
         """Construct ModuleConnection instance."""
         assert not addr.is_group
-        super().__init__(conn, addr, sw_age=sw_age)
+        super().__init__(conn, addr, software_serial=software_serial)
         self.activate_status_requests = activate_status_requests
         self.has_s0_enabled = has_s0_enabled
 
@@ -1053,7 +1072,7 @@ class ModuleConnection(AbstractConnection):
         self.acknowledges: "asyncio.Queue[int]" = asyncio.Queue()
 
         self.properties_requests = ModulePropertiesRequestHandler(
-            self, software_serial=sw_age
+            self, software_serial=software_serial
         )
         self.status_requests = StatusRequestsHandler(self)
 
@@ -1161,10 +1180,6 @@ class ModuleConnection(AbstractConnection):
         """Get the activation status for S0 variables."""
         return self.has_s0_enabled
 
-    def get_sw_age(self) -> int:
-        """Get the LCN module's firmware date."""
-        return self.properties_requests.serials.software_serial
-
     async def async_process_input(self, inp: inputs.Input) -> None:
         """Is called by input object's process method.
 
@@ -1203,14 +1218,19 @@ class ModuleConnection(AbstractConnection):
         return self.properties_requests.serials.software_serial
 
     @property
-    def hw_type(self) -> lcn_defs.HardwareType:
+    def hardware_type(self) -> lcn_defs.HardwareType:
         """Return hardware type of module."""
         return self.properties_requests.serials.hardware_type
 
     @property
     def serial(self) -> Tuple[int, int, int, lcn_defs.HardwareType]:
         """Return serials number information."""
-        return (self.hardware_serial, self.manu, self.software_serial, self.hw_type)
+        return (
+            self.hardware_serial,
+            self.manu,
+            self.software_serial,
+            self.hardware_type,
+        )
 
     @property
     def name(self) -> str:
