@@ -211,11 +211,11 @@ async def test_groups_static_membership_discovery(pchk_server, pypck_client):
     task = asyncio.create_task(module.request_static_groups())
     assert await pchk_server.received(">M000010.GP")
     await pchk_server.send_message("=M000010.GP012011200051")
-    assert await task == [
+    assert await task == {
         LcnAddr(0, 11, True),
         LcnAddr(0, 200, True),
         LcnAddr(0, 51, True),
-    ]
+    }
 
 
 @pytest.mark.asyncio
@@ -227,11 +227,11 @@ async def test_groups_dynamic_membership_discovery(pchk_server, pypck_client):
     task = asyncio.create_task(module.request_dynamic_groups())
     assert await pchk_server.received(">M000010.GD")
     await pchk_server.send_message("=M000010.GD008011200051")
-    assert await task == [
+    assert await task == {
         LcnAddr(0, 11, True),
         LcnAddr(0, 200, True),
         LcnAddr(0, 51, True),
-    ]
+    }
 
 
 @pytest.mark.asyncio
@@ -245,11 +245,11 @@ async def test_groups_membership_discovery(pchk_server, pypck_client):
     assert await pchk_server.received(">M000010.GD")
     await pchk_server.send_message("=M000010.GP012011200051")
     await pchk_server.send_message("=M000010.GD008015100052")
-    assert await task == [
+    assert await task == {
         LcnAddr(0, 11, True),
         LcnAddr(0, 200, True),
         LcnAddr(0, 51, True),
         LcnAddr(0, 15, True),
         LcnAddr(0, 100, True),
         LcnAddr(0, 52, True),
-    ]
+    }
