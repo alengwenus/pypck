@@ -361,7 +361,7 @@ class PchkConnectionManager(PchkConnection):
             for task in pending:
                 task.cancel()
             raise TimeoutError(
-                "Timeout error while connecting to {}.".format(self.connection_id)
+                f"Timeout error while connecting to {self.connection_id}."
             )
 
         # start segment scan
@@ -542,7 +542,7 @@ class PchkConnectionManager(PchkConnection):
         """Send pings."""
         assert self.writer is not None
         while not self.writer.is_closing():
-            await self.send_command("^ping{:d}".format(self.ping_counter), to_host=True)
+            await self.send_command(f"^ping{self.ping_counter:d}", to_host=True)
             self.ping_counter += 1
             await asyncio.sleep(self.settings["PING_TIMEOUT"])
 
