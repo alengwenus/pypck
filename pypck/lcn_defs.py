@@ -664,9 +664,9 @@ class VarUnit(Enum):
     """Measurement units used with LCN variables."""
 
     NATIVE = ""  # LCN internal representation (0 = -100C for absolute values)
-    CELSIUS = u"\u00b0C"
-    KELVIN = u"\u00b0K"
-    FAHRENHEIT = u"\u00b0F"
+    CELSIUS = "\u00b0C"
+    KELVIN = "\u00b0K"
+    FAHRENHEIT = "\u00b0F"
     LUX_T = "Lux_T"
     LUX_I = "Lux_I"
     METERPERSECOND = "m/s"  # Used for LCN-WIH wind speed
@@ -674,7 +674,7 @@ class VarUnit(Enum):
     PPM = "ppm"  # Used by CO2 sensor
     VOLT = "V"
     AMPERE = "A"
-    DEGREE = u"\u00b0"  # Used for angles,
+    DEGREE = "\u00b0"  # Used for angles,
 
     @staticmethod
     def parse(unit: str) -> "VarUnit":
@@ -685,11 +685,11 @@ class VarUnit(Enum):
         unit = unit.upper()
         if unit in ["", "NATIVE", "LCN"]:
             var_unit = VarUnit.NATIVE
-        elif unit in ["CELSIUS", u"\u00b0CELSIUS", u"\u00b0C"]:
+        elif unit in ["CELSIUS", "\u00b0CELSIUS", "\u00b0C"]:
             var_unit = VarUnit.CELSIUS
-        elif unit in ["KELVIN", u"\u00b0KELVIN", u"\u00b0K", "K"]:
+        elif unit in ["KELVIN", "\u00b0KELVIN", "\u00b0K", "K"]:
             var_unit = VarUnit.KELVIN
-        elif unit in ["FAHRENHEIT", u"\u00b0FAHRENHEIT", u"\u00b0F"]:
+        elif unit in ["FAHRENHEIT", "\u00b0FAHRENHEIT", "\u00b0F"]:
             var_unit = VarUnit.FAHRENHEIT
         elif unit in ["LUX_T", "LX_T"]:
             var_unit = VarUnit.LUX_T
@@ -705,7 +705,7 @@ class VarUnit(Enum):
             var_unit = VarUnit.VOLT
         elif unit in ["AMPERE", "AMP", "A"]:
             var_unit = VarUnit.AMPERE
-        elif unit in ["DEGREE", u"\u00b0"]:
+        elif unit in ["DEGREE", "\u00b0"]:
             var_unit = VarUnit.DEGREE
         else:
             raise ValueError("Bad input unit.")
@@ -1119,41 +1119,41 @@ class VarValue:
                 else self.native_value
             )
             if unit == VarUnit.NATIVE:
-                ret = "{:.0f}".format(var.to_native())
+                ret = f"{var.to_native():.0f}"
             elif unit == VarUnit.CELSIUS:
-                ret = "{:.01f}".format(var.to_celsius())
+                ret = f"{var.to_celsius():.01f}"
             elif unit == VarUnit.KELVIN:
-                ret = "{:.01f}".format(var.to_kelvin())
+                ret = f"{var.to_kelvin():.01f}"
             elif unit == VarUnit.FAHRENHEIT:
-                ret = "{:.01f}".format(var.to_fahrenheit())
+                ret = f"{var.to_fahrenheit():.01f}"
             elif unit == VarUnit.LUX_T:
                 if var.to_native() > 1152:  # Max. value the HW can do
                     ret = "---"
                 else:
-                    ret = "{:.0f}".format(var.to_lux_t())
+                    ret = f"{var.to_lux_t():.0f}"
             elif unit == VarUnit.LUX_I:
                 if var.to_native() > 1152:  # Max. value the HW can do
                     ret = "---"
                 else:
-                    ret = "{:.0f}".format(var.to_lux_i())
+                    ret = f"{var.to_lux_i():.0f}"
             elif unit == VarUnit.METERPERSECOND:
-                ret = "{:.0f}".format(var.to_meters_per_second())
+                ret = f"{var.to_meters_per_second():.0f}"
             elif unit == VarUnit.PERCENT:
-                ret = "{:.0f}".format(var.to_percent())
+                ret = f"{var.to_percent():.0f}"
             elif unit == VarUnit.PPM:
-                ret = "{:.0f}".format(var.to_ppm())
+                ret = f"{var.to_ppm():.0f}"
             elif unit == VarUnit.VOLT:
-                ret = "{:.0f}".format(var.to_volt())
+                ret = f"{var.to_volt():.0f}"
             elif unit == VarUnit.AMPERE:
-                ret = "{:.0f}".format(var.to_ampere())
+                ret = f"{var.to_ampere():.0f}"
             elif unit == VarUnit.DEGREE:
-                ret = "{:.0f}".format(var.to_degree())
+                ret = f"{var.to_degree():.0f}"
             else:
                 raise ValueError("Wrong unit.")
 
         # handle locked regulators
         if is_lockable_regulator_source and self.is_locked_regulator():
-            ret = "({:s})".format(ret)
+            ret = f"({ret:s})"
 
         return ret
 

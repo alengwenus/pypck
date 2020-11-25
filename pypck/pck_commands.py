@@ -218,7 +218,7 @@ class PckGenerator:
         :return:    The PCK command as text
         :rtype:    str
         """
-        return "^ping{:d}".format(counter)
+        return f"^ping{counter:d}"
 
     @staticmethod
     def set_dec_mode() -> str:
@@ -390,9 +390,9 @@ class PckGenerator:
             # Supported since LCN-PCHK 2.61
             pck = "OY{0:03d}{0:03d}{0:03d}{0:03d}{1:03d}".format(percent_round, ramp)
         elif percent_round == 0:  # All off
-            pck = "AA{:03d}".format(ramp)
+            pck = f"AA{ramp:03d}"
         elif percent_round == 200:  # All on
-            pck = "AE{:03d}".format(ramp)
+            pck = f"AE{ramp:03d}"
         else:
             # This is our worst-case: No high-res, no ramp
             pck = "AH{:03d}".format(int(percent_round / 2))
@@ -449,7 +449,7 @@ class PckGenerator:
         :return:    The PCK command (without address header) as text
         :rtype:    str
         """
-        return "AU{:03d}".format(ramp)
+        return f"AU{ramp:03d}"
 
     @staticmethod
     def request_relays_status() -> str:
@@ -494,7 +494,7 @@ class PckGenerator:
         if len(states) != 8:
             raise ValueError("Invalid states length.")
         value = lcn_defs.time_to_native_value(time_msec)
-        ret = "R8T{:03d}".format(value)
+        ret = f"R8T{value:03d}"
         for state in states:
             assert state in (
                 lcn_defs.RelayStateModifier.ON,
@@ -636,7 +636,7 @@ class PckGenerator:
             x2cmd = var_id | 0x40
             byte1 = (value >> 8) & 0xFF
             byte2 = value & 0xFF
-            return "X2{:03d}{:03d}{:03d}".format(x2cmd, byte1, byte2)
+            return f"X2{x2cmd:03d}{byte1:03d}{byte2:03d}"
 
         # Setting variables and thresholds absolute not implemented in LCN
         # firmware yet
@@ -865,7 +865,7 @@ class PckGenerator:
         except IndexError as exc:
             raise ValueError("Wrong table_id.") from exc
 
-        ret += "{:03d}".format(time)
+        ret += f"{time:03d}"
         if time_unit == lcn_defs.TimeUnit.SECONDS:
             if (time < 1) or (time > 60):
                 raise ValueError("Wrong time.")
@@ -939,7 +939,7 @@ class PckGenerator:
         """
         if len(keys) != 8:
             raise ValueError("Wrong keys length.")
-        ret = "TXZA{:03d}".format(time)
+        ret = f"TXZA{time:03d}"
 
         if time_unit == lcn_defs.TimeUnit.SECONDS:
             if (time < 1) or (time > 60):
@@ -1016,7 +1016,7 @@ class PckGenerator:
         """
         if (register_id < 0) or (register_id > 9):
             raise ValueError("Wrong register_id.")
-        return "SZW{:03d}".format(register_id)
+        return f"SZW{register_id:03d}"
 
     @staticmethod
     def store_scene_outputs_direct(
@@ -1114,9 +1114,9 @@ class PckGenerator:
         else:
             action = "A"
         if ramp is None:
-            pck = "SZ{:s}{:1d}{:03d}".format(action, output_mask, scene_id)
+            pck = f"SZ{action:s}{output_mask:1d}{scene_id:03d}"
         else:
-            pck = "SZ{:s}{:1d}{:03d}{:03d}".format(action, output_mask, scene_id, ramp)
+            pck = f"SZ{action:s}{output_mask:1d}{scene_id:03d}{ramp:03d}"
         return pck
 
     @staticmethod
@@ -1183,7 +1183,7 @@ class PckGenerator:
             raise ValueError("Wrong register_id.")
         if (scene_id < 0) or (scene_id > 9):
             raise ValueError("Wrong scene_id.")
-        return "SZR{:03d}{:03d}".format(register_id, scene_id)
+        return f"SZR{register_id:03d}{scene_id:03d}"
 
     @staticmethod
     def beep(sound: lcn_defs.BeepSound, count: int) -> str:
@@ -1196,7 +1196,7 @@ class PckGenerator:
         """
         if (count < 1) or (count > 15):
             raise ValueError("Wrong number of beeps.")
-        return "PI{:s}{:03d}".format(sound.value, count)
+        return f"PI{sound.value:s}{count:03d}"
 
     @staticmethod
     def empty() -> str:

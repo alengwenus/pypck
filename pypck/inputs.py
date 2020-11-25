@@ -846,7 +846,7 @@ class ModStatusKeyLocks(ModInput):
         if matcher:
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             for i in range(4):
-                state = matcher.group("table{:d}".format(i))
+                state = matcher.group(f"table{i:d}")
                 if state is not None:
                     states.append(PckParser.get_boolean_value(int(state)))
             return [ModStatusKeyLocks(addr, states)]
