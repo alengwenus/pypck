@@ -117,10 +117,10 @@ class SerialRequestHandler(RequestHandler):
         self.serial_known.clear()
         self.trh.activate()
         await self.serial_known.wait()
-        return self.serial
+        return self.serials
 
     @property
-    def serial(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
+    def serials(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
         """Return serial numbers of a module."""
         return {
             "hardware_serial": self.hardware_serial,

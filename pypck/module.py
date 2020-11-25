@@ -25,8 +25,8 @@ from typing import (
     Optional,
     Sequence,
     Set,
-    Tuple,
     Union,
+    cast,
 )
 
 from pypck import inputs, lcn_defs
@@ -84,24 +84,45 @@ class AbstractConnection:
         return self.addr.is_group
 
     @property
+    def serials(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
+        """Return serial numbers of a module."""
+        return {
+            "hardware_serial": -1,
+            "manu": -1,
+            "software_serial": self._software_serial,
+            "hardware_type": lcn_defs.HardwareType.UNKNOWN,
+        }
+
+    @property
     def hardware_serial(self) -> int:
         """Get the hardware serial number."""
-        return -1
+        return cast(int, self.serials["hardware_serial"])
 
     @property
     def software_serial(self) -> int:
         """Get the software serial number."""
-        return self._software_serial
+        return cast(int, self.serials["software_serial"])
 
     @property
     def manu(self) -> int:
         """Get the manufacturing number."""
-        return -1
+        return cast(int, self.serials["manu"])
 
     @property
     def hardware_type(self) -> lcn_defs.HardwareType:
         """Get the hardware type."""
-        return lcn_defs.HardwareType.UNKNOWN
+        return cast(lcn_defs.HardwareType, self.serials["hardware_type"])
+
+    @property
+    def serial_known(self) -> Awaitable[bool]:
+        """Check if serials have already been received from module."""
+        event = asyncio.Event()
+        event.set()
+        return event.wait()
+
+    async def request_serials(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
+        """Request module serials."""
+        return self.serials
 
     async def send_command(self, wants_ack: bool, pck: str) -> bool:
         """Send a command to the module represented by this class.
@@ -170,9 +191,13 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        swa = software_serial or (self.software_serial or 0)
+        if software_serial is None:
+            await self.serial_known
+            software_serial = self.software_serial
+
         return await self.send_command(
-            not self.is_group, PckGenerator.dim_all_outputs(percent, ramp, swa)
+            not self.is_group,
+            PckGenerator.dim_all_outputs(percent, ramp, software_serial),
         )
 
     async def rel_output(self, output_id: int, percent: float) -> bool:
@@ -418,7 +443,9 @@ class AbstractConnection:
         else:
             value = lcn_defs.VarValue.from_var_unit(value_or_float, unit, True)
 
-        swa = software_serial or (self.software_serial or 0)
+        if software_serial is None:
+            await self.serial_known
+            software_serial = self.software_serial
 
         if lcn_defs.Var.to_var_id(var) != -1:
             # Absolute commands for variables 1-12 are not supported
@@ -431,14 +458,14 @@ class AbstractConnection:
             # We fake the missing command by using reset and relative
             # commands.
             success = await self.send_command(
-                not self.is_group, PckGenerator.var_reset(var, swa)
+                not self.is_group, PckGenerator.var_reset(var, software_serial)
             )
             if not success:
                 return False
             return await self.send_command(
                 not self.is_group,
                 PckGenerator.var_rel(
-                    var, lcn_defs.RelVarRef.CURRENT, value.to_native(), swa
+                    var, lcn_defs.RelVarRef.CURRENT, value.to_native(), software_serial
                 ),
             )
         return await self.send_command(
@@ -455,9 +482,12 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        swa = software_serial or (self.software_serial or 0)
+        if software_serial is None:
+            await self.serial_known
+            software_serial = self.software_serial
+
         return await self.send_command(
-            not self.is_group, PckGenerator.var_reset(var, swa)
+            not self.is_group, PckGenerator.var_reset(var, software_serial)
         )
 
     async def var_rel(
@@ -483,11 +513,13 @@ class AbstractConnection:
         else:
             value = lcn_defs.VarValue.from_var_unit(value_or_float, unit, True)
 
-        swa = software_serial or (self.software_serial or 0)
+        if software_serial is None:
+            await self.serial_known
+            software_serial = self.software_serial
 
         return await self.send_command(
             not self.is_group,
-            PckGenerator.var_rel(var, value_ref, value.to_native(), swa),
+            PckGenerator.var_rel(var, value_ref, value.to_native(), software_serial),
         )
 
     async def lock_regulator(self, reg_id: int, state: bool) -> bool:
@@ -932,34 +964,9 @@ class ModuleConnection(AbstractConnection):
     # ## properties
 
     @property
-    def hardware_serial(self) -> int:
-        """Return hardware serial of module."""
-        return self.serials_request_handler.hardware_serial
-
-    @property
-    def manu(self) -> int:
-        """Return manufacturing of module."""
-        return self.serials_request_handler.manu
-
-    @property
-    def software_serial(self) -> int:
-        """Return software serial of module."""
-        return self.serials_request_handler.software_serial
-
-    @property
-    def hardware_type(self) -> lcn_defs.HardwareType:
-        """Return hardware type of module."""
-        return self.serials_request_handler.hardware_type
-
-    @property
-    def serials(self) -> Tuple[int, int, int, lcn_defs.HardwareType]:
+    def serials(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
         """Return serials number information."""
-        return (
-            self.hardware_serial,
-            self.manu,
-            self.software_serial,
-            self.hardware_type,
-        )
+        return self.serials_request_handler.serials
 
     @property
     def name(self) -> str:
