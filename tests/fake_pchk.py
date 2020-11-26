@@ -128,7 +128,7 @@ class PchkServer:
 
     async def process_data(self, data):
         """Process incoming data."""
-        self.data_received.append(data.decode())
+        self.data_received.append(data)
         if data == b"!CHD":
             self.writer.write(b"(dec-mode)" + self.separator)
             await self.writer.drain()
@@ -146,8 +146,13 @@ class PchkServer:
             if remove:
                 self.data_received.remove(data)
 
+        if isinstance(message, str):
+            data = message.encode()
+        else:
+            data = message
+
         try:
-            await asyncio.wait_for(receive_loop(message, remove), timeout=timeout)
+            await asyncio.wait_for(receive_loop(data, remove), timeout=timeout)
             return True
         except asyncio.TimeoutError:
             return False

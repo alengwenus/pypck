@@ -137,7 +137,7 @@ class PchkConnection:
             message = data.decode().split(PckGenerator.TERMINATION)[0]
             await self.process_message(message)
 
-    async def send_command(self, pck: str, **kwargs: Any) -> bool:
+    async def send_command(self, pck: Union[bytes, str], **kwargs: Any) -> bool:
         """Send a PCK command to the PCHK server.
 
         :param    str    pck:    PCK command
@@ -145,7 +145,11 @@ class PchkConnection:
         assert self.writer is not None
         if not self.writer.is_closing():
             _LOGGER.debug("to %s: %s", self.connection_id, pck)
-            self.writer.write((pck + PckGenerator.TERMINATION).encode())
+            if isinstance(pck, str):
+                data = (pck + PckGenerator.TERMINATION).encode()
+            else:
+                data = pck + PckGenerator.TERMINATION.encode()
+            self.writer.write(data)
             await self.writer.drain()
             return True
         return False
@@ -281,7 +285,7 @@ class PchkConnectionManager(PchkConnection):
         return None
 
     async def send_command(
-        self, pck: str, to_host: bool = False, **kwargs: Any
+        self, pck: Union[bytes, str], to_host: bool = False, **kwargs: Any
     ) -> bool:
         """Send a PCK command to the PCHK server.
 

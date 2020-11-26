@@ -124,18 +124,18 @@ class AbstractConnection:
         """Request module serials."""
         return self.serials
 
-    async def send_command(self, wants_ack: bool, pck: str) -> bool:
+    async def send_command(self, wants_ack: bool, pck: Union[str, bytes]) -> bool:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
         :param    str     pck:          PCK command (without header).
         """
-        return await self.conn.send_command(
-            PckGenerator.generate_address_header(
-                self.addr, self.conn.local_seg_id, wants_ack
-            )
-            + pck
+        header = PckGenerator.generate_address_header(
+            self.addr, self.conn.local_seg_id, wants_ack
         )
+        if isinstance(pck, str):
+            return await self.conn.send_command(header + pck)
+        return await self.conn.send_command(header.encode() + pck)
 
     # ##
     # ## Methods for handling input objects
@@ -637,6 +637,16 @@ class AbstractConnection:
             PckGenerator.lock_keys_tab_a_temporary(delay_time, delay_unit, states),
         )
 
+    async def clear_dyn_text(self, row_id: int) -> bool:
+        """Clear previously sent dynamic text.
+
+        :param    int    row_id:    Row id 0..3
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.dyn_text(row_id, "")
+
     async def dyn_text(self, row_id: int, text: str) -> bool:
         """Send dynamic text to a module.
 
@@ -650,13 +660,12 @@ class AbstractConnection:
         coros = []
         parts = [encoded_text[12 * part : 12 * part + 12] for part in range(5)]
         for part_id, part in enumerate(parts):
-            if part:
-                coros.append(
-                    self.send_command(
-                        not self.is_group,
-                        PckGenerator.dyn_text_part(row_id, part_id, part),
-                    )
+            coros.append(
+                self.send_command(
+                    not self.is_group,
+                    PckGenerator.dyn_text_part(row_id, part_id, part),
                 )
+            )
         results = await asyncio.gather(*coros)
         return all(results)
 
@@ -851,7 +860,7 @@ class ModuleConnection(AbstractConnection):
                 self.activate_status_request_handlers()
             )
 
-    async def send_command(self, wants_ack: bool, pck: str) -> bool:
+    async def send_command(self, wants_ack: bool, pck: Union[str, bytes]) -> bool:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
@@ -866,7 +875,7 @@ class ModuleConnection(AbstractConnection):
     # ## Retry logic if an acknowledge is requested
     # ##
 
-    async def send_command_with_ack(self, pck: str) -> bool:
+    async def send_command_with_ack(self, pck: Union[str, bytes]) -> bool:
         """Send a PCK command and ensure receiving of an acknowledgement.
 
         Resends the PCK command if no acknowledgement has been received

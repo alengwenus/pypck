@@ -431,6 +431,23 @@ COMMANDS = {
             RelayPort.RELAY7,
         ),
     ),
+    # dynamic text
+    **{
+        f"GTDT{row+1:d}{part+1:d}asdfasdfasdf".encode(): (
+            PckGenerator.dyn_text_part,
+            row,
+            part,
+            b"asdfasdfasdf",
+        )
+        for row in range(4)
+        for part in range(5)
+    },
+    b"GTDT45\xff\xfe\x80\x34\xdd\xcc\xaa\xbf\x00\xac": (
+        PckGenerator.dyn_text_part,
+        3,
+        4,
+        b"\xff\xfe\x80\x34\xdd\xcc\xaa\xbf\x00\xac",
+    ),
 }
 
 
