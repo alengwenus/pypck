@@ -1,6 +1,7 @@
 """Tests for command generation directed at bus modules and groups."""
 
 import pytest
+from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import (
     BeepSound,
     KeyLockStateModifier,
@@ -8,6 +9,8 @@ from pypck.lcn_defs import (
     MotorReverseTime,
     MotorStateModifier,
     OutputPort,
+    OutputPortDimMode,
+    OutputPortStatusMode,
     RelayPort,
     RelayStateModifier,
     RelVarRef,
@@ -20,6 +23,40 @@ from pypck.pck_commands import PckGenerator
 NEW_VAR_SW_AGE = 0x170206
 
 COMMANDS = {
+    # Host commands
+    **{
+        f"^ping{counter:d}": (PckGenerator.ping, counter)
+        for counter in (1, 10, 100, 1000, 10000)
+    },
+    "!CHD": (PckGenerator.set_dec_mode,),
+    **{
+        f"!OM{dim_mode.value:d}{status_mode.value:s}": (
+            PckGenerator.set_operation_mode,
+            dim_mode,
+            status_mode,
+        )
+        for dim_mode in OutputPortDimMode
+        for status_mode in OutputPortStatusMode
+    },
+    # Command address header
+    **{
+        f">{addr_type:s}{seg_id:03d}{addr_id:03d}{separator:s}": (
+            PckGenerator.generate_address_header,
+            LcnAddr(seg_id, addr_id, addr_type == "G"),
+            0,
+            separator == "!",
+        )
+        for seg_id in (0, 5, 10, 100)
+        for addr_id in (5, 10, 100)
+        for addr_type in ("G", "M")
+        for separator in ("!", ".")
+    },
+    ">M000021.": (
+        PckGenerator.generate_address_header,
+        LcnAddr(7, 21, False),
+        7,
+        False,
+    ),
     # Other module commands
     "LEER": (PckGenerator.empty,),
     **{
