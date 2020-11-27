@@ -1,6 +1,8 @@
-# pypck
+# pypck - Asynchronous LCN-PCK library written in Python
 
-Open source LCN-PCK library written in Python
+![ci](https://github.com/alengwenus/pypck/workflows/CI/badge.svg?branch=dev)
+[![codecov](https://codecov.io/gh/alengwenus/pypck/branch/dev/graph/badge.svg?token=XX9Y0AOOHZ)](https://codecov.io/gh/alengwenus/pypck)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
 ## Overview
 
@@ -36,10 +38,9 @@ async def main():
 asyncio.run(main())
 ```
 
-
 ## pypck REPL in ipython
 
-**pypck** relies heavily on asyncio for talking to the LCN-PCHK software.  This
+**pypck** relies heavily on asyncio for talking to the LCN-PCHK software. This
 makes it unusable with the standard python interactive interpreter.
 Fortunately, ipython provides some support for asyncio in its interactive
 interpreter, see
@@ -83,10 +84,10 @@ Out[6]: True
 ### Caveats
 
 ipython starts and stops the asyncio event loop for each toplevel command
-sequence.  Also it only starts the loop if the toplevel commands includes async
-code (like await or a call to an async function).  This can lead to unexpected
-behavior.  For example, background tasks run only while ipython is executing
-toplevel commands that started the event loop.  Functions that use the event
+sequence. Also it only starts the loop if the toplevel commands includes async
+code (like await or a call to an async function). This can lead to unexpected
+behavior. For example, background tasks run only while ipython is executing
+toplevel commands that started the event loop. Functions that use the event
 loop only internally may fail, e.g. the following would fail:
 
 ```
