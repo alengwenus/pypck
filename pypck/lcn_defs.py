@@ -164,8 +164,8 @@ class OutputPortDimMode(Enum):
     Since LCN-PCHK doesn't know the current mode, it must explicitly be set.
     """
 
-    STEPS50 = auto()  # 0..50 dimming steps (all LCN module generations)
-    STEPS200 = auto()  # 0..200 dimming steps (since 170206)
+    STEPS50 = 0  # 0..50 dimming steps (all LCN module generations)
+    STEPS200 = 1  # 0..200 dimming steps (since 170206)
 
 
 class OutputPortStatusMode(Enum):
@@ -177,8 +177,8 @@ class OutputPortStatusMode(Enum):
     though.
     """
 
-    PERCENT = auto()  # Default (compatible with all versions of LCN-PCHK)
-    NATIVE = auto()  # 0..200 steps (since LCN-PCHK 2.3)
+    PERCENT = "P"  # Default (compatible with all versions of LCN-PCHK)
+    NATIVE = "N"  # 0..200 steps (since LCN-PCHK 2.3)
 
 
 def time_to_ramp_value(time_msec: int) -> int:
