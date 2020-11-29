@@ -31,6 +31,20 @@ repos:
     rev: v0.790
     hooks:
       - id: mypy
+        name: mypy pypck
         args:
           - --strict
         files: ^(pypck)/.+\.py$
+      - id: mypy
+        name: mypy tests
+        args:
+          - --strict
+          - --allow-untyped-defs
+        files: ^(tests)/.+\.py$
+        # Need to enumerate the deps with type hints since requirements.txt is
+        # not read by pre-commit
+        additional_dependencies:
+          - pytest==6.1.2
+          - pytest-cov==2.10.1
+          - pytest-timeout==1.4.2
+          - pytest-asyncio==0.14.0
