@@ -1012,7 +1012,7 @@ class Unknown(Input):
         self._data = data
 
     @staticmethod
-    def try_parse(data: str) -> Optional[List[Input]]:
+    def try_parse(data: str) -> List[Input]:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -1066,7 +1066,7 @@ class InputParser:
     ]
 
     @staticmethod
-    def parse(data: str) -> Optional[List[Input]]:
+    def parse(data: str) -> List[Input]:
         """Parse all input objects for given input data.
 
         :param    str    data:    The input data received from LCN-PCHK
@@ -1079,4 +1079,6 @@ class InputParser:
             if ret is not None:
                 return ret
 
-        return None
+        # We must never get to this point since the Unknown parser matches
+        # everything.
+        assert False
