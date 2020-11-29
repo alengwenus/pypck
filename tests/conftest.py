@@ -1,9 +1,10 @@
 """Core testing functionality."""
 
 import asyncio
-
+from typing import Any, AsyncGenerator, List
 import pytest
 from pypck.connection import PchkConnectionManager
+from pypck.module import ModuleConnection
 from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
 
@@ -16,22 +17,24 @@ PASSWORD = "lcn_password"
 
 
 class MockPchkConnectionManager(PchkConnectionManager):
-    """Mock the PchkCOnnectionManager."""
+    """Mock the PchkConnectionManager."""
 
-    def __init__(self, *args, **kwargs):
-        """Construct mock for PchkCOnnectionManager."""
-        self.data_received = []
+    def __init__(self, *args: Any, **kwargs: Any):
+        """Construct mock for PchkConnectionManager."""
+        self.data_received: List[str] = []
         super().__init__(*args, **kwargs)
 
-    async def process_message(self, message):
+    async def process_message(self, message: str) -> None:
         """Process incoming message."""
         await super().process_message(message)
         self.data_received.append(message)
 
-    async def received(self, message, timeout=5, remove=True):
+    async def received(
+        self, message: str, timeout: int = 5, remove: bool = True
+    ) -> bool:
         """Return if given message was received."""
 
-        async def receive_loop(data, remove):
+        async def receive_loop(data: str, remove: bool) -> None:
             while data not in self.data_received:
                 await asyncio.sleep(0.05)
             if remove:
@@ -44,13 +47,13 @@ class MockPchkConnectionManager(PchkConnectionManager):
             return False
 
 
-def encode_pck(pck):
+def encode_pck(pck: str) -> bytes:
     """Encode the given PCK string as PCK binary string."""
     return (pck + PckGenerator.TERMINATION).encode()
 
 
 @pytest.fixture
-async def pchk_server():
+async def pchk_server() -> AsyncGenerator[PchkServer, None]:
     """Create a fake PchkServer and run."""
     pchk_server = PchkServer(host=HOST, port=PORT, username=USERNAME, password=PASSWORD)
     await pchk_server.run()
@@ -59,7 +62,7 @@ async def pchk_server():
 
 
 @pytest.fixture
-async def pypck_client():
+async def pypck_client() -> AsyncGenerator[PchkConnectionManager, None]:
     """Create a PchkConnectionManager for testing.
 
     Create a PchkConnection Manager for testing. Add a received coroutine method
@@ -73,9 +76,12 @@ async def pypck_client():
 
 
 @pytest.fixture
-async def module10(pypck_client):
+async def module10(
+    pypck_client: PchkConnectionManager,
+) -> AsyncGenerator[ModuleConnection, None]:
     """Create test module with addr_id 10."""
     lcn_addr = LcnAddr(0, 10, False)
-    address_connection = pypck_client.get_address_conn(lcn_addr)
-    yield address_connection
-    await address_connection.cancel_requests()
+    module = pypck_client.get_address_conn(lcn_addr)
+    assert isinstance(module, ModuleConnection)
+    yield module
+    await module.cancel_requests()

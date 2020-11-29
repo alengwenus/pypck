@@ -1,14 +1,13 @@
 """Test the data flow for Input objects."""
 import sys
 from unittest.mock import patch
-
 import pytest
 from pypck.inputs import Input
 
 if sys.version_info.minor >= 8:
     from unittest.mock import AsyncMock
 else:
-    from asynctest.mock import CoroutineMock as AsyncMock
+    from asynctest.mock import CoroutineMock as AsyncMock  # type: ignore
 
 
 @pytest.mark.asyncio

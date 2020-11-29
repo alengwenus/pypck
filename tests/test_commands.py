@@ -91,7 +91,7 @@ COMMANDS = {
             var,
             NEW_VAR_SW_AGE,
         )
-        for var in Var.variables
+        for var in Var.variables  # type: ignore
     },
     **{
         f"MWS{Var.to_set_point_id(var)+1:03d}": (
@@ -99,7 +99,7 @@ COMMANDS = {
             var,
             NEW_VAR_SW_AGE,
         )
-        for var in Var.set_points
+        for var in Var.set_points  # type: ignore
     },
     **{
         f"MWC{Var.to_s0_id(var)+1:03d}": (
@@ -107,7 +107,7 @@ COMMANDS = {
             var,
             NEW_VAR_SW_AGE,
         )
-        for var in Var.s0s
+        for var in Var.s0s  # type: ignore
     },
     **{
         f"SE{Var.to_thrs_register_id(var)+1:03d}": (
@@ -115,7 +115,7 @@ COMMANDS = {
             var,
             NEW_VAR_SW_AGE,
         )
-        for reg in Var.thresholds
+        for reg in Var.thresholds  # type: ignore
         for var in reg
     },
     # Variable status (legacy commands)
@@ -126,7 +126,7 @@ COMMANDS = {
     "MWSB": (PckGenerator.request_var_status, Var.R2VARSETPOINT, NEW_VAR_SW_AGE - 1),
     **{
         "SL1": (PckGenerator.request_var_status, var, NEW_VAR_SW_AGE - 1)
-        for var in Var.thresholds[0]
+        for var in Var.thresholds[0]  # type: ignore
     },
     # Output manipulation
     **{
@@ -251,7 +251,7 @@ COMMANDS = {
     # Variable manipulation
     **{
         f"X2{var.value | 0x40:03d}016225": (PckGenerator.update_status_var, var, 4321)
-        for var in Var.variables
+        for var in Var.variables  # type: ignore
     },
     "X2030044129": (PckGenerator.var_abs, Var.R1VARSETPOINT, 4201),
     "X2030108129": (PckGenerator.var_abs, Var.R2VARSETPOINT, 4201),
@@ -260,7 +260,7 @@ COMMANDS = {
     "ZS30000": (PckGenerator.var_reset, Var.TVAR, 0x170205),
     **{
         f"Z-{var.value + 1:03d}4090": (PckGenerator.var_reset, var, 0x170206)
-        for var in Var.variables
+        for var in Var.variables  # type: ignore
     },
     "ZA23423": (PckGenerator.var_rel, Var.TVAR, RelVarRef.CURRENT, 23423, 0x170205),
     "ZS23423": (PckGenerator.var_rel, Var.TVAR, RelVarRef.CURRENT, -23423, 0x170205),
@@ -272,7 +272,7 @@ COMMANDS = {
             -3000,
             0x170206,
         )
-        for var in Var.variables
+        for var in Var.variables  # type: ignore
         if var != Var.TVAR
     },
     **{
@@ -283,7 +283,7 @@ COMMANDS = {
             -500,
             sw_age,
         )
-        for nvar, var in enumerate(Var.set_points)
+        for nvar, var in enumerate(Var.set_points)  # type: ignore
         for nref, ref in enumerate(RelVarRef)
         for sw_age in (0x170206, 0x170205)
     },
@@ -295,14 +295,14 @@ COMMANDS = {
             500,
             sw_age,
         )
-        for nvar, var in enumerate(Var.set_points)
+        for nvar, var in enumerate(Var.set_points)  # type: ignore
         for nref, ref in enumerate(RelVarRef)
         for sw_age in (0x170206, 0x170205)
     },
     **{
         f"SS{('R','E')[nref]}0500SR{r+1}{i+1}": (
             PckGenerator.var_rel,
-            Var.thresholds[r][i],
+            Var.thresholds[r][i],  # type: ignore
             ref,
             -500,
             0x170206,
@@ -314,7 +314,7 @@ COMMANDS = {
     **{
         f"SS{('R','E')[nref]}0500AR{r+1}{i+1}": (
             PckGenerator.var_rel,
-            Var.thresholds[r][i],
+            Var.thresholds[r][i],  # type: ignore
             ref,
             500,
             0x170206,
@@ -326,7 +326,7 @@ COMMANDS = {
     **{
         f"SS{('R','E')[nref]}0500S{1<<(4-i):05b}": (
             PckGenerator.var_rel,
-            Var.thresholds[0][i],
+            Var.thresholds[0][i],  # type: ignore
             ref,
             -500,
             0x170205,
@@ -337,7 +337,7 @@ COMMANDS = {
     **{
         f"SS{('R','E')[nref]}0500A{1<<(4-i):05b}": (
             PckGenerator.var_rel,
-            Var.thresholds[0][i],
+            Var.thresholds[0][i],  # type: ignore
             ref,
             500,
             0x170205,
