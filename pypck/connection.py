@@ -21,7 +21,7 @@ from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Typ
 
 from pypck import inputs, lcn_defs
 from pypck.lcn_addr import LcnAddr
-from pypck.module import GroupConnection, ModuleConnection
+from pypck.module import AbstractConnection, GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
 
 _LOGGER = logging.getLogger(__name__)
@@ -427,34 +427,30 @@ class PchkConnectionManager(PchkConnection):
         """
         return self.segment_scan_completed_event.is_set()
 
-    def get_address_conn(
+    def get_module_conn(
         self, addr: LcnAddr, request_serials: bool = True
-    ) -> Union[ModuleConnection, GroupConnection]:
-        """Create and/or return the given LCN module or group.
+    ) -> ModuleConnection:
+        """Create and/or return the given LCN module.
 
-        The LCN module/group object is used for further communication
-        with the module/group (e.g. sending commands).
+        The ModuleConnection object is used for further communication
+        with the module (e.g. sending commands).
 
-        :param    addr:    The module's/group's address
+        :param    addr:    The module's address
         :type     addr:    :class:`~LcnAddr`
 
         :returns: The address connection object (never null)
-        :rtype: `~ModuleConnection` or `~GroupConnection`
+        :rtype: `~ModuleConnection`
 
         :Example:
 
         >>> address = LcnAddr(0, 7, False)
-        >>> module = pchk_connection.get_address_conn(address)
+        >>> module = pchk_connection.get_module_conn(address)
         >>> module.toggle_output(0, 5)
         """
+        assert not addr.is_group
         if addr.seg_id == 0 and self.local_seg_id != -1:
             addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
-
-        if addr.is_group:
-            return GroupConnection(self, addr)
-
         address_conn = self.address_conns.get(addr, None)
-
         if address_conn is None:
             address_conn = ModuleConnection(self, addr)
             if request_serials:
@@ -464,6 +460,53 @@ class PchkConnectionManager(PchkConnection):
             self.address_conns[addr] = address_conn
 
         return address_conn
+
+    def get_group_conn(self, addr: LcnAddr) -> GroupConnection:
+        """Create and return the GroupConnection for the given group.
+
+        The GroupConnection can be used for sending commands to all
+        modules that are static or dynamic members of the group.
+
+        :param    addr:    The group's address
+        :type     addr:    :class:`~LcnAddr`
+
+        :returns: The address connection object (never null)
+        :rtype: `~GroupConnection`
+
+        :Example:
+
+        >>> address = LcnAddr(0, 7, True)
+        >>> group = pchk_connection.get_group_conn(address)
+        >>> group.toggle_output(0, 5)
+        """
+        assert addr.is_group
+        if addr.seg_id == 0 and self.local_seg_id != -1:
+            addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
+        return GroupConnection(self, addr)
+
+    def get_address_conn(
+        self, addr: LcnAddr, request_serials: bool = True
+    ) -> AbstractConnection:
+        """Create and/or return an AbstractConnection to the given module or group.
+
+        The LCN module/group object is used for further communication
+        with the module/group (e.g. sending commands).
+
+        :param    addr:    The module's/group's address
+        :type     addr:    :class:`~LcnAddr`
+
+        :returns: The address connection object (never null)
+        :rtype: `~AbstractConnection`
+
+        :Example:
+
+        >>> address = LcnAddr(0, 7, False)
+        >>> target = pchk_connection.get_address_conn(address)
+        >>> target.toggle_output(0, 5)
+        """
+        if addr.is_group:
+            return self.get_group_conn(addr)
+        return self.get_module_conn(addr, request_serials)
 
     async def scan_modules(self, num_tries: int = 3, timeout_msec: int = 3000) -> None:
         """Scan for modules on the bus.
@@ -603,8 +646,7 @@ class PchkConnectionManager(PchkConnection):
             assert isinstance(inp, inputs.ModInput)
             logical_source_addr = self.physical_to_logical(inp.physical_source_addr)
             assert not logical_source_addr.is_group
-            module_conn = self.get_address_conn(logical_source_addr)
-            assert isinstance(module_conn, ModuleConnection)  # Indirect type hint
+            module_conn = self.get_module_conn(logical_source_addr)
             if isinstance(inp, inputs.ModSn):
                 # used to extend scan_modules() timeout
                 if self.module_serial_number_received.locked():
