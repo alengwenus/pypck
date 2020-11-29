@@ -262,11 +262,12 @@ class PchkConnectionManager(PchkConnection):
         self.module_serial_number_received = asyncio.Lock()
         self.segment_coupler_response_received = asyncio.Lock()
 
-        # All modules/groups from or to a communication occurs are represented
-        # by a unique ModuleConnection or GroupConnection object.
-        # All ModuleConnection and GroupConnection objects are stored in this
-        # dictionary.
-        self.address_conns: Dict[LcnAddr, Union[ModuleConnection, GroupConnection]] = {}
+        # All modules from or to a communication occurs are represented by a
+        # unique ModuleConnection object.  All ModuleConnection objects are
+        # stored in this dictionary.  Communication to groups is handled by
+        # GroupConnection object that are created on the fly and not stored
+        # permanently.
+        self.address_conns: Dict[LcnAddr, ModuleConnection] = {}
         self.segment_coupler_ids: List[int] = []
 
     async def __aenter__(self) -> "PchkConnectionManager":
@@ -448,18 +449,19 @@ class PchkConnectionManager(PchkConnection):
         """
         if addr.seg_id == 0 and self.local_seg_id != -1:
             addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
+
+        if addr.is_group:
+            return GroupConnection(self, addr)
+
         address_conn = self.address_conns.get(addr, None)
+
         if address_conn is None:
-            if addr.is_group:
-                address_conn = GroupConnection(self, addr)
-                self.address_conns[addr] = address_conn
-            else:
-                address_conn = ModuleConnection(self, addr)
-                if request_serials:
-                    self.request_serials_task = asyncio.create_task(
-                        address_conn.request_serials()
-                    )
-                self.address_conns[addr] = address_conn
+            address_conn = ModuleConnection(self, addr)
+            if request_serials:
+                self.request_serials_task = asyncio.create_task(
+                    address_conn.request_serials()
+                )
+            self.address_conns[addr] = address_conn
 
         return address_conn
 
@@ -600,7 +602,9 @@ class PchkConnectionManager(PchkConnection):
         elif self.is_ready():
             assert isinstance(inp, inputs.ModInput)
             logical_source_addr = self.physical_to_logical(inp.physical_source_addr)
+            assert not logical_source_addr.is_group
             module_conn = self.get_address_conn(logical_source_addr)
+            assert isinstance(module_conn, ModuleConnection)  # Indirect type hint
             if isinstance(inp, inputs.ModSn):
                 # used to extend scan_modules() timeout
                 if self.module_serial_number_received.locked():
