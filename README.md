@@ -1,7 +1,9 @@
 # pypck - Asynchronous LCN-PCK library written in Python
 
-![ci](https://github.com/alengwenus/pypck/workflows/CI/badge.svg?branch=dev)
-[![codecov](https://codecov.io/gh/alengwenus/pypck/branch/dev/graph/badge.svg?token=XX9Y0AOOHZ)](https://codecov.io/gh/alengwenus/pypck)
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/alengwenus/pypck?color=success)
+![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/alengwenus/pypck/CI/dev)
+![Codecov branch](https://img.shields.io/codecov/c/github/alengwenus/pypck/dev)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/pypck)](https://pypi.org/project/pypck/)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
 ## Overview
