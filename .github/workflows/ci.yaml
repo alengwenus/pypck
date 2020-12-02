@@ -9,7 +9,7 @@ on:
 
 env:
   CACHE_VERSION: 1
-  DEFAULT_PYTHON: 3.7
+  DEFAULT_PYTHON: 3.8
   PRE_COMMIT_HOME: ~/.cache/pre-commit
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8]
+        python-version: [3.7, 3.8, 3.9]
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
@@ -64,20 +64,17 @@ jobs:
     name: Check black
     runs-on: ubuntu-latest
     needs: prepare-tests
-    strategy:
-      matrix:
-        python-version: [3.7]
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
-      - name: Restore Python virtual environment
+      - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
         with:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            matrix.python-version }}-${{
+            env.DEFAULT_PYTHON }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -93,20 +90,17 @@ jobs:
     name: Check pylint
     runs-on: ubuntu-latest
     needs: prepare-tests
-    strategy:
-      matrix:
-        python-version: [3.7]
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
-      - name: Restore Python virtual environment
+      - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
         with:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            matrix.python-version }}-${{
+            env.DEFAULT_PYTHON }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -122,20 +116,17 @@ jobs:
     name: Check mypy
     runs-on: ubuntu-latest
     needs: prepare-tests
-    strategy:
-      matrix:
-        python-version: [3.7]
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
-      - name: Restore Python virtual environment
+      - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
         with:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            matrix.python-version }}-${{
+            env.DEFAULT_PYTHON }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -151,20 +142,17 @@ jobs:
     name: Check codespell
     runs-on: ubuntu-latest
     needs: prepare-tests
-    strategy:
-      matrix:
-        python-version: [3.7]
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
-      - name: Restore Python virtual environment
+      - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
         with:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            matrix.python-version }}-${{
+            env.DEFAULT_PYTHON }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -192,20 +180,17 @@ jobs:
     name: Check flake8
     runs-on: ubuntu-latest
     needs: prepare-tests
-    strategy:
-      matrix:
-        python-version: [3.7]
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
-      - name: Restore Python virtual environment
+      - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
         with:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            matrix.python-version }}-${{
+            env.DEFAULT_PYTHON }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -233,20 +218,17 @@ jobs:
     name: Check pyupgrade
     runs-on: ubuntu-latest
     needs: prepare-tests
-    strategy:
-      matrix:
-        python-version: [3.7]
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
-      - name: Restore Python virtual environment
+      - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
         with:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            matrix.python-version }}-${{
+            env.DEFAULT_PYTHON }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -275,7 +257,7 @@ jobs:
     needs: prepare-tests
     strategy:
       matrix:
-        python-version: [3.7, 3.8]
+        python-version: [3.7, 3.8, 3.9]
     name: Run tests Python ${{ matrix.python-version }}
     steps:
       - name: Check out code from GitHub
