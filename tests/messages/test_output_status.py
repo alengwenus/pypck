@@ -1,8 +1,15 @@
 """Tests for output status messages."""
 
-import asynctest
+import sys
+
 import pytest
 from pypck.inputs import InputParser, ModStatusOutput, ModStatusOutputNative
+
+if sys.version_info.minor >= 8:
+    from unittest.mock import AsyncMock
+else:
+    from asynctest.mock import CoroutineMock as AsyncMock
+
 
 # Unit tests
 
@@ -53,7 +60,7 @@ def test_parse_message_native(pck, expected):
 @pytest.mark.asyncio
 async def test_output_status(pchk_server, pypck_client, module10):
     """Output status command."""
-    module10.async_process_input = asynctest.CoroutineMock()
+    module10.async_process_input = AsyncMock()
     await pypck_client.async_connect()
 
     message = ":M000010A1050"

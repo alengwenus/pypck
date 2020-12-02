@@ -1,12 +1,17 @@
 """Connection tests."""
-
 import asyncio
+import sys
 
-import asynctest
 import pytest
 from pypck.connection import PchkAuthenticationError, PchkLicenseError
 from pypck.lcn_addr import LcnAddr
 from pypck.module import ModuleConnection
+
+if sys.version_info.minor >= 8:
+    from unittest.mock import AsyncMock, call
+else:
+    from asynctest.mock import CoroutineMock as AsyncMock
+    from asynctest.mock import call
 
 
 @pytest.mark.asyncio
@@ -57,48 +62,40 @@ async def test_timeout_error(pchk_server, pypck_client):
 @pytest.mark.asyncio
 async def test_lcn_connected(pchk_server, pypck_client):
     """Test lcn disconnected event."""
-    pypck_client.event_handler = asynctest.CoroutineMock()
+    pypck_client.event_handler = AsyncMock()
     await pypck_client.async_connect()
     await pchk_server.send_message("$io:#LCN:connected")
     await pypck_client.received("$io:#LCN:connected")
 
     pypck_client.event_handler.assert_has_awaits(
-        [
-            asynctest.mock.call("lcn-connection-status-changed"),
-            asynctest.mock.call("lcn-connected"),
-        ]
+        [call("lcn-connection-status-changed"), call("lcn-connected")]
     )
 
 
 @pytest.mark.asyncio
 async def test_lcn_disconnected(pchk_server, pypck_client):
     """Test lcn disconnected event."""
-    pypck_client.event_handler = asynctest.CoroutineMock()
+    pypck_client.event_handler = AsyncMock()
     await pypck_client.async_connect()
     await pchk_server.send_message("$io:#LCN:disconnected")
     await pypck_client.received("$io:#LCN:disconnected")
 
     pypck_client.event_handler.assert_has_awaits(
-        [
-            asynctest.mock.call("lcn-connection-status-changed"),
-            asynctest.mock.call("lcn-disconnected"),
-        ]
+        [call("lcn-connection-status-changed"), call("lcn-disconnected")]
     )
 
 
 @pytest.mark.asyncio
 async def test_connection_lost(pchk_server, pypck_client):
     """Test pchk server connection close."""
-    pypck_client.event_handler = asynctest.CoroutineMock()
+    pypck_client.event_handler = AsyncMock()
     await pypck_client.async_connect()
 
     await pchk_server.stop()
     # ensure that pypck_client is about to be closed
     await pypck_client.wait_closed()
 
-    pypck_client.event_handler.assert_has_awaits(
-        [asynctest.mock.call("connection-lost")]
-    )
+    pypck_client.event_handler.assert_has_awaits([call("connection-lost")])
 
 
 @pytest.mark.asyncio
