@@ -14,6 +14,7 @@ setuptools.setup(
     url="https://github.com/alengwenus/pypck",
     packages=setuptools.find_packages(exclude=(["tests", "tests.*"])),
     install_requires=[],
+    license="EPL-2.0",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Eclipse Public License 2.0 (EPL-2.0)",
