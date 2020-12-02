@@ -1,8 +1,15 @@
 """Tests for send command host."""
 
-import asynctest
+import sys
+
 import pytest
 from pypck.inputs import InputParser, ModSendCommandHost
+
+if sys.version_info.minor >= 8:
+    from unittest.mock import AsyncMock
+else:
+    from asynctest.mock import CoroutineMock as AsyncMock
+
 
 # Unit tests
 
@@ -48,7 +55,7 @@ def test_parse_message_percent(pck, expected):
 @pytest.mark.asyncio
 async def test_send_command_host(pchk_server, pypck_client, module10):
     """Send command host message."""
-    module10.async_process_input = asynctest.CoroutineMock()
+    module10.async_process_input = AsyncMock()
     await pypck_client.async_connect()
 
     message = "+M004000010.SKH001002"
