@@ -66,8 +66,6 @@ class AbstractConnection:
             software_serial = -1
         self._software_serial: int = software_serial
 
-        self.input_callbacks: List[Callable[[inputs.Input], None]] = []
-
     @property
     def seg_id(self) -> int:
         """Get the segment id."""
@@ -136,29 +134,6 @@ class AbstractConnection:
         if isinstance(pck, str):
             return await self.conn.send_command(header + pck)
         return await self.conn.send_command(header.encode() + pck)
-
-    # ##
-    # ## Methods for handling input objects
-    # ##
-
-    async def async_process_input(self, inp: inputs.Input) -> None:
-        """Is called by input object's process method.
-
-        Method to handle incoming commands for this specific module (status,
-        toggle_output, switch_relays, ...)
-        """
-        for input_callback in self.input_callbacks:
-            input_callback(inp)
-
-    def register_for_inputs(
-        self, callback: Callable[[inputs.Input], None]
-    ) -> Callable[..., None]:
-        """Register a function for callback on PCK message received.
-
-        Returns a function to unregister the callback.
-        """
-        self.input_callbacks.append(callback)
-        return lambda callback=callback: self.input_callbacks.remove(callback)
 
     # ##
     # ## Methods for sending PCK commands
@@ -822,6 +797,8 @@ class ModuleConnection(AbstractConnection):
         self.activate_status_requests = activate_status_requests
         self.has_s0_enabled = has_s0_enabled
 
+        self.input_callbacks: List[Callable[[inputs.Input], None]] = []
+
         # List of queued acknowledge codes from the LCN modules.
         self.acknowledges: "asyncio.Queue[int]" = asyncio.Queue()
 
@@ -950,6 +927,20 @@ class ModuleConnection(AbstractConnection):
         """Get the activation status for S0 variables."""
         return self.has_s0_enabled
 
+    # ##
+    # ## Methods for handling input objects
+    # ##
+
+    def register_for_inputs(
+        self, callback: Callable[[inputs.Input], None]
+    ) -> Callable[..., None]:
+        """Register a function for callback on PCK message received.
+
+        Returns a function to unregister the callback.
+        """
+        self.input_callbacks.append(callback)
+        return lambda callback=callback: self.input_callbacks.remove(callback)
+
     async def async_process_input(self, inp: inputs.Input) -> None:
         """Is called by input object's process method.
 
@@ -964,7 +955,8 @@ class ModuleConnection(AbstractConnection):
         if isinstance(inp, inputs.ModStatusVar):
             inp = self.status_requests_handler.preprocess_modstatusvar(inp)
 
-        await super().async_process_input(inp)
+        for input_callback in self.input_callbacks:
+            input_callback(inp)
 
     # ##
     # ## Requests
