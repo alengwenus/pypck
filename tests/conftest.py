@@ -81,7 +81,6 @@ async def module10(
 ) -> AsyncGenerator[ModuleConnection, None]:
     """Create test module with addr_id 10."""
     lcn_addr = LcnAddr(0, 10, False)
-    module = pypck_client.get_address_conn(lcn_addr)
-    assert isinstance(module, ModuleConnection)
+    module = pypck_client.get_module_conn(lcn_addr)
     yield module
     await module.cancel_requests()
