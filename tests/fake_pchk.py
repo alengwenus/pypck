@@ -1,6 +1,8 @@
 """Fake PCHK server used for testing."""
 
 import asyncio
+from typing import List, Optional, Union
+
 
 HOST = "127.0.0.1"
 PORT = 4114
@@ -12,23 +14,31 @@ SOCKET_CLOSED = -2
 SEPARATOR = b"\n"
 
 
-async def readuntil_timeout(reader, separator, timeout):
+async def readuntil_timeout(
+    reader: asyncio.StreamReader, separator: bytes, timeout: float
+) -> Union[bytes, int]:
     """Read from socket with timeout."""
     try:
         data = await asyncio.wait_for(reader.readuntil(separator), timeout)
         data = data.split(separator)[0]
         data = data.split(b"\r")[0]  # remove CR if present
+        return data
     except asyncio.TimeoutError:
-        data = READ_TIMEOUT
+        return READ_TIMEOUT
     except asyncio.IncompleteReadError:
-        data = SOCKET_CLOSED
-    return data
+        return SOCKET_CLOSED
 
 
 class PchkServer:
     """Fake PCHK server for integration tests."""
 
-    def __init__(self, host=HOST, port=PORT, username=USERNAME, password=PASSWORD):
+    def __init__(
+        self,
+        host: str = HOST,
+        port: int = PORT,
+        username: str = USERNAME,
+        password: str = PASSWORD,
+    ):
         """Construct PchkServer."""
         self.host = host
         self.port = port
@@ -36,18 +46,18 @@ class PchkServer:
         self.password = password
         self.separator = SEPARATOR
         self.license_error = False
-        self.data_received = []
-        self.server = None
-        self.reader = None
-        self.writer = None
+        self.data_received: List[bytes] = []
+        self.server: Optional[asyncio.AbstractServer] = None
+        self.reader: Optional[asyncio.StreamReader] = None
+        self.writer: Optional[asyncio.StreamWriter] = None
 
-    async def run(self):
+    async def run(self) -> None:
         """Start the server."""
         self.server = await asyncio.start_server(
             self.client_connected, host=self.host, port=self.port
         )
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the server and close connection."""
         if self.server and self.server.is_serving():
             if not (self.writer is None or self.writer.is_closing()):
@@ -56,7 +66,9 @@ class PchkServer:
             self.server.close()
             await self.server.wait_closed()
 
-    async def client_connected(self, reader, writer):
+    async def client_connected(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
         """Client connected callback."""
         # Accept only one connection.
         if self.reader or self.writer:
@@ -71,12 +83,15 @@ class PchkServer:
 
         await self.main_loop()
 
-    def set_license_error(self, license_error=False):
+    def set_license_error(self, license_error: bool = False) -> None:
         """Raise a license error during authentication."""
         self.license_error = license_error
 
-    async def authentication(self):
+    async def authentication(self) -> bool:
         """Run authentication procedure."""
+        assert self.writer is not None
+        assert self.reader is not None
+
         self.writer.write(b"LCN-PCK/IP 1.0" + self.separator)
         await self.writer.drain()
 
@@ -89,6 +104,7 @@ class PchkServer:
         if data in [READ_TIMEOUT, SOCKET_CLOSED]:
             return False
 
+        assert isinstance(data, bytes)
         login_username = data.decode()
 
         # Ask for password
@@ -99,6 +115,8 @@ class PchkServer:
         data = await readuntil_timeout(self.reader, self.separator, 60)
         if data in [READ_TIMEOUT, SOCKET_CLOSED]:
             return False
+
+        assert isinstance(data, bytes)
 
         login_password = data.decode()
         if login_username == self.username and login_password == self.password:
@@ -115,8 +133,9 @@ class PchkServer:
 
         return True
 
-    async def main_loop(self):
+    async def main_loop(self) -> None:
         """Query the socket."""
+        assert self.reader is not None
         while True:
             # Read data from socket
             data = await readuntil_timeout(self.reader, self.separator, 1.0)
@@ -124,23 +143,29 @@ class PchkServer:
                 continue
             if data == SOCKET_CLOSED:
                 break
+            assert isinstance(data, bytes)
             await self.process_data(data)
 
-    async def process_data(self, data):
+    async def process_data(self, data: bytes) -> None:
         """Process incoming data."""
+        assert self.writer is not None
         self.data_received.append(data)
         if data == b"!CHD":
             self.writer.write(b"(dec-mode)" + self.separator)
             await self.writer.drain()
 
-    async def send_message(self, message):
+    async def send_message(self, message: str) -> None:
         """Send the given message to the socket."""
+        assert self.writer is not None
         self.writer.write(message.encode() + self.separator)
 
-    async def received(self, message, timeout=5, remove=True):
+    async def received(
+        self, message: Union[bytes, str], timeout: int = 5, remove: bool = True
+    ) -> bool:
         """Return if given message was received."""
+        assert self.writer is not None
 
-        async def receive_loop(data, remove):
+        async def receive_loop(data: bytes, remove: bool) -> None:
             while data not in self.data_received:
                 await asyncio.sleep(0.05)
             if remove:

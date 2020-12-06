@@ -1,14 +1,13 @@
 """Tests for send command host."""
 
 import sys
-
 import pytest
 from pypck.inputs import InputParser, ModSendCommandHost
 
 if sys.version_info.minor >= 8:
     from unittest.mock import AsyncMock
 else:
-    from asynctest.mock import CoroutineMock as AsyncMock
+    from asynctest.mock import CoroutineMock as AsyncMock  # type: ignore
 
 
 # Unit tests
@@ -45,7 +44,8 @@ def test_input_parser():
 def test_parse_message_percent(pck, expected):
     """Parse output in percent status message."""
     message = f"+M004000010.{pck}"
-    inp = ModSendCommandHost.try_parse(message)[0]
+    inp = InputParser.parse(message)[0]
+    assert isinstance(inp, ModSendCommandHost)
     assert inp.get_parameters() == expected
 
 

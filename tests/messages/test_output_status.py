@@ -1,14 +1,13 @@
 """Tests for output status messages."""
 
 import sys
-
 import pytest
 from pypck.inputs import InputParser, ModStatusOutput, ModStatusOutputNative
 
 if sys.version_info.minor >= 8:
     from unittest.mock import AsyncMock
 else:
-    from asynctest.mock import CoroutineMock as AsyncMock
+    from asynctest.mock import CoroutineMock as AsyncMock  # type: ignore
 
 
 # Unit tests
@@ -37,7 +36,8 @@ def test_input_parser():
 def test_parse_message_percent(pck, expected):
     """Parse output in percent status message."""
     message = f":M000010{pck}"
-    inp = ModStatusOutput.try_parse(message)[0]
+    inp = InputParser.parse(message)[0]
+    assert isinstance(inp, ModStatusOutput)
     assert inp.get_output_id() == expected[0]
     assert inp.get_percent() == expected[1]
 
@@ -49,7 +49,8 @@ def test_parse_message_percent(pck, expected):
 def test_parse_message_native(pck, expected):
     """Parse output in native units status message."""
     message = f":M000010{pck}"
-    inp = ModStatusOutputNative.try_parse(message)[0]
+    inp = InputParser.parse(message)[0]
+    assert isinstance(inp, ModStatusOutputNative)
     assert inp.get_output_id() == expected[0]
     assert inp.get_value() == expected[1]
 
