@@ -17,7 +17,18 @@ Contributors:
 import asyncio
 import logging
 from types import TracebackType
-from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Type, Union
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Type,
+    Union,
+)
 
 from pypck import inputs, lcn_defs
 from pypck.lcn_addr import LcnAddr
@@ -251,9 +262,9 @@ class PchkConnectionManager(PchkConnection):
         # Tasks
         self.ping_task: Optional["asyncio.Task[None]"] = None
         self.read_data_loop_task: Optional["asyncio.Task[None]"] = None
-        self.request_serials_task: Optional[
+        self.request_serials_tasks: Set[
             "asyncio.Task[Dict[str, Union[int, lcn_defs.HardwareType]]]"
-        ] = None
+        ] = set()
 
         # Events, Futures, Locks for synchronization
         self.segment_scan_completed_event = asyncio.Event()
@@ -379,8 +390,7 @@ class PchkConnectionManager(PchkConnection):
         await super().async_close()
         if self.ping_task is not None:
             await cancel(self.ping_task)
-        if self.request_serials_task is not None:
-            await cancel(self.request_serials_task)
+        await asyncio.gather(*(cancel(t) for t in self.request_serials_tasks))
         await self.cancel_requests()
         _LOGGER.debug("Connection to %s closed.", self.connection_id)
 
@@ -454,9 +464,9 @@ class PchkConnectionManager(PchkConnection):
         if address_conn is None:
             address_conn = ModuleConnection(self, addr)
             if request_serials:
-                self.request_serials_task = asyncio.create_task(
-                    address_conn.request_serials()
-                )
+                request_task = asyncio.create_task(address_conn.request_serials())
+                self.request_serials_tasks.add(request_task)
+                request_task.add_done_callback(self.request_serials_tasks.remove)
             self.address_conns[addr] = address_conn
 
         return address_conn

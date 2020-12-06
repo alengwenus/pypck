@@ -249,3 +249,23 @@ async def test_groups_membership_discovery(pchk_server, pypck_client):
         LcnAddr(0, 100, True),
         LcnAddr(0, 52, True),
     }
+
+
+@pytest.mark.asyncio
+async def test_multiple_serial_requests(pchk_server, pypck_client):
+    """Test module scan."""
+    await pypck_client.async_connect()
+
+    pypck_client.get_address_conn(LcnAddr(0, 10, False))
+    pypck_client.get_address_conn(LcnAddr(0, 11, False))
+    pypck_client.get_address_conn(LcnAddr(0, 12, False))
+
+    assert await pchk_server.received(">M000010.SN")
+    assert await pchk_server.received(">M000011.SN")
+    assert await pchk_server.received(">M000012.SN")
+
+    message = "=M000010.SN1AB20A123401FW190B11HW015"
+    await pchk_server.send_message(message)
+    assert await pypck_client.received(message)
+
+    await pypck_client.async_close()
