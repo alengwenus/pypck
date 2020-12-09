@@ -958,6 +958,31 @@ class ModuleConnection(AbstractConnection):
         for input_callback in self.input_callbacks:
             input_callback(inp)
 
+    def dump_details(self) -> Dict[str, Any]:
+        """Dump detailed information about this module."""
+        is_local_segment = (
+            self.addr.seg_id == 0 or self.addr.seg_id == self.conn.local_seg_id
+        )
+        return {
+            "segment": self.addr.seg_id,
+            "address": self.addr.addr_id,
+            "is_local_segment": is_local_segment,
+            "serials": {
+                "hardware_serial": f"{self.hardware_serial:10X}",
+                "manu": f"{self.manu:02X}",
+                "software_serial": f"{self.software_serial:06X}",
+                "hardware_type": f"{self.hardware_type.value:d}",
+                "hardware_name": self.hardware_type.description,
+            },
+            "name": self.name,
+            "comment": self.comment,
+            "oem_text": self.oem_text,
+            "groups": {
+                "static": sorted(addr.addr_id for addr in self.static_groups),
+                "dynamic": sorted(addr.addr_id for addr in self.dynamic_groups),
+            },
+        }
+
     # ##
     # ## Requests
     # ##

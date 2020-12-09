@@ -518,6 +518,17 @@ class PchkConnectionManager(PchkConnection):
             return self.get_group_conn(addr)
         return self.get_module_conn(addr, request_serials)
 
+    def dump_modules(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        """Dump all modules and information about them in a JSON serializable dict."""
+        dump: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        for address_conn in self.address_conns.values():
+            seg = f"{address_conn.addr.seg_id:d}"
+            addr = f"{address_conn.addr.addr_id}"
+            if seg not in dump:
+                dump[seg] = {}
+            dump[seg][addr] = address_conn.dump_details()
+        return dump
+
     async def scan_modules(self, num_tries: int = 3, timeout_msec: int = 3000) -> None:
         """Scan for modules on the bus.
 

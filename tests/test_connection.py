@@ -1,6 +1,7 @@
 """Connection tests."""
 import asyncio
 import sys
+import json
 import pytest
 from pypck.connection import PchkAuthenticationError, PchkLicenseError
 from pypck.lcn_addr import LcnAddr
@@ -269,3 +270,122 @@ async def test_multiple_serial_requests(pchk_server, pypck_client):
     assert await pypck_client.received(message)
 
     await pypck_client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_dump_modules_no_segement_couplers(pchk_server, pypck_client):
+    """Test module information dumping."""
+    await pypck_client.async_connect()
+
+    for msg in (
+        "=M000007.SN1AB20A123401FW190B11HW015",
+        "=M000008.SN1BB20A123401FW1A0B11HW015",
+        "=M000007.GP012011200051",
+        "=M000008.GP012011220051",
+        "=M000007.GD008015100052",
+        "=M000008.GD008015120052",
+    ):
+        await pchk_server.send_message(msg)
+        assert await pypck_client.received(msg)
+
+    dump = pypck_client.dump_modules()
+    json.dumps(dump)
+
+    assert dump == {
+        "0": {
+            "7": {
+                "segment": 0,
+                "address": 7,
+                "is_local_segment": True,
+                "serials": {
+                    "hardware_serial": "1AB20A1234",
+                    "manu": "01",
+                    "software_serial": "190B11",
+                    "hardware_type": "15",
+                    "hardware_name": "LCN-SH-Plus",
+                },
+                "name": "",
+                "comment": "",
+                "oem_text": ["", "", "", ""],
+                "groups": {"static": [11, 51, 200], "dynamic": [15, 52, 100]},
+            },
+            "8": {
+                "segment": 0,
+                "address": 8,
+                "is_local_segment": True,
+                "serials": {
+                    "hardware_serial": "1BB20A1234",
+                    "manu": "01",
+                    "software_serial": "1A0B11",
+                    "hardware_type": "15",
+                    "hardware_name": "LCN-SH-Plus",
+                },
+                "name": "",
+                "comment": "",
+                "oem_text": ["", "", "", ""],
+                "groups": {"static": [11, 51, 220], "dynamic": [15, 52, 120]},
+            },
+        }
+    }
+
+
+@pytest.mark.asyncio
+async def test_dump_modules_multi_segment(pchk_server, pypck_client):
+    """Test module information dumping."""
+    await pypck_client.async_connect()
+
+    # Populate the bus topology information
+    for msg in (
+        "=M000007.SK020",
+        "=M022008.SK022",
+        "=M000007.SN1AB20A123401FW190B11HW015",
+        "=M022008.SN1BB20A123401FW1A0B11HW015",
+        "=M000007.GP012011200051",
+        "=M022008.GP012011220051",
+        "=M000007.GD008015100052",
+        "=M022008.GD008015120052",
+    ):
+        await pchk_server.send_message(msg)
+        assert await pypck_client.received(msg)
+
+    dump = pypck_client.dump_modules()
+    json.dumps(dump)
+
+    assert dump == {
+        "20": {
+            "7": {
+                "segment": 20,
+                "address": 7,
+                "is_local_segment": True,
+                "serials": {
+                    "hardware_serial": "1AB20A1234",
+                    "manu": "01",
+                    "software_serial": "190B11",
+                    "hardware_type": "15",
+                    "hardware_name": "LCN-SH-Plus",
+                },
+                "name": "",
+                "comment": "",
+                "oem_text": ["", "", "", ""],
+                "groups": {"static": [11, 51, 200], "dynamic": [15, 52, 100]},
+            },
+        },
+        "22": {
+            "8": {
+                "segment": 22,
+                "address": 8,
+                "is_local_segment": False,
+                "serials": {
+                    "hardware_serial": "1BB20A1234",
+                    "manu": "01",
+                    "software_serial": "1A0B11",
+                    "hardware_type": "15",
+                    "hardware_name": "LCN-SH-Plus",
+                },
+                "name": "",
+                "comment": "",
+                "oem_text": ["", "", "", ""],
+                "groups": {"static": [11, 51, 220], "dynamic": [15, 52, 120]},
+            },
+        },
+    }
