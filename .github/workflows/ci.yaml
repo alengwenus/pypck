@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: [3.8, 3.9]
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
@@ -257,7 +257,7 @@ jobs:
     needs: prepare-tests
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: [3.8, 3.9]
     name: Run tests Python ${{ matrix.python-version }}
     steps:
       - name: Check out code from GitHub
@@ -277,7 +277,7 @@ jobs:
           echo "Failed to restore Python virtual environment from cache"
           exit 1
       - name: Run pytest
-        run:  |
+        run: |
           . venv/bin/activate
           pytest \
             --timeout=9 \

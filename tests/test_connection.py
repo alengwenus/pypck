@@ -1,17 +1,12 @@
 """Connection tests."""
 import asyncio
-import sys
 import json
+from unittest.mock import AsyncMock, call
+
 import pytest
 from pypck.connection import PchkAuthenticationError, PchkLicenseError
 from pypck.lcn_addr import LcnAddr
 from pypck.module import ModuleConnection
-
-if sys.version_info.minor >= 8:
-    from unittest.mock import AsyncMock, call
-else:
-    from asynctest.mock import CoroutineMock as AsyncMock  # type: ignore
-    from asynctest.mock import call  # type: ignore
 
 
 @pytest.mark.asyncio
