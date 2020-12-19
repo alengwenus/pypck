@@ -5,7 +5,7 @@ with open("README.md") as fh:
 
 setuptools.setup(
     name="pypck",
-    version="0.7.7",
+    version="0.7.8",
     author="Andre Lengwenus",
     author_email="alengwenus@gmail.com",
     description="LCN-PCK library",
@@ -21,5 +21,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
         "Topic :: Home Automation",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
 )

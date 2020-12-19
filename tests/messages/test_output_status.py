@@ -1,14 +1,8 @@
 """Tests for output status messages."""
+from unittest.mock import AsyncMock
 
-import sys
 import pytest
 from pypck.inputs import InputParser, ModStatusOutput, ModStatusOutputNative
-
-if sys.version_info.minor >= 8:
-    from unittest.mock import AsyncMock
-else:
-    from asynctest.mock import CoroutineMock as AsyncMock  # type: ignore
-
 
 # Unit tests
 
