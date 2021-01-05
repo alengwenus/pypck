@@ -422,7 +422,7 @@ class PchkConnectionManager(PchkConnection):
         :rtype:      :class:`~LcnAddr`
         """
         return LcnAddr(
-            self.local_seg_id if addr.seg_id == 0 else addr.seg_id,
+            self.local_seg_id if addr.seg_id in (0, 4) else addr.seg_id,
             addr.addr_id,
             addr.is_group,
         )
