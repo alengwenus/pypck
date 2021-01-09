@@ -30,6 +30,7 @@ from typing import (
 )
 
 from pypck import inputs, lcn_defs
+from pypck.helpers import create_task
 from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
 from pypck.request_handlers import (
@@ -833,9 +834,7 @@ class ModuleConnection(AbstractConnection):
 
         self.status_requests_handler = StatusRequestsHandler(self)
         if self.activate_status_requests:
-            self.activate_srh_task = asyncio.create_task(
-                self.activate_status_request_handlers()
-            )
+            create_task(self.activate_status_request_handlers())
 
     async def send_command(self, wants_ack: bool, pck: Union[str, bytes]) -> bool:
         """Send a command to the module represented by this class.
@@ -888,18 +887,17 @@ class ModuleConnection(AbstractConnection):
 
     async def activate_status_request_handler(self, item: Any) -> None:
         """Activate a specific TimeoutRetryHandler for status requests."""
-        await self.status_requests_handler.activate(item)
+        create_task(self.status_requests_handler.activate(item))
 
     async def activate_status_request_handlers(self) -> None:
         """Activate all TimeoutRetryHandlers for status requests."""
-        await self.status_requests_handler.activate_all(activate_s0=self.has_s0_enabled)
+        create_task(
+            self.status_requests_handler.activate_all(activate_s0=self.has_s0_enabled)
+        )
 
     async def cancel_status_request_handler(self, item: Any) -> None:
         """Cancel a specific TimeoutRetryHandler for status requests."""
         await self.status_requests_handler.cancel(item)
-        if self.activate_status_requests:
-            self.activate_srh_task.cancel()
-            await self.activate_srh_task
 
     async def cancel_status_request_handlers(self) -> None:
         """Canecl all TimeoutRetryHandlers for status requests."""

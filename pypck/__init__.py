@@ -13,9 +13,9 @@ Contributors:
   Andre Lengwenus - port to Python and further improvements
   Tobias Juettner - initial LCN binding for openHAB (Java)
 """
-
 from pypck import (
     connection,
+    helpers,
     inputs,
     lcn_addr,
     lcn_defs,
@@ -27,6 +27,7 @@ from pypck import (
 __all__ = [
     "connection",
     "inputs",
+    "helpers",
     "lcn_addr",
     "lcn_defs",
     "module",
