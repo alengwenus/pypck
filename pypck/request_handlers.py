@@ -17,6 +17,7 @@ import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 from pypck import inputs, lcn_defs
+from pypck.helpers import create_task
 from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
 from pypck.timeout_retry import TimeoutRetryHandler
@@ -49,7 +50,7 @@ class RequestHandler:
 
     def process_input(self, inp: inputs.Input) -> None:
         """Create a task to process the input object concurrently."""
-        asyncio.create_task(self.async_process_input(inp))
+        create_task(self.async_process_input(inp))
 
     async def async_process_input(self, inp: inputs.Input) -> None:
         """Process incoming input object.

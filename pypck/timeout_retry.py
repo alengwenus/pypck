@@ -18,6 +18,8 @@ import asyncio
 import logging
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, Union
 
+from pypck.helpers import cancel_task, create_task
+
 _LOGGER = logging.getLogger(__name__)
 
 # The default timeout to use for requests. Worst case: Requesting threshold
@@ -68,13 +70,13 @@ class TimeoutRetryHandler:
 
     def activate(self) -> None:
         """Schedule the next activation."""
-        asyncio.create_task(self.async_activate())
+        create_task(self.async_activate())
 
     async def async_activate(self) -> None:
         """Clean start of next timeout_loop."""
         if self.is_active():
             await self.cancel()
-        self.timeout_loop_task = asyncio.create_task(self.timeout_loop())
+        self.timeout_loop_task = create_task(self.timeout_loop())
 
     async def done(self) -> None:
         """Signal the completion of the TimeoutRetryHandler."""
@@ -84,11 +86,7 @@ class TimeoutRetryHandler:
     async def cancel(self) -> None:
         """Must be called when a response (requested or not) is received."""
         if self.timeout_loop_task is not None:
-            self.timeout_loop_task.cancel()
-            try:
-                await self.timeout_loop_task
-            except asyncio.CancelledError:
-                pass
+            await cancel_task(self.timeout_loop_task)
 
     def is_active(self) -> bool:
         """Check whether the request logic is active."""
