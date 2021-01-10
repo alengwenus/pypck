@@ -65,119 +65,6 @@ class PchkLcnNotConnectedError(Exception):
 
 
 class PchkConnection:
-    """Socket connection to LCN-PCHK server.
-
-    :param    str    host:        Server IP address formatted as
-                                  xxx.xxx.xxx.xxx
-    :param    int    port:        Server port
-
-    :Note:
-
-    :class:`PchkConnection` does only open a port to the
-    PCHK server and allows to send and receive plain text. Use
-    :func:`~PchkConnection.send_command` and
-    :func:`~PchkConnection.process_input` callback to send and receive
-    text messages.
-
-    For login logic or communication with modules use
-    :class:`~PchkConnectionManager`.
-    """
-
-    def __init__(self, host: str, port: int, connection_id: str = "PCHK"):
-        """Construct PchkConnection."""
-        self.host = host
-        self.port = port
-        self.connection_id = connection_id
-        self.reader: Optional[asyncio.StreamReader] = None
-        self.writer: Optional[asyncio.StreamWriter] = None
-        self.event_handler: Callable[
-            [str], Awaitable[None]
-        ] = self.default_event_handler
-
-    async def async_connect(self) -> None:
-        """Connect to a PCHK server (no authentication or license error check)."""
-        self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
-        address = self.writer.get_extra_info("peername")
-        _LOGGER.debug("%s server connected at %s:%d", self.connection_id, *address)
-
-        # main read loop
-        create_task(self.read_data_loop())
-
-    def connect(self) -> None:
-        """Create a task to connect to a PCHK server concurrently."""
-        create_task(self.async_connect())
-
-    async def read_data_loop(self) -> None:
-        """Is called when some data is received."""
-        assert self.reader is not None
-        assert self.writer is not None
-        while not self.writer.is_closing():
-            try:
-                data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
-            except asyncio.IncompleteReadError:
-                _LOGGER.debug("Connection to %s lost", self.connection_id)
-                asyncio.create_task(self.event_handler("connection-lost"))
-                await self.async_close()
-                break
-            except asyncio.CancelledError:
-                break
-
-            message = data.decode().split(PckGenerator.TERMINATION)[0]
-            await self.process_message(message)
-
-    async def send_command(self, pck: Union[bytes, str], **kwargs: Any) -> bool:
-        """Send a PCK command to the PCHK server.
-
-        :param    str    pck:    PCK command
-        """
-        assert self.writer is not None
-        if not self.writer.is_closing():
-            _LOGGER.debug("to %s: %s", self.connection_id, pck)
-            if isinstance(pck, str):
-                data = (pck + PckGenerator.TERMINATION).encode()
-            else:
-                data = pck + PckGenerator.TERMINATION.encode()
-            self.writer.write(data)
-            await self.writer.drain()
-            return True
-        return False
-
-    async def process_message(self, message: str) -> None:
-        """Is called when a new text message is received from the PCHK server.
-
-        This class should be reimplemented in any subclass which evaluates
-        received messages.
-
-        :param    str    input:    Input text message
-        """
-        _LOGGER.debug("from %s: %s", self.connection_id, message)
-
-    async def async_close(self) -> None:
-        """Close the active connection."""
-        await cancel_all_tasks()
-        if self.writer:
-            self.writer.close()
-            await self.writer.wait_closed()
-
-    def set_event_handler(self, coro: Callable[[str], Awaitable[None]]) -> None:
-        """Set the event handler for specific LCN events."""
-        if coro is None:
-            self.event_handler = self.default_event_handler
-        else:
-            self.event_handler = coro
-
-    async def default_event_handler(self, event: str) -> None:
-        """Handle events for specific LCN events."""
-        if event == "connection-lost":
-            await self.async_close()
-
-    async def wait_closed(self) -> None:
-        """Wait until connection to PCHK server is closed."""
-        if self.writer is not None:
-            await self.writer.wait_closed()
-
-
-class PchkConnectionManager(PchkConnection):
     """Connection to LCN-PCHK.
 
     Has the following tasks:
@@ -215,7 +102,14 @@ class PchkConnectionManager(PchkConnection):
         connection_id: str = "PCHK",
     ):
         """Construct PchkConnectionManager."""
-        super().__init__(host, port, connection_id)
+        self.host = host
+        self.port = port
+        self.connection_id = connection_id
+        self.reader: Optional[asyncio.StreamReader] = None
+        self.writer: Optional[asyncio.StreamWriter] = None
+        self.event_handler: Callable[
+            [str], Awaitable[None]
+        ] = self.default_event_handler
 
         self.username = username
         self.password = password
@@ -249,7 +143,7 @@ class PchkConnectionManager(PchkConnection):
         self.address_conns: Dict[LcnAddr, ModuleConnection] = {}
         self.segment_coupler_ids: List[int] = []
 
-    async def __aenter__(self) -> "PchkConnectionManager":
+    async def __aenter__(self) -> "PchkConnection":
         """Context manager enter method."""
         await self.async_connect()
         return self
@@ -273,7 +167,17 @@ class PchkConnectionManager(PchkConnection):
         """
         if not self.is_lcn_connected and not to_host:
             return False
-        return await super().send_command(pck)
+        assert self.writer is not None
+        if not self.writer.is_closing():
+            _LOGGER.debug("to %s: %s", self.connection_id, pck)
+            if isinstance(pck, str):
+                data = (pck + PckGenerator.TERMINATION).encode()
+            else:
+                data = pck + PckGenerator.TERMINATION.encode()
+            self.writer.write(data)
+            await self.writer.drain()
+            return True
+        return False
 
     async def on_auth(self, success: bool) -> None:
         """Is called after successful authentication."""
@@ -314,6 +218,15 @@ class PchkConnectionManager(PchkConnection):
             _LOGGER.debug("%s: LCN is not connected.", self.connection_id)
             asyncio.create_task(self.event_handler("lcn-disconnected"))
 
+    async def _open_connection(self) -> None:
+        """Create reader writer pair and start main reading loop."""
+        self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
+        address = self.writer.get_extra_info("peername")
+        _LOGGER.debug("%s server connected at %s:%d", self.connection_id, *address)
+
+        # main read loop
+        create_task(self.read_data_loop())
+
     async def async_connect(self, timeout: int = 30) -> None:
         """Establish a connection to PCHK at the given socket.
 
@@ -327,7 +240,7 @@ class PchkConnectionManager(PchkConnection):
         pending: Iterable["asyncio.Future[Any]"]
         done, pending = await asyncio.wait(
             (
-                super().async_connect(),
+                self._open_connection(),
                 self.authentication_completed_future,
                 self.license_error_future,
             ),
@@ -356,8 +269,29 @@ class PchkConnectionManager(PchkConnection):
     async def async_close(self) -> None:
         """Close the active connection."""
         await self.cancel_requests()
-        await super().async_close()
+        await cancel_all_tasks()
+        if self.writer:
+            self.writer.close()
+            await self.writer.wait_closed()
         _LOGGER.debug("Connection to %s closed.", self.connection_id)
+
+    async def read_data_loop(self) -> None:
+        """Is called when some data is received."""
+        assert self.reader is not None
+        assert self.writer is not None
+        while not self.writer.is_closing():
+            try:
+                data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
+            except asyncio.IncompleteReadError:
+                _LOGGER.debug("Connection to %s lost", self.connection_id)
+                create_task(self.event_handler("connection-lost"))
+                await self.async_close()
+                break
+            except asyncio.CancelledError:
+                break
+
+            message = data.decode().split(PckGenerator.TERMINATION)[0]
+            await self.process_message(message)
 
     def set_local_seg_id(self, local_seg_id: int) -> None:
         """Set the local segment id.
@@ -587,7 +521,7 @@ class PchkConnectionManager(PchkConnection):
 
         :param    str    input:    Input text message
         """
-        await super().process_message(message)
+        _LOGGER.debug("from %s: %s", self.connection_id, message)
         inps = inputs.InputParser.parse(message)
 
         if inps is not None:
@@ -665,4 +599,15 @@ class PchkConnectionManager(PchkConnection):
         elif event == "lcn-connection-status-changed":
             pass
         elif event == "connection-lost":
-            pass
+            await self.async_close()
+
+    async def wait_closed(self) -> None:
+        """Wait until connection to PCHK server is closed."""
+        if self.writer is not None:
+            await self.writer.wait_closed()
+
+
+class PchkConnectionManager(PchkConnection):
+    """Dummy."""
+
+    pass
