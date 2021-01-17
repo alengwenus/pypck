@@ -225,7 +225,7 @@ class PchkConnectionManager(PchkConnection):
         self.settings = lcn_defs.default_connection_settings
         self.settings.update(settings)
 
-        self.ping_interval = 60 * 10  # seconds
+        self.ping_timeout = self.settings["PING_TIMEOUT"] / 1000  # seconds
         self.ping_counter = 0
 
         self.dim_mode = self.settings["DIM_MODE"]
@@ -577,7 +577,7 @@ class PchkConnectionManager(PchkConnection):
         while not self.writer.is_closing():
             await self.send_command(f"^ping{self.ping_counter:d}", to_host=True)
             self.ping_counter += 1
-            await asyncio.sleep(self.settings["PING_TIMEOUT"])
+            await asyncio.sleep(self.ping_timeout)
 
     async def process_message(self, message: str) -> None:
         """Is called when a new text message is received from the PCHK server.
