@@ -1365,23 +1365,22 @@ setattr(HardwareType, "__new__", hw_type_new)
 
 
 default_connection_settings: Dict[str, Any] = {
-    "NUM_TRIES": 3,  # Total number of request to sent before going into
-    # failed-state.
-    "SK_NUM_TRIES": 3,  # Total number of segment coupler scan tries
+    # Total number of request to sent before going into failed-state
+    "NUM_TRIES": 3,
+    # Total number of segment coupler scan tries
+    "SK_NUM_TRIES": 3,
+    # Dimming steps for output ports
     "DIM_MODE": OutputPortDimMode.STEPS50,
-    "PING_TIMEOUT": 600000,  # The default timeout for pings sent to PCHK.
-    "DEFAULT_TIMEOUT_MSEC": 3500,  # Default timeout for send command retries
-    "MAX_STATUS_EVENTBASED_VALUEAGE_MSEC": 600000,  # Poll interval for
-    # status values that
-    # automatically send
-    # their values on change.
-    "MAX_STATUS_POLLED_VALUEAGE_MSEC": 30000,  # Poll interval for status
-    # values that do not send
-    # their values on change
-    # (always polled).
-    "STATUS_REQUEST_DELAY_AFTER_COMMAND_MSEC": 2000  # Status request delay
-    # after a command has
-    # been send which
-    # potentially changed
-    # that status.
+    # The default timeout for pings sent to PCHK
+    "PING_TIMEOUT": 600000,
+    # Default timeout for send command retries
+    "DEFAULT_TIMEOUT_MSEC": 3500,
+    # Poll interval for status values that automatically send their values on change
+    "MAX_STATUS_EVENTBASED_VALUEAGE_MSEC": 600000,
+    # Poll interval for status values that do not send their values on change
+    # (always polled)
+    "MAX_STATUS_POLLED_VALUEAGE_MSEC": 30000,
+    # Status request delay after a command has been send which potentially changed that
+    # status
+    "STATUS_REQUEST_DELAY_AFTER_COMMAND_MSEC": 2000,
 }

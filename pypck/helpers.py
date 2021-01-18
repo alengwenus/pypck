@@ -1,7 +1,7 @@
 """Helper functions for pypck."""
 
 import asyncio
-from typing import Any, Awaitable, List
+from typing import Any, Awaitable, List, Optional
 
 PYPCK_TASKS: List["asyncio.Task[Any]"] = []
 
@@ -34,3 +34,36 @@ async def cancel_all_tasks() -> None:
     """Cancel all pypck tasks."""
     while PYPCK_TASKS:
         await cancel_task(PYPCK_TASKS.pop())
+
+
+class PchkLicenseError(Exception):
+    """Exception which is raised if a license error occurred."""
+
+    def __init__(self, message: Optional[str] = None):
+        """Initialize instance."""
+        if message is None:
+            message = (
+                "Maximum number of connections was reached. An "
+                "additional license key is required."
+            )
+        super().__init__(message)
+
+
+class PchkAuthenticationError(Exception):
+    """Exception which is raised if authentication failed."""
+
+    def __init__(self, message: Optional[str] = None):
+        """Initialize instance."""
+        if message is None:
+            message = "Authentication failed."
+        super().__init__(message)
+
+
+class PchkLcnNotConnectedError(Exception):
+    """Exception which is raised if there is no connection to the LCN bus."""
+
+    def __init__(self, message: Optional[str] = None):
+        """Initialize instance."""
+        if message is None:
+            message = "LCN not connected."
+        super().__init__(message)

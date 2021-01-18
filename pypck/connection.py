@@ -20,48 +20,22 @@ from types import TracebackType
 from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Type, Union
 
 from pypck import inputs, lcn_defs
-from pypck.helpers import cancel_all_tasks, create_task
+from pypck.helpers import (
+    PchkAuthenticationError,
+    PchkLicenseError,
+    cancel_all_tasks,
+    cancel_task,
+    create_task,
+)
 from pypck.lcn_addr import LcnAddr
 from pypck.module import AbstractConnection, GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.info("Using development version")
 
 READ_TIMEOUT = -1
 SOCKET_CLOSED = -2
-
-
-class PchkLicenseError(Exception):
-    """Exception which is raised if a license error occurred."""
-
-    def __init__(self, message: Optional[str] = None):
-        """Initialize instance."""
-        if message is None:
-            message = (
-                "Maximum number of connections was reached. An "
-                "additional license key is required."
-            )
-        super().__init__(message)
-
-
-class PchkAuthenticationError(Exception):
-    """Exception which is raised if authentication failed."""
-
-    def __init__(self, message: Optional[str] = None):
-        """Initialize instance."""
-        if message is None:
-            message = "Authentication failed."
-        super().__init__(message)
-
-
-class PchkLcnNotConnectedError(Exception):
-    """Exception which is raised if there is no connection to the LCN bus."""
-
-    def __init__(self, message: Optional[str] = None):
-        """Initialize instance."""
-        if message is None:
-            message = "LCN not connected."
-        super().__init__(message)
 
 
 class PchkConnection:
@@ -135,6 +109,9 @@ class PchkConnection:
         self.module_serial_number_received = asyncio.Lock()
         self.segment_coupler_response_received = asyncio.Lock()
 
+        # Tasks
+        self.read_data_loop_task: Optional["asyncio.Task[None]"] = None
+
         # All modules from or to a communication occurs are represented by a
         # unique ModuleConnection object.  All ModuleConnection objects are
         # stored in this dictionary.  Communication to groups is handled by
@@ -204,7 +181,7 @@ class PchkConnection:
         )
         create_task(self.ping())
 
-    async def lcn_connection_status_changed(self, is_lcn_connected: bool) -> None:
+    async def on_lcn_connection_status_change(self, is_lcn_connected: bool) -> None:
         """Set the current connection state to the LCN bus.
 
         :param    bool    is_lcn_connected: Current connection status
@@ -225,7 +202,7 @@ class PchkConnection:
         _LOGGER.debug("%s server connected at %s:%d", self.connection_id, *address)
 
         # main read loop
-        create_task(self.read_data_loop())
+        self.read_data_loop_task = create_task(self.read_data_loop())
 
     async def async_connect(self, timeout: int = 30) -> None:
         """Establish a connection to PCHK at the given socket.
@@ -283,9 +260,7 @@ class PchkConnection:
             try:
                 data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
             except asyncio.IncompleteReadError:
-                _LOGGER.debug("Connection to %s lost", self.connection_id)
                 create_task(self.event_handler("connection-lost"))
-                await self.async_close()
                 break
             except asyncio.CancelledError:
                 break
@@ -540,7 +515,7 @@ class PchkConnection:
         elif isinstance(inp, inputs.AuthFailed):
             await self.on_auth(False)
         elif isinstance(inp, inputs.LcnConnState):
-            await self.lcn_connection_status_changed(inp.is_lcn_connected)
+            await self.on_lcn_connection_status_change(inp.is_lcn_connected)
         elif isinstance(inp, inputs.LicenseError):
             await self.on_license_error()
         elif isinstance(inp, inputs.DecModeSet):
@@ -599,6 +574,7 @@ class PchkConnection:
         elif event == "lcn-connection-status-changed":
             pass
         elif event == "connection-lost":
+            _LOGGER.debug("Connection to %s lost", self.connection_id)
             await self.async_close()
 
     async def wait_closed(self) -> None:
@@ -608,6 +584,40 @@ class PchkConnection:
 
 
 class PchkConnectionManager(PchkConnection):
-    """Dummy."""
+    """Manages the PCHK connection."""
 
-    pass
+    async def async_connect(self, timeout: int = 30) -> None:
+        """Establish a connection to PCHK."""
+        self.authentication_completed_future = asyncio.Future()
+        self.license_error_future = asyncio.Future()
+
+        try:
+            _LOGGER.debug("Connecting to %s", self.connection_id)
+            await super().async_connect(timeout=timeout)
+        except ConnectionRefusedError:
+            create_task(self.default_event_handler("connection-refused"))
+
+    async def async_disconnect(self) -> None:
+        """Disconnect from PCHK."""
+        if self.writer:
+            self.writer.close()
+            await self.writer.wait_closed()
+
+    async def default_event_handler(self, event: str) -> None:
+        """Handle events for specific LCN events."""
+        if event == "lcn-connected":
+            pass
+        elif event == "lcn-disconnected":
+            pass
+        elif event == "lcn-connection-status-changed":
+            pass
+        elif event == "connection-lost":
+            _LOGGER.debug("Connection to %s lost", self.connection_id)
+            if self.read_data_loop_task is not None:
+                await cancel_task(self.read_data_loop_task)
+            await self.async_disconnect()
+            create_task(self.async_connect(timeout=5))
+        elif event == "connection-refused":
+            _LOGGER.warning("Connection to %s refused", self.connection_id)
+            await asyncio.sleep(5)
+            await self.async_connect()
