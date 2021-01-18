@@ -116,7 +116,7 @@ class PchkConnection:
                 data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
             except asyncio.IncompleteReadError:
                 _LOGGER.debug("Connection to %s lost", self.connection_id)
-                create_task(self.event_handler("connection-lost"))
+                asyncio.create_task(self.event_handler("connection-lost"))
                 await self.async_close()
                 break
             except asyncio.CancelledError:
@@ -306,13 +306,13 @@ class PchkConnectionManager(PchkConnection):
         :param    bool    is_lcn_connected: Current connection status
         """
         self.is_lcn_connected = is_lcn_connected
-        create_task(self.event_handler("lcn-connection-status-changed"))
+        asyncio.create_task(self.event_handler("lcn-connection-status-changed"))
         if is_lcn_connected:
             _LOGGER.debug("%s: LCN is connected.", self.connection_id)
-            create_task(self.event_handler("lcn-connected"))
+            asyncio.create_task(self.event_handler("lcn-connected"))
         else:
             _LOGGER.debug("%s: LCN is not connected.", self.connection_id)
-            create_task(self.event_handler("lcn-disconnected"))
+            asyncio.create_task(self.event_handler("lcn-disconnected"))
 
     async def async_connect(self, timeout: int = 30) -> None:
         """Establish a connection to PCHK at the given socket.
