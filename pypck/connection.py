@@ -278,12 +278,12 @@ class PchkConnectionManager(PchkConnection):
     async def on_auth(self, success: bool) -> None:
         """Is called after successful authentication."""
         if success:
-            _LOGGER.debug("%s authorization successful!", self.connection_id)
+            _LOGGER.debug("%s authentication successful!", self.connection_id)
             self.authentication_completed_future.set_result(True)
             # Try to set the PCHK decimal mode
             await self.send_command(PckGenerator.set_dec_mode(), to_host=True)
         else:
-            _LOGGER.debug("%s authorization failed!", self.connection_id)
+            _LOGGER.debug("%s authentication failed!", self.connection_id)
             self.authentication_completed_future.set_exception(PchkAuthenticationError)
 
     async def on_license_error(self) -> None:
