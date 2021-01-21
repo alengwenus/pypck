@@ -6,10 +6,16 @@ from typing import Any, Awaitable, List
 PYPCK_TASKS: List["asyncio.Task[Any]"] = []
 
 
+def remove_task(task: "asyncio.Task[None]") -> None:
+    """Remove a task from the task registry."""
+    if task in PYPCK_TASKS:
+        PYPCK_TASKS.remove(task)
+
+
 def create_task(coro: Awaitable[Any]) -> "asyncio.Task[None]":
     """Create a task and store a reference in the task registry."""
     task = asyncio.create_task(coro)
-    task.add_done_callback(PYPCK_TASKS.remove)
+    task.add_done_callback(remove_task)
     PYPCK_TASKS.append(task)
     return task
 
@@ -29,5 +35,5 @@ async def cancel_task(task: "asyncio.Task[Any]") -> bool:
 
 async def cancel_all_tasks() -> None:
     """Cancel all pypck tasks."""
-    for task in tuple(PYPCK_TASKS):
-        await cancel_task(task)
+    while PYPCK_TASKS:
+        await cancel_task(PYPCK_TASKS.pop(0))
