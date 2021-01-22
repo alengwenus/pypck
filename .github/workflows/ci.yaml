@@ -8,7 +8,7 @@ on:
   pull_request: ~
 
 env:
-  CACHE_VERSION: 2
+  CACHE_VERSION: 1
   DEFAULT_PYTHON: 3.8
   PRE_COMMIT_HOME: ~/.cache/pre-commit
 
@@ -23,7 +23,7 @@ jobs:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }} virtual environment
-        uses: actions/setup-python@v2.1.4
+        uses: actions/setup-python@v2.2.1
         id: python
         with:
           python-version: ${{ matrix.python-version }}
@@ -34,7 +34,7 @@ jobs:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION}}-${{ runner.os }}-venv-${{
-            matrix.python-version }}-${{
+            steps.python.outputs.python-version }}-${{
             hashFiles('requirements_test.txt') }}
           restore-keys: |
             ${{ env.CACHE_VERSION}}-${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('requirements_test.txt') }}
@@ -67,6 +67,11 @@ jobs:
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v2.2.1
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
@@ -74,7 +79,7 @@ jobs:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            env.DEFAULT_PYTHON }}-${{
+            steps.python.outputs.python-version }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -93,6 +98,11 @@ jobs:
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v2.2.1
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
@@ -100,7 +110,7 @@ jobs:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            env.DEFAULT_PYTHON }}-${{
+            steps.python.outputs.python-version }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -119,6 +129,11 @@ jobs:
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v2.2.1
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
@@ -126,7 +141,7 @@ jobs:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            env.DEFAULT_PYTHON }}-${{
+            steps.python.outputs.python-version }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -145,6 +160,11 @@ jobs:
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v2.2.1
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
@@ -152,7 +172,7 @@ jobs:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            env.DEFAULT_PYTHON }}-${{
+            steps.python.outputs.python-version }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -183,6 +203,11 @@ jobs:
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v2.2.1
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
@@ -190,7 +215,7 @@ jobs:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            env.DEFAULT_PYTHON }}-${{
+            steps.python.outputs.python-version }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -221,6 +246,11 @@ jobs:
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v2.2.1
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore Python ${{ env.DEFAULT_PYTHON }} virtual environment
         id: cache-venv
         uses: actions/cache@v2
@@ -228,7 +258,7 @@ jobs:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            env.DEFAULT_PYTHON }}-${{
+            steps.python.outputs.python-version }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -262,6 +292,11 @@ jobs:
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2.2.1
+        id: python
+        with:
+          python-version: ${{ matrix.python-version }}
       - name: Restore Python virtual environment
         id: cache-venv
         uses: actions/cache@v2
@@ -269,7 +304,7 @@ jobs:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            matrix.python-version }}-${{
+            steps.python.outputs.python-version }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -297,6 +332,11 @@ jobs:
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v2.2.1
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore Python virtual environment
         id: cache-venv
         uses: actions/cache@v2
@@ -304,7 +344,7 @@ jobs:
           path: venv
           key: >-
             ${{ env.CACHE_VERSION }}-${{ runner.os }}-venv-${{
-            env.DEFAULT_PYTHON }}-${{
+            steps.python.outputs.python-version }}-${{
             hashFiles('requirements_test.txt') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
