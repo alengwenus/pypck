@@ -18,7 +18,7 @@ import asyncio
 import logging
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, Union
 
-from pypck.helpers import cancel_task, create_task
+from pypck.helpers import TaskRegistry, cancel_task
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,8 +40,14 @@ class TimeoutRetryHandler:
 
     """
 
-    def __init__(self, num_tries: int = 3, timeout_msec: int = DEFAULT_TIMEOUT_MSEC):
+    def __init__(
+        self,
+        task_registry: TaskRegistry,
+        num_tries: int = 3,
+        timeout_msec: int = DEFAULT_TIMEOUT_MSEC,
+    ):
         """Construct TimeoutRetryHandler."""
+        self.task_registry = task_registry
         self.num_tries = num_tries
         self.timeout_msec = timeout_msec
         self._timeout_callback: Optional[TimeoutCallback] = None
@@ -70,13 +76,13 @@ class TimeoutRetryHandler:
 
     def activate(self) -> None:
         """Schedule the next activation."""
-        create_task(self.async_activate())
+        self.task_registry.create_task(self.async_activate())
 
     async def async_activate(self) -> None:
         """Clean start of next timeout_loop."""
         if self.is_active():
             await self.cancel()
-        self.timeout_loop_task = create_task(self.timeout_loop())
+        self.timeout_loop_task = self.task_registry.create_task(self.timeout_loop())
 
     async def done(self) -> None:
         """Signal the completion of the TimeoutRetryHandler."""

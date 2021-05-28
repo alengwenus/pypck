@@ -3,22 +3,6 @@
 import asyncio
 from typing import Any, Awaitable, List
 
-PYPCK_TASKS: List["asyncio.Task[Any]"] = []
-
-
-def remove_task(task: "asyncio.Task[None]") -> None:
-    """Remove a task from the task registry."""
-    if task in PYPCK_TASKS:
-        PYPCK_TASKS.remove(task)
-
-
-def create_task(coro: Awaitable[Any]) -> "asyncio.Task[None]":
-    """Create a task and store a reference in the task registry."""
-    task = asyncio.create_task(coro)
-    task.add_done_callback(remove_task)
-    PYPCK_TASKS.append(task)
-    return task
-
 
 async def cancel_task(task: "asyncio.Task[Any]") -> bool:
     """Cancel a task.
@@ -33,7 +17,26 @@ async def cancel_task(task: "asyncio.Task[Any]") -> bool:
     return success  # was not already done
 
 
-async def cancel_all_tasks() -> None:
-    """Cancel all pypck tasks."""
-    while PYPCK_TASKS:
-        await cancel_task(PYPCK_TASKS.pop())
+class TaskRegistry:
+    """Keep track of running tasks."""
+
+    def __init__(self) -> None:
+        """Init task registry instance."""
+        self.tasks: List["asyncio.Task[Any]"] = []
+
+    def remove_task(self, task: "asyncio.Task[None]") -> None:
+        """Remove a task from the task registry."""
+        if task in self.tasks:
+            self.tasks.remove(task)
+
+    def create_task(self, coro: Awaitable[Any]) -> "asyncio.Task[None]":
+        """Create a task and store a reference in the task registry."""
+        task = asyncio.create_task(coro)
+        task.add_done_callback(self.remove_task)
+        self.tasks.append(task)
+        return task
+
+    async def cancel_all_tasks(self) -> None:
+        """Cancel all pypck tasks."""
+        while self.tasks:
+            await cancel_task(self.tasks.pop())

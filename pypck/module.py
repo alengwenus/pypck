@@ -30,7 +30,7 @@ from typing import (
 )
 
 from pypck import inputs, lcn_defs
-from pypck.helpers import create_task
+from pypck.helpers import TaskRegistry
 from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
 from pypck.request_handlers import (
@@ -66,6 +66,11 @@ class AbstractConnection:
         if software_serial is None:
             software_serial = -1
         self._software_serial: int = software_serial
+
+    @property
+    def task_registry(self) -> TaskRegistry:
+        """Get the task registry."""
+        return self.conn.task_registry
 
     @property
     def seg_id(self) -> int:
@@ -834,7 +839,7 @@ class ModuleConnection(AbstractConnection):
 
         self.status_requests_handler = StatusRequestsHandler(self)
         if self.activate_status_requests:
-            create_task(self.activate_status_request_handlers())
+            self.task_registry.create_task(self.activate_status_request_handlers())
 
     async def send_command(self, wants_ack: bool, pck: Union[str, bytes]) -> bool:
         """Send a command to the module represented by this class.
@@ -887,11 +892,11 @@ class ModuleConnection(AbstractConnection):
 
     async def activate_status_request_handler(self, item: Any) -> None:
         """Activate a specific TimeoutRetryHandler for status requests."""
-        create_task(self.status_requests_handler.activate(item))
+        self.task_registry.create_task(self.status_requests_handler.activate(item))
 
     async def activate_status_request_handlers(self) -> None:
         """Activate all TimeoutRetryHandlers for status requests."""
-        create_task(
+        self.task_registry.create_task(
             self.status_requests_handler.activate_all(activate_s0=self.has_s0_enabled)
         )
 

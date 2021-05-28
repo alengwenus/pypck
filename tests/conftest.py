@@ -5,7 +5,6 @@ from typing import Any, AsyncGenerator, List
 
 import pytest
 from pypck.connection import PchkConnectionManager
-from pypck.helpers import PYPCK_TASKS
 from pypck.lcn_addr import LcnAddr
 from pypck.module import ModuleConnection
 from pypck.pck_commands import PckGenerator
@@ -75,7 +74,7 @@ async def pypck_client() -> AsyncGenerator[PchkConnectionManager, None]:
     )
     yield pcm
     await pcm.async_close()
-    assert len(PYPCK_TASKS) == 0
+    assert len(pcm.task_registry.tasks) == 0
 
 
 @pytest.fixture
