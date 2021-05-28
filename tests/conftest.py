@@ -86,3 +86,29 @@ async def module10(
     module = pypck_client.get_module_conn(lcn_addr)
     yield module
     await module.cancel_requests()
+
+
+@pytest.fixture
+async def pchk_server_2() -> AsyncGenerator[PchkServer, None]:
+    """Create a fake PchkServer and run."""
+    pchk_server = PchkServer(
+        host=HOST, port=PORT + 1, username=USERNAME, password=PASSWORD
+    )
+    await pchk_server.run()
+    yield pchk_server
+    await pchk_server.stop()
+
+
+@pytest.fixture
+async def pypck_client_2() -> AsyncGenerator[PchkConnectionManager, None]:
+    """Create a PchkConnectionManager for testing.
+
+    Create a PchkConnection Manager for testing. Add a received coroutine method
+    which returns if the specified message was received (and processed).
+    """
+    pcm = MockPchkConnectionManager(
+        HOST, PORT + 1, USERNAME, PASSWORD, settings={"SK_NUM_TRIES": 0}
+    )
+    yield pcm
+    await pcm.async_close()
+    assert len(pcm.task_registry.tasks) == 0
