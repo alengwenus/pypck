@@ -17,8 +17,8 @@ import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 from pypck import inputs, lcn_defs
-from pypck.helpers import create_task
 from pypck.lcn_addr import LcnAddr
+from pypck.helpers import TaskRegistry
 from pypck.pck_commands import PckGenerator
 from pypck.timeout_retry import TimeoutRetryHandler
 
@@ -38,11 +38,16 @@ class RequestHandler:
         """Initialize class instance."""
         self.addr_conn = addr_conn
 
-        self.trh = TimeoutRetryHandler(num_tries, timeout_msec)
+        self.trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout_msec)
         self.trh.set_timeout_callback(self.timeout)
 
         # callback
         addr_conn.register_for_inputs(self.process_input)
+
+    @property
+    def task_registry(self) -> TaskRegistry:
+        """Get the task registry."""
+        return self.addr_conn.task_registry
 
     async def request(self) -> Any:
         """Request information from module."""
@@ -50,7 +55,7 @@ class RequestHandler:
 
     def process_input(self, inp: inputs.Input) -> None:
         """Create a task to process the input object concurrently."""
-        create_task(self.async_process_input(inp))
+        self.task_registry.create_task(self.async_process_input(inp))
 
     async def async_process_input(self, inp: inputs.Input) -> None:
         """Process incoming input object.
@@ -142,17 +147,15 @@ class NameRequestHandler(RequestHandler):
     ):
         """Initialize class instance."""
         self._name: List[Optional[str]] = [None] * 2
-
-        self.trhs = []
-        for block_id in range(2):
-            trh = TimeoutRetryHandler(num_tries, timeout_msec)
-            trh.set_timeout_callback(self.timeout, block_id=block_id)
-            self.trhs.append(trh)
-
-        # events
         self.name_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
+
+        self.trhs = []
+        for block_id in range(2):
+            trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout_msec)
+            trh.set_timeout_callback(self.timeout, block_id=block_id)
+            self.trhs.append(trh)
 
     async def async_process_input(self, inp: inputs.Input) -> None:
         """Process incoming input object.
@@ -217,17 +220,15 @@ class CommentRequestHandler(RequestHandler):
     ):
         """Initialize class instance."""
         self._comment: List[Optional[str]] = [None] * 3
-
-        self.trhs = []
-        for block_id in range(3):
-            trh = TimeoutRetryHandler(num_tries, timeout_msec)
-            trh.set_timeout_callback(self.timeout, block_id=block_id)
-            self.trhs.append(trh)
-
-        # events
         self.comment_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
+
+        self.trhs = []
+        for block_id in range(3):
+            trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout_msec)
+            trh.set_timeout_callback(self.timeout, block_id=block_id)
+            self.trhs.append(trh)
 
     async def async_process_input(self, inp: inputs.Input) -> None:
         """Process incoming input object.
@@ -292,17 +293,15 @@ class OemTextRequestHandler(RequestHandler):
     ):
         """Initialize class instance."""
         self._oem_text: List[Optional[str]] = [None] * 4
-
-        self.trhs = []
-        for block_id in range(4):
-            trh = TimeoutRetryHandler(num_tries, timeout_msec)
-            trh.set_timeout_callback(self.timeout, block_id=block_id)
-            self.trhs.append(trh)
-
-        # events
         self.oem_text_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
+
+        self.trhs = []
+        for block_id in range(4):
+            trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout_msec)
+            trh.set_timeout_callback(self.timeout, block_id=block_id)
+            self.trhs.append(trh)
 
     async def async_process_input(self, inp: inputs.Input) -> None:
         """Process incoming input object.
@@ -371,8 +370,6 @@ class GroupMembershipStaticRequestHandler(RequestHandler):
     ):
         """Initialize class instance."""
         self.groups: Set[LcnAddr] = set()
-
-        # events
         self.groups_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
@@ -417,8 +414,6 @@ class GroupMembershipDynamicRequestHandler(RequestHandler):
     ):
         """Initialize class instance."""
         self.groups: Set[LcnAddr] = set()
-
-        # events
         self.groups_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
@@ -467,14 +462,16 @@ class StatusRequestsHandler:
         self.request_status_outputs = []
         for output_port in range(4):
             trh = TimeoutRetryHandler(
-                -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+                self.task_registry,
+                -1,
+                self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"],
             )
             trh.set_timeout_callback(self.request_status_outputs_timeout, output_port)
             self.request_status_outputs.append(trh)
 
         # Relay request status (all 8)
         self.request_status_relays = TimeoutRetryHandler(
-            -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+            self.task_registry, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
         )
         self.request_status_relays.set_timeout_callback(
             self.request_status_relays_timeout
@@ -482,7 +479,7 @@ class StatusRequestsHandler:
 
         # Binary-sensors request status (all 8)
         self.request_status_bin_sensors = TimeoutRetryHandler(
-            -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+            self.task_registry, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
         )
         self.request_status_bin_sensors.set_timeout_callback(
             self.request_status_bin_sensors_timeout
@@ -495,7 +492,9 @@ class StatusRequestsHandler:
         for var in lcn_defs.Var:
             if var != lcn_defs.Var.UNKNOWN:
                 self.request_status_vars[var] = TimeoutRetryHandler(
-                    -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+                    self.task_registry,
+                    -1,
+                    self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"],
                 )
                 self.request_status_vars[var].set_timeout_callback(
                     self.request_status_var_timeout, var=var
@@ -503,7 +502,7 @@ class StatusRequestsHandler:
 
         # LEDs and logic-operations request status (all 12+4).
         self.request_status_leds_and_logic_ops = TimeoutRetryHandler(
-            -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
+            self.task_registry, -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
         )
         self.request_status_leds_and_logic_ops.set_timeout_callback(
             self.request_status_leds_and_logic_ops_timeout
@@ -511,11 +510,16 @@ class StatusRequestsHandler:
 
         # Key lock-states request status (all tables, A-D).
         self.request_status_locked_keys = TimeoutRetryHandler(
-            -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
+            self.task_registry, -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
         )
         self.request_status_locked_keys.set_timeout_callback(
             self.request_status_locked_keys_timeout
         )
+
+    @property
+    def task_registry(self) -> TaskRegistry:
+        """Get the task registry."""
+        return self.addr_conn.task_registry
 
     def preprocess_modstatusvar(self, inp: inputs.ModStatusVar) -> inputs.Input:
         """Fill typeless response with last requested variable type."""

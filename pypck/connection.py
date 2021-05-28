@@ -20,7 +20,7 @@ from types import TracebackType
 from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Type, Union
 
 from pypck import inputs, lcn_defs
-from pypck.helpers import cancel_all_tasks, create_task
+from pypck.helpers import TaskRegistry
 from pypck.lcn_addr import LcnAddr
 from pypck.module import AbstractConnection, GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
@@ -85,6 +85,7 @@ class PchkConnection:
 
     def __init__(self, host: str, port: int, connection_id: str = "PCHK"):
         """Construct PchkConnection."""
+        self.task_registry = TaskRegistry()
         self.host = host
         self.port = port
         self.connection_id = connection_id
@@ -101,11 +102,11 @@ class PchkConnection:
         _LOGGER.debug("%s server connected at %s:%d", self.connection_id, *address)
 
         # main read loop
-        create_task(self.read_data_loop())
+        self.task_registry.create_task(self.read_data_loop())
 
     def connect(self) -> None:
         """Create a task to connect to a PCHK server concurrently."""
-        create_task(self.async_connect())
+        self.task_registry.create_task(self.async_connect())
 
     async def read_data_loop(self) -> None:
         """Is called when some data is received."""
@@ -154,7 +155,7 @@ class PchkConnection:
 
     async def async_close(self) -> None:
         """Close the active connection."""
-        await cancel_all_tasks()
+        await self.task_registry.cancel_all_tasks()
         if self.writer:
             self.writer.close()
             await self.writer.wait_closed()
@@ -296,7 +297,7 @@ class PchkConnectionManager(PchkConnection):
             PckGenerator.set_operation_mode(self.dim_mode, self.status_mode),
             to_host=True,
         )
-        create_task(self.ping())
+        self.task_registry.create_task(self.ping())
 
     async def lcn_connection_status_changed(self, is_lcn_connected: bool) -> None:
         """Set the current connection state to the LCN bus.
@@ -304,13 +305,15 @@ class PchkConnectionManager(PchkConnection):
         :param    bool    is_lcn_connected: Current connection status
         """
         self.is_lcn_connected = is_lcn_connected
-        create_task(self.event_handler("lcn-connection-status-changed"))
+        self.task_registry.create_task(
+            self.event_handler("lcn-connection-status-changed")
+        )
         if is_lcn_connected:
             _LOGGER.debug("%s: LCN is connected.", self.connection_id)
-            create_task(self.event_handler("lcn-connected"))
+            self.task_registry.create_task(self.event_handler("lcn-connected"))
         else:
             _LOGGER.debug("%s: LCN is not connected.", self.connection_id)
-            create_task(self.event_handler("lcn-disconnected"))
+            self.task_registry.create_task(self.event_handler("lcn-disconnected"))
 
     async def async_connect(self, timeout: int = 30) -> None:
         """Establish a connection to PCHK at the given socket.
@@ -427,7 +430,7 @@ class PchkConnectionManager(PchkConnection):
         if address_conn is None:
             address_conn = ModuleConnection(self, addr)
             if request_serials:
-                create_task(address_conn.request_serials())
+                self.task_registry.create_task(address_conn.request_serials())
             self.address_conns[addr] = address_conn
 
         return address_conn

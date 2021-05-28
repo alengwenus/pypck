@@ -94,6 +94,25 @@ async def test_connection_lost(pchk_server, pypck_client):
 
 
 @pytest.mark.asyncio
+async def test_multiple_connections(
+    pchk_server, pypck_client, pchk_server_2, pypck_client_2
+):
+    """Test that two independent connections can coexists."""
+    await pypck_client_2.async_connect()
+
+    pypck_client.event_handler = AsyncMock()
+    await pypck_client.async_connect()
+
+    await pchk_server.stop()
+    await pypck_client.wait_closed()
+
+    pypck_client.event_handler.assert_has_awaits([call("connection-lost")])
+
+    assert len(pypck_client.task_registry.tasks) == 0
+    assert len(pypck_client_2.task_registry.tasks) > 0
+
+
+@pytest.mark.asyncio
 async def test_segment_coupler_search(pchk_server, pypck_client):
     """Test segment coupler search."""
     await pypck_client.async_connect()
