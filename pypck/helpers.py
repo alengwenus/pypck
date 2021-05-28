@@ -36,4 +36,4 @@ async def cancel_task(task: "asyncio.Task[Any]") -> bool:
 async def cancel_all_tasks() -> None:
     """Cancel all pypck tasks."""
     while PYPCK_TASKS:
-        await cancel_task(PYPCK_TASKS.pop(0))
+        await cancel_task(PYPCK_TASKS.pop())
