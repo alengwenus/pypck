@@ -116,7 +116,7 @@ class PchkConnection:
                 data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
             except asyncio.IncompleteReadError:
                 _LOGGER.debug("Connection to %s lost", self.connection_id)
-                create_task(self.event_handler("connection-lost"))
+                await self.event_handler("connection-lost")
                 await self.async_close()
                 break
             except asyncio.CancelledError:
@@ -168,8 +168,6 @@ class PchkConnection:
 
     async def default_event_handler(self, event: str) -> None:
         """Handle events for specific LCN events."""
-        if event == "connection-lost":
-            await self.async_close()
 
     async def wait_closed(self) -> None:
         """Wait until connection to PCHK server is closed."""
