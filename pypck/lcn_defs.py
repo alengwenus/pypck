@@ -671,6 +671,7 @@ class VarUnit(Enum):
     LUX_I = "Lux_I"
     METERPERSECOND = "m/s"  # Used for LCN-WIH wind speed
     PERCENT = "%"  # Used for humidity
+    PERCENT_OUTPUT = "%O"  # Used for outputs in variables
     PPM = "ppm"  # Used by CO2 sensor
     VOLT = "V"
     AMPERE = "mA"
@@ -697,6 +698,8 @@ class VarUnit(Enum):
             var_unit = VarUnit.LUX_I
         elif unit == "M/S":
             var_unit = VarUnit.METERPERSECOND
+        elif unit in ["%O", "PERCENT_OUTPUT"]:
+            var_unit = VarUnit.PERCENT_OUTPUT
         elif unit in ["%", "PERCENT"]:
             var_unit = VarUnit.PERCENT
         elif unit == "PPM":
@@ -768,6 +771,8 @@ class VarValue:
             var_value = VarValue.from_lux_i(value)
         elif unit == VarUnit.METERPERSECOND:
             var_value = VarValue.from_meters_per_second(value)
+        elif unit == VarUnit.PERCENT_OUTPUT:
+            var_value = VarValue.from_percent_output(value)
         elif unit == VarUnit.PERCENT:
             var_value = VarValue.from_percent(value)
         elif unit == VarUnit.PPM:
@@ -869,6 +874,17 @@ class VarValue:
         :rtype:    VarValue
         """
         return VarValue(int(round(math.log(lux) * 100)))
+
+    @staticmethod
+    def from_percent_output(value: float) -> "VarValue":
+        """Create a variable value from % input.
+
+        :param    float    value:    The input value
+
+        :return:    The variable value (never null)
+        :rtype:    VarValue
+        """
+        return VarValue(int(round(value * 2)))
 
     @staticmethod
     def from_percent(value: float) -> "VarValue":
@@ -975,6 +991,8 @@ class VarValue:
             return var_value.to_lux_i()
         if unit == VarUnit.METERPERSECOND:
             return var_value.to_meters_per_second()
+        if unit == VarUnit.PERCENT_OUTPUT:
+            return var_value.to_percent_output()
         if unit == VarUnit.PERCENT:
             return var_value.to_percent()
         if unit == VarUnit.PPM:
@@ -1038,6 +1056,14 @@ class VarValue:
         :rtype:    float
         """
         return math.exp(self.native_value / 100)
+
+    def to_percent_output(self) -> float:
+        """Convert to % value.
+
+        :return:    The converted value
+        :rtype:    int
+        """
+        return self.native_value / 2.0
 
     def to_percent(self) -> int:
         """Convert to % value.
@@ -1138,6 +1164,8 @@ class VarValue:
                     ret = f"{var.to_lux_i():.0f}"
             elif unit == VarUnit.METERPERSECOND:
                 ret = f"{var.to_meters_per_second():.0f}"
+            elif unit == VarUnit.PERCENT_OUTPUT:
+                ret = f"{var.to_percent_output():.01f}"
             elif unit == VarUnit.PERCENT:
                 ret = f"{var.to_percent():.0f}"
             elif unit == VarUnit.PPM:

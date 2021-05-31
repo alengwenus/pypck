@@ -31,6 +31,7 @@ UNITS_LOSSLESS_ROUNDTRIP = (
     VarUnit.FAHRENHEIT,
     VarUnit.LUX_I,
     VarUnit.METERPERSECOND,
+    VarUnit.PERCENT_OUTPUT,
     VarUnit.PERCENT,
     VarUnit.VOLT,
     VarUnit.AMPERE,
@@ -82,6 +83,10 @@ CALIBRATION_TEST_VECTORS = (
     *(
         (VarUnit.METERPERSECOND, native, value)
         for native, value in ((0, 0), (10, 1), (100, 10), (1000, 100))
+    ),
+    *(
+        (VarUnit.PERCENT_OUTPUT, native, value)
+        for native, value in ((0, 0), (100, 50), (101, 50.5), (200, 100))
     ),
     *(
         (VarUnit.PERCENT, native, value)
