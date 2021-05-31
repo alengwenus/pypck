@@ -84,6 +84,10 @@ CALIBRATION_TEST_VECTORS = (
         for native, value in ((0, 0), (10, 1), (100, 10), (1000, 100))
     ),
     *(
+        (VarUnit.PERCENT, native, value)
+        for native, value in ((0, 0), (1, 1), (100, 100))
+    ),
+    *(
         (VarUnit.VOLT, native, value)
         for native, value in ((0, 0), (400, 1), (4000, 10))
     ),
@@ -104,7 +108,7 @@ CALIBRATION_TEST_VECTORS = (
 
 
 @pytest.mark.parametrize("unit, native, expected", ROUNDTRIP_TEST_VECTORS)
-def test_roundtrip(unit, native, expected) -> None:
+def test_roundtrip(unit, native, expected):
     """Test that variable conversion roundtrips."""
     assert (
         expected
@@ -115,6 +119,6 @@ def test_roundtrip(unit, native, expected) -> None:
 
 
 @pytest.mark.parametrize("unit, native, value", CALIBRATION_TEST_VECTORS)
-def test_calibration(unit, native, value) -> None:
+def test_calibration(unit, native, value):
     """Test proper calibration of variable conversion."""
     assert value == VarValue.to_var_unit(VarValue.from_native(native), unit)
