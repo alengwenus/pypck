@@ -775,7 +775,7 @@ class VarValue:
         elif unit == VarUnit.VOLT:
             var_value = VarValue.from_volt(value)
         elif unit == VarUnit.AMPERE:
-            var_value = VarValue.from_kelvin(value)
+            var_value = VarValue.from_ampere(value)
         elif unit == VarUnit.DEGREE:
             var_value = VarValue.from_degree(value)
         else:
