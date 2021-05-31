@@ -673,7 +673,7 @@ class VarUnit(Enum):
     PERCENT = "%"  # Used for humidity
     PPM = "ppm"  # Used by CO2 sensor
     VOLT = "V"
-    AMPERE = "A"
+    AMPERE = "mA"
     DEGREE = "\u00b0"  # Used for angles,
 
     @staticmethod
