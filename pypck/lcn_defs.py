@@ -775,7 +775,7 @@ class VarValue:
         elif unit == VarUnit.VOLT:
             var_value = VarValue.from_volt(value)
         elif unit == VarUnit.AMPERE:
-            var_value = VarValue.from_kelvin(value)
+            var_value = VarValue.from_ampere(value)
         elif unit == VarUnit.DEGREE:
             var_value = VarValue.from_degree(value)
         else:
@@ -927,7 +927,7 @@ class VarValue:
         :return: The variable value (never null)
         :rtype:    VarValue
         """
-        return VarValue(int(round(value * 100)))
+        return VarValue(int(round(value * 100000)))
 
     @staticmethod
     def from_degree(value: float, is_abs: bool = True) -> "VarValue":
@@ -1077,7 +1077,7 @@ class VarValue:
         :return:    The converted value
         :rtype:    float
         """
-        return self.native_value / 100.0
+        return self.native_value / 100000.0
 
     def to_degree(self) -> float:
         """Convert to degree value.
