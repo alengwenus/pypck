@@ -180,7 +180,7 @@ class PckParser:
     PATTERN_STATUS_TRANSMITTER = re.compile(
         r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.ZI"
         r"(?P<code1>\d{3})(?P<code2>\d{3})(?P<code3>\d{3})"
-        r"0(?P<level>\d)(?P<key>\d)(?P<action>\d{3})"
+        r"(?P<level>\d{2})(?P<key>\d)(?P<action>\d{3})"
     )
 
     # Pattern to parse transponder status messages.

@@ -860,7 +860,7 @@ class ModStatusAccessControl(ModInput):
     def __init__(
         self,
         physical_source_addr: LcnAddr,
-        access_type: str,
+        periphery: lcn_defs.AccessControlPeriphery,
         code: str,
         level: Optional[int] = None,
         key: Optional[int] = None,
@@ -868,7 +868,7 @@ class ModStatusAccessControl(ModInput):
     ):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
-        self.access_type = access_type
+        self.periphery = periphery
         self.code = code
         self.level = level
         self.key = key
@@ -888,15 +888,15 @@ class ModStatusAccessControl(ModInput):
         """
         matcher = PckParser.PATTERN_STATUS_TRANSMITTER.match(data)
         if matcher:
-            access_type = "transmitter"
+            periphery = lcn_defs.AccessControlPeriphery.TRANSMITTER
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             code = (
-                f"{int(matcher.group('code1')):02X}"
-                f"{int(matcher.group('code2')):02X}"
-                f"{int(matcher.group('code3')):02X}"
+                f"{int(matcher.group('code1')):02x}"
+                f"{int(matcher.group('code2')):02x}"
+                f"{int(matcher.group('code3')):02x}"
             )
             level = int(matcher.group("level"))
-            key = int(matcher.group("key"))
+            key = int(matcher.group("key")) - 1
 
             actions = {
                 "011": lcn_defs.KeyAction.HIT,
@@ -905,30 +905,29 @@ class ModStatusAccessControl(ModInput):
             }
 
             action = actions[matcher.group("action")]
-
-            return [ModStatusAccessControl(addr, access_type, code, level, key, action)]
+            return [ModStatusAccessControl(addr, periphery, code, level, key, action)]
 
         matcher = PckParser.PATTERN_STATUS_TRANSPONDER.match(data)
         if matcher:
-            access_type = "transponder"
+            periphery = lcn_defs.AccessControlPeriphery.TRANSPONDER
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             code = (
-                f"{int(matcher.group('code1')):02X}"
-                f"{int(matcher.group('code2')):02X}"
-                f"{int(matcher.group('code3')):02X}"
+                f"{int(matcher.group('code1')):02x}"
+                f"{int(matcher.group('code2')):02x}"
+                f"{int(matcher.group('code3')):02x}"
             )
-            return [ModStatusAccessControl(addr, access_type, code)]
+            return [ModStatusAccessControl(addr, periphery, code)]
 
         matcher = PckParser.PATTERN_STATUS_FINGERPRINT.match(data)
         if matcher:
-            access_type = "fingerprint"
+            periphery = lcn_defs.AccessControlPeriphery.FINGERPRINT
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             code = (
-                f"{int(matcher.group('code1')):02X}"
-                f"{int(matcher.group('code2')):02X}"
-                f"{int(matcher.group('code3')):02X}"
+                f"{int(matcher.group('code1')):02x}"
+                f"{int(matcher.group('code2')):02x}"
+                f"{int(matcher.group('code3')):02x}"
             )
-            return [ModStatusAccessControl(addr, access_type, code)]
+            return [ModStatusAccessControl(addr, periphery, code)]
 
         return None
 

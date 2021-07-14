@@ -158,9 +158,9 @@ class Key(Enum):
 class KeyAction(Enum):
     """Action types for LCN keys."""
 
-    HIT = auto()
-    MAKE = auto()
-    BREAK = auto()
+    HIT = "hit"
+    MAKE = "make"
+    BREAK = "break"
 
 
 class OutputPortDimMode(Enum):
@@ -1370,6 +1370,14 @@ def hw_type_new(cls, value):
 
 
 setattr(HardwareType, "__new__", hw_type_new)
+
+
+class AccessControlPeriphery(Enum):
+    """Action types for LCN keys."""
+
+    TRANSMITTER = "transmitter"
+    TRANSPONDER = "transponder"
+    FINGERPRINT = "fingerprint"
 
 
 default_connection_settings: Dict[str, Any] = {
