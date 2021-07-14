@@ -9,6 +9,7 @@ from pypck.inputs import (
     ModSendKeysHost,
     ModSk,
     ModSn,
+    ModStatusAccessControl,
     ModStatusBinSensors,
     ModStatusGroups,
     ModStatusKeyLocks,
@@ -21,7 +22,9 @@ from pypck.inputs import (
 )
 from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import (
+    AccessControlPeriphery,
     HardwareType,
+    KeyAction,
     LedStatus,
     LogicOpStatus,
     OutputPort,
@@ -141,6 +144,25 @@ MESSAGES = {
             [True, True, True, True, True, True, False, False],
             [False, False, True, True, False, False, True, True],
         ],
+    ),
+    # Status Access Control
+    "=M000010.ZI026043060013011": (
+        ModStatusAccessControl,
+        AccessControlPeriphery.TRANSMITTER,
+        "1a2b3c",
+        1,
+        2,
+        KeyAction.HIT,
+    ),
+    "=M000010.ZT026043060": (
+        ModStatusAccessControl,
+        AccessControlPeriphery.TRANSPONDER,
+        "1a2b3c",
+    ),
+    "=M000010.ZF026043060": (
+        ModStatusAccessControl,
+        AccessControlPeriphery.FINGERPRINT,
+        "1a2b3c",
     ),
     # Status scene outputs
     "=M000010.SZ003025150075100140000033200": (

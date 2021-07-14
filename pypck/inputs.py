@@ -854,6 +854,84 @@ class ModStatusKeyLocks(ModInput):
         return None
 
 
+class ModStatusAccessControl(ModInput):
+    """Status of a tranmitter, transponder or fingerprint sensor."""
+
+    def __init__(
+        self,
+        physical_source_addr: LcnAddr,
+        periphery: lcn_defs.AccessControlPeriphery,
+        code: str,
+        level: Optional[int] = None,
+        key: Optional[int] = None,
+        action: Optional[lcn_defs.KeyAction] = None,
+    ):
+        """Construct ModInput object."""
+        super().__init__(physical_source_addr)
+        self.periphery = periphery
+        self.code = code
+        self.level = level
+        self.key = key
+        self.action = action
+
+    @staticmethod
+    def try_parse(data: str) -> Optional[List[Input]]:
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_STATUS_TRANSMITTER.match(data)
+        if matcher:
+            periphery = lcn_defs.AccessControlPeriphery.TRANSMITTER
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            code = (
+                f"{int(matcher.group('code1')):02x}"
+                f"{int(matcher.group('code2')):02x}"
+                f"{int(matcher.group('code3')):02x}"
+            )
+            level = int(matcher.group("level"))
+            key = int(matcher.group("key")) - 1
+
+            actions = {
+                "011": lcn_defs.KeyAction.HIT,
+                "012": lcn_defs.KeyAction.MAKE,
+                "013": lcn_defs.KeyAction.BREAK,
+            }
+
+            action = actions[matcher.group("action")]
+            return [ModStatusAccessControl(addr, periphery, code, level, key, action)]
+
+        matcher = PckParser.PATTERN_STATUS_TRANSPONDER.match(data)
+        if matcher:
+            periphery = lcn_defs.AccessControlPeriphery.TRANSPONDER
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            code = (
+                f"{int(matcher.group('code1')):02x}"
+                f"{int(matcher.group('code2')):02x}"
+                f"{int(matcher.group('code3')):02x}"
+            )
+            return [ModStatusAccessControl(addr, periphery, code)]
+
+        matcher = PckParser.PATTERN_STATUS_FINGERPRINT.match(data)
+        if matcher:
+            periphery = lcn_defs.AccessControlPeriphery.FINGERPRINT
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            code = (
+                f"{int(matcher.group('code1')):02x}"
+                f"{int(matcher.group('code2')):02x}"
+                f"{int(matcher.group('code3')):02x}"
+            )
+            return [ModStatusAccessControl(addr, periphery, code)]
+
+        return None
+
+
 class ModStatusSceneOutputs(ModInput):
     """Status of the output values and ramp values received from an LCN module."""
 
@@ -1059,6 +1137,7 @@ class InputParser:
         ModStatusVar,
         ModStatusLedsAndLogicOps,
         ModStatusKeyLocks,
+        ModStatusAccessControl,
         ModStatusSceneOutputs,
         ModSendCommandHost,
         ModSendKeysHost,
