@@ -155,6 +155,14 @@ class Key(Enum):
     D8 = 31
 
 
+class KeyAction(Enum):
+    """Action types for LCN keys."""
+
+    HIT = auto()
+    MAKE = auto()
+    BREAK = auto()
+
+
 class OutputPortDimMode(Enum):
     """LCN dimming mode.
 

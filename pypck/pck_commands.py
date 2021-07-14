@@ -176,6 +176,25 @@ class PckParser:
         r"(?P<actions>\d{3})(?P<keys>\d{3})"
     )
 
+    # Pattern to parse transmitter status messages.
+    PATTERN_STATUS_TRANSMITTER = re.compile(
+        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.ZI"
+        r"(?P<code1>\d{3})(?P<code2>\d{3})(?P<code3>\d{3})"
+        r"0(?P<level>\d)(?P<key>\d)(?P<action>\d{3})"
+    )
+
+    # Pattern to parse transponder status messages.
+    PATTERN_STATUS_TRANSPONDER = re.compile(
+        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.ZT"
+        r"(?P<code1>\d{3})(?P<code2>\d{3})(?P<code3>\d{3})"
+    )
+
+    # Pattern to parse fingerprint status messages.
+    PATTERN_STATUS_FINGERPRINT = re.compile(
+        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.ZF"
+        r"(?P<code1>\d{3})(?P<code2>\d{3})(?P<code3>\d{3})"
+    )
+
     @staticmethod
     def get_boolean_value(input_byte: int) -> List[bool]:
         """Get boolean representation for the given byte.
