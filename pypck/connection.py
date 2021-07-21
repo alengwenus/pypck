@@ -17,7 +17,18 @@ Contributors:
 import asyncio
 import logging
 from types import TracebackType
-from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Type, Union
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Type,
+    Union,
+)
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
@@ -247,6 +258,8 @@ class PchkConnectionManager(PchkConnection):
         # permanently.
         self.address_conns: Dict[LcnAddr, ModuleConnection] = {}
         self.segment_coupler_ids: List[int] = []
+
+        self.input_callbacks: Set[Callable[[inputs.Input], None]] = set()
 
     async def __aenter__(self) -> "PchkConnectionManager":
         """Context manager enter method."""
@@ -628,16 +641,20 @@ class PchkConnectionManager(PchkConnection):
 
         # Inputs from bus
         elif self.is_ready():
-            assert isinstance(inp, inputs.ModInput)
-            logical_source_addr = self.physical_to_logical(inp.physical_source_addr)
-            assert not logical_source_addr.is_group
-            module_conn = self.get_module_conn(logical_source_addr)
-            if isinstance(inp, inputs.ModSn):
-                # used to extend scan_modules() timeout
-                if self.module_serial_number_received.locked():
-                    self.module_serial_number_received.release()
+            if isinstance(inp, inputs.ModInput):
+                logical_source_addr = self.physical_to_logical(inp.physical_source_addr)
+                if not logical_source_addr.is_group:
+                    module_conn = self.get_module_conn(logical_source_addr)
+                    if isinstance(inp, inputs.ModSn):
+                        # used to extend scan_modules() timeout
+                        if self.module_serial_number_received.locked():
+                            self.module_serial_number_received.release()
 
-            await module_conn.async_process_input(inp)
+                    await module_conn.async_process_input(inp)
+
+            # Forward all known inputs to callback listeners.
+            for input_callback in self.input_callbacks:
+                input_callback(inp)
 
     async def cancel_requests(self) -> None:
         """Cancel all TimeoutRetryHandlers."""
@@ -649,6 +666,16 @@ class PchkConnectionManager(PchkConnection):
 
         if cancel_coros:
             await asyncio.wait(cancel_coros)
+
+    def register_for_inputs(
+        self, callback: Callable[[inputs.Input], None]
+    ) -> Callable[..., None]:
+        """Register a function for callback on PCK message received.
+
+        Returns a function to unregister the callback.
+        """
+        self.input_callbacks.add(callback)
+        return lambda callback=callback: self.input_callbacks.remove(callback)
 
     def set_event_handler(self, coro: Callable[[str], Awaitable[None]]) -> None:
         """Set the event handler for specific LCN events."""

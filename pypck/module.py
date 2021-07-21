@@ -803,7 +803,7 @@ class ModuleConnection(AbstractConnection):
         self.activate_status_requests = activate_status_requests
         self.has_s0_enabled = has_s0_enabled
 
-        self.input_callbacks: List[Callable[[inputs.Input], None]] = []
+        self.input_callbacks: Set[Callable[[inputs.Input], None]] = set()
 
         # List of queued acknowledge codes from the LCN modules.
         self.acknowledges: "asyncio.Queue[int]" = asyncio.Queue()
@@ -941,7 +941,7 @@ class ModuleConnection(AbstractConnection):
 
         Returns a function to unregister the callback.
         """
-        self.input_callbacks.append(callback)
+        self.input_callbacks.add(callback)
         return lambda callback=callback: self.input_callbacks.remove(callback)
 
     async def async_process_input(self, inp: inputs.Input) -> None:

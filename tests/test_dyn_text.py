@@ -1,9 +1,9 @@
 """Module connection tests."""
 
 import asyncio
+
 import pytest
 from pypck.lcn_addr import LcnAddr
-
 
 TEST_VECTORS = {
     # empty
