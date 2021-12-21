@@ -373,7 +373,12 @@ class ModSn(ModInput):
             hardware_serial = int(matcher.group("hardware_serial"), 16)
             manu = int(matcher.group("manu"), 16)
             software_serial = int(matcher.group("software_serial"), 16)
-            hardware_type = lcn_defs.HardwareType(int(matcher.group("hardware_type")))
+            try:
+                hardware_type = lcn_defs.HardwareType(
+                    int(matcher.group("hardware_type"))
+                )
+            except ValueError:  # unknown hardware type
+                hardware_type = lcn_defs.HardwareType(-1)
             return [ModSn(addr, hardware_serial, manu, software_serial, hardware_type)]
 
         return None
