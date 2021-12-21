@@ -134,7 +134,13 @@ class PchkConnection:
             except asyncio.CancelledError:
                 break
 
-            message = data.decode().split(PckGenerator.TERMINATION)[0]
+            try:
+                message = data.decode().split(PckGenerator.TERMINATION)[0]
+            except UnicodeDecodeError:
+                _LOGGER.exception(
+                    "Decoding error:  Unable to decode received PCK message"
+                )
+                continue
             await self.process_message(message)
 
     async def send_command(self, pck: Union[bytes, str], **kwargs: Any) -> bool:
