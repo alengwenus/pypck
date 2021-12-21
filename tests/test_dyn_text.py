@@ -63,10 +63,7 @@ async def test_dyn_text(pchk_server, pypck_client, text, parts):
     await pypck_client.async_connect()
     module = pypck_client.get_address_conn(LcnAddr(0, 10, False))
     task = asyncio.create_task(module.dyn_text(3, text))
-    assert all(
-        [
-            await pchk_server.received(f">M000010!GTDT4{i+1:d}".encode() + part)
-            for i, part in enumerate(parts)
-        ]
-    )
+    for i, part in enumerate(parts):
+        assert await pchk_server.received(f">M000010!GTDT4{i+1:d}".encode() + part)
+
     task.cancel()

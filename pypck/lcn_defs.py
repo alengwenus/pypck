@@ -219,8 +219,7 @@ def time_to_ramp_value(time_msec: int) -> int:
         ret = 9
     else:
         ramp = (time_msec / 1000 - 6) / 2 + 10
-        if ramp >= 250:
-            ramp = 250
+        ramp = min(ramp, 250)
         ret = int(ramp)
     return ret
 

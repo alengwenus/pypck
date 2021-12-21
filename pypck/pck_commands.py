@@ -260,9 +260,10 @@ class PckGenerator:
         :return:    The PCK command as text
         :rtype:    str
         """
-        return "!OM{:s}{:s}".format(
-            "1" if (dim_mode == lcn_defs.OutputPortDimMode.STEPS200) else "0",
-            "P" if (status_mode == lcn_defs.OutputPortStatusMode.PERCENT) else "N",
+        return (
+            "!OM"
+            f"{'1' if (dim_mode == lcn_defs.OutputPortDimMode.STEPS200) else '0'}"
+            f"{'P' if (status_mode == lcn_defs.OutputPortStatusMode.PERCENT) else 'N'}"
         )
 
     @staticmethod
@@ -279,11 +280,12 @@ class PckGenerator:
         :return:    The PCK address header string.
         :rtype:     str
         """
-        return ">{:s}{:03d}{:03d}{:s}".format(
-            "G" if addr.is_group else "M",
-            addr.get_physical_seg_id(local_seg_id),
-            addr.addr_id,
-            "!" if wants_ack else ".",
+        return (
+            ">"
+            f"{'G' if addr.is_group else 'M'}"
+            f"{addr.get_physical_seg_id(local_seg_id):03d}"
+            f"{addr.addr_id:03d}"
+            f"{'!' if wants_ack else '.'}"
         )
 
     @staticmethod
@@ -316,7 +318,7 @@ class PckGenerator:
         """
         if block_id not in [0, 1]:
             raise ValueError("Invalid block_id.")
-        return "NMN{:d}".format(block_id + 1)
+        return f"NMN{block_id + 1}"
 
     @staticmethod
     def request_comment(block_id: int) -> str:
@@ -327,7 +329,7 @@ class PckGenerator:
         """
         if block_id not in [0, 1, 2]:
             raise ValueError("Invalid block_id.")
-        return "NMK{:d}".format(block_id + 1)
+        return f"NMK{block_id + 1}"
 
     @staticmethod
     def request_oem_text(block_id: int) -> str:
@@ -338,7 +340,7 @@ class PckGenerator:
         """
         if block_id not in [0, 1, 2, 3]:
             raise ValueError("Invalid block_id.")
-        return "NMO{:d}".format(block_id + 1)
+        return f"NMO{block_id + 1}"
 
     @staticmethod
     def request_group_membership_static() -> str:
@@ -368,7 +370,7 @@ class PckGenerator:
         """
         if (output_id < 0) or (output_id > 3):
             raise ValueError("Invalid output_id.")
-        return "SMA{:d}".format(output_id + 1)
+        return f"SMA{output_id + 1}"
 
     @staticmethod
     def dim_output(output_id: int, percent: float, ramp: int) -> str:
@@ -386,11 +388,11 @@ class PckGenerator:
         ramp = int(ramp)
         if (percent_round % 2) == 0:
             # Use the percent command (supported by all LCN-PCHK versions)
-            pck = "A{:d}DI{:03d}{:03d}".format(output_id + 1, percent_round // 2, ramp)
+            pck = f"A{output_id + 1}DI{percent_round // 2:03d}{ramp:03d}"
         else:
             # We have a ".5" value. Use the native command (supported since
             # LCN-PCHK 2.3)
-            pck = "O{:d}DI{:03d}{:03d}".format(output_id + 1, percent_round, ramp)
+            pck = f"O{output_id + 1}DI{percent_round:03d}{ramp:03d}"
         return pck
 
     @staticmethod
@@ -407,14 +409,21 @@ class PckGenerator:
         percent_round = int(round(percent * 2))
         if software_serial >= 0x180501:
             # Supported since LCN-PCHK 2.61
-            pck = "OY{0:03d}{0:03d}{0:03d}{0:03d}{1:03d}".format(percent_round, ramp)
+            pck = (
+                "OY"
+                f"{percent_round:03d}"
+                f"{percent_round:03d}"
+                f"{percent_round:03d}"
+                f"{percent_round:03d}"
+                f"{ramp:03d}"
+            )
         elif percent_round == 0:  # All off
             pck = f"AA{ramp:03d}"
         elif percent_round == 200:  # All on
             pck = f"AE{ramp:03d}"
         else:
             # This is our worst-case: No high-res, no ramp
-            pck = "AH{:03d}".format(int(percent_round / 2))
+            pck = f"AH{percent_round // 2:03d}"
         return pck
 
     @staticmethod
@@ -432,14 +441,20 @@ class PckGenerator:
         percent_round = int(round(percent * 2))
         if percent_round % 2 == 0:
             # Use the percent command (supported by all LCN-PCHK versions)
-            pck = "A{:d}{:s}{:03d}".format(
-                output_id + 1, "AD" if percent >= 0 else "SB", abs(percent_round // 2)
+            pck = (
+                "A"
+                f"{output_id + 1}"
+                f"{'AD' if percent >= 0 else 'SB'}"
+                f"{abs(percent_round // 2):03d}"
             )
         else:
             # We have a ".5" value. Use the native command (supported since
             # LCN-PCHK 2.3)
-            pck = "O{:d}{:s}{:03d}".format(
-                output_id + 1, "AD" if percent >= 0 else "SB", abs(percent_round)
+            pck = (
+                "O"
+                f"{output_id + 1}"
+                f"{'AD' if percent >= 0 else 'SB'}"
+                f"{abs(percent_round):03d}"
             )
         return pck
 
@@ -456,7 +471,7 @@ class PckGenerator:
         """
         if (output_id < 0) or (output_id > 3):
             raise ValueError("Invalid output_id.")
-        return "A{:d}TA{:03d}".format(output_id + 1, ramp)
+        return f"A{output_id + 1}TA{ramp:03d}"
 
     @staticmethod
     def toggle_all_outputs(ramp: int) -> str:
@@ -583,7 +598,7 @@ class PckGenerator:
                 params = (0x04, 0xC8, 0x0B)
             else:
                 raise ValueError("Wrong MotorReverseTime.")
-            ret = "X2{:03d}{:03d}{:03d}".format(*params)
+            ret = f"X2{params[0]:03d}{params[1]:03d}{params[2]:03d}"
 
         elif state == lcn_defs.MotorStateModifier.DOWN:
             if reverse_time in [None, lcn_defs.MotorReverseTime.RT70]:
@@ -594,7 +609,7 @@ class PckGenerator:
                 params = (0x05, 0xC8, 0x0B)
             else:
                 raise ValueError("Wrong MotorReverseTime.")
-            ret = "X2{:03d}{:03d}{:03d}".format(*params)
+            ret = f"X2{params[0]:03d}{params[1]:03d}{params[2]:03d}"
 
         elif state == lcn_defs.MotorStateModifier.STOP:
             ret = "AY000000"
@@ -631,7 +646,7 @@ class PckGenerator:
             value -= 1000  # Offset
             byte1 |= (value >> 8) & 0x0F  # xxxx1111
             byte2 = value & 0xFF
-            return "X2{:03d}{:03d}{:03d}".format(30, byte1, byte2)
+            return f"X2{30:03d}{byte1:03d}{byte2:03d}"
 
         # Setting variables and thresholds absolute not implemented in LCN
         # firmware yet
@@ -674,7 +689,7 @@ class PckGenerator:
         var_id = lcn_defs.Var.to_var_id(var)
         if var_id != -1:
             if software_serial >= 0x170206:
-                pck = "Z-{:03d}{:04d}".format(var_id + 1, 4090)
+                pck = f"Z-{var_id + 1:03d}{4090:04d}"
             else:
                 if var_id == 0:
                     pck = "ZS30000"
@@ -688,7 +703,7 @@ class PckGenerator:
             byte1 = set_point_id << 6  # 01000000
             byte1 |= 0x20  # xx10xxxx 9set absolute)
             byte2 = 0
-            return "X2{:03d}{:03d}{:03d}".format(30, byte1, byte2)
+            return f"X2{30:03d}{byte1:03d}{byte2:03d}"
 
         # Reset for threshold not implemented in LCN firmware yet
         raise ValueError("Wrong variable type.")
@@ -716,22 +731,26 @@ class PckGenerator:
             if var_id == 0:
                 # Old command for variable 1 / T-var (compatible with all
                 # modules)
-                pck = "Z{:s}{:d}".format("A" if value >= 0 else "S", abs(value))
+                pck = "Z" f"{'A' if value >= 0 else 'S'}" f"{abs(value)}"
             else:
                 # New command for variable 1-12 (compatible with all modules,
                 # since LCN-PCHK 2.8)
-                pck = "Z{:s}{:03d}{:d}".format(
-                    "+" if value >= 0 else "-", var_id + 1, abs(value)
+                pck = (
+                    "Z"
+                    f"{'+' if value >= 0 else '-'}"
+                    f"{var_id + 1:03d}"
+                    f"{abs(value)}"
                 )
             return pck
 
         set_point_id = lcn_defs.Var.to_set_point_id(var)
         if set_point_id != -1:
-            pck = "RE{:s}S{:s}{:s}{:d}".format(
-                "A" if set_point_id == 0 else "B",
-                "A" if rel_var_ref == lcn_defs.RelVarRef.CURRENT else "P",
-                "+" if value >= 0 else "-",
-                abs(value),
+            pck = (
+                "RE"
+                f"{'A' if set_point_id == 0 else 'B'}"
+                f"S{'A' if rel_var_ref == lcn_defs.RelVarRef.CURRENT else 'P'}"
+                f"{'+' if value >= 0 else '-'}"
+                f"{abs(value)}"
             )
             return pck
 
@@ -740,24 +759,26 @@ class PckGenerator:
         if (thrs_register_id != -1) and (thrs_id != -1):
             if software_serial >= 0x170206:
                 # New command for registers 1-4 (since 170206, LCN-PCHK 2.8)
-                pck = "SS{:s}{:04d}{:s}R{:d}{:d}".format(
-                    "R" if rel_var_ref == lcn_defs.RelVarRef.CURRENT else "E",
-                    abs(value),
-                    "A" if value >= 0 else "S",
-                    thrs_register_id + 1,
-                    thrs_id + 1,
+                pck = (
+                    "SS"
+                    f"{'R' if rel_var_ref == lcn_defs.RelVarRef.CURRENT else 'E'}"
+                    f"{abs(value):04d}"
+                    f"{'A' if value >= 0 else 'S'}"
+                    f"R{thrs_register_id + 1}"
+                    f"{thrs_id + 1}"
                 )
             elif thrs_register_id == 0:
                 # Old command for register 1 (before 170206)
-                pck = "SS{:s}{:04d}{:s}{:s}{:s}{:s}{:s}{:s}".format(
-                    "R" if rel_var_ref == lcn_defs.RelVarRef.CURRENT else "E",
-                    abs(value),
-                    "A" if value >= 0 else "S",
-                    "1" if thrs_id == 0 else "0",
-                    "1" if thrs_id == 1 else "0",
-                    "1" if thrs_id == 2 else "0",
-                    "1" if thrs_id == 3 else "0",
-                    "1" if thrs_id == 4 else "0",
+                pck = (
+                    "SS"
+                    f"{'R' if rel_var_ref == lcn_defs.RelVarRef.CURRENT else 'E'}"
+                    f"{abs(value):04d}"
+                    f"{'A' if value >= 0 else 'S'}"
+                    f"{'1' if thrs_id == 0 else '0'}"
+                    f"{'1' if thrs_id == 1 else '0'}"
+                    f"{'1' if thrs_id == 2 else '0'}"
+                    f"{'1' if thrs_id == 3 else '0'}"
+                    f"{'1' if thrs_id == 4 else '0'}"
                 )
             return pck
 
@@ -775,20 +796,20 @@ class PckGenerator:
         if software_serial >= 0x170206:
             var_id = lcn_defs.Var.to_var_id(var)
             if var_id != -1:
-                return "MWT{:03d}".format(var_id + 1)
+                return f"MWT{var_id + 1:03d}"
 
             set_point_id = lcn_defs.Var.to_set_point_id(var)
             if set_point_id != -1:
-                return "MWS{:03d}".format(set_point_id + 1)
+                return f"MWS{set_point_id + 1:03d}"
 
             thrs_register_id = lcn_defs.Var.to_thrs_register_id(var)
             if thrs_register_id != -1:
                 # Whole register
-                return "SE{:03d}".format(thrs_register_id + 1)
+                return f"SE{thrs_register_id + 1:03d}"
 
             s0_id = lcn_defs.Var.to_s0_id(var)
             if s0_id != -1:
-                return "MWC{:03d}".format(s0_id + 1)
+                return f"MWC{s0_id + 1:03d}"
         else:
             if var == lcn_defs.Var.VAR1ORTVAR:
                 pck = "MWV"
@@ -832,7 +853,7 @@ class PckGenerator:
         """
         if (led_id < 0) or (led_id > 11):
             raise ValueError("Bad led_id.")
-        return "LA{:03d}{:s}".format(led_id + 1, state.value)
+        return f"LA{led_id + 1:03d}{state.value}"
 
     @staticmethod
     def send_keys(cmds: List[lcn_defs.SendKeyCommand], keys: List[bool]) -> str:
@@ -932,7 +953,7 @@ class PckGenerator:
         if (table_id < 0) or (table_id > 3) or (len(states) != 8):
             raise ValueError("Bad table_id or states.")
         try:
-            ret = "TX{:s}".format(PckGenerator.TABLE_NAMES[table_id])
+            ret = f"TX{PckGenerator.TABLE_NAMES[table_id]}"
         except IndexError as exc:
             raise ValueError("Wrong table_id.") from exc
 
@@ -1008,7 +1029,7 @@ class PckGenerator:
             or (len(part) > 12)
         ):
             raise ValueError("Wrong row_id, part_id or part length.")
-        return "GTDT{:d}{:d}".format(row_id + 1, part_id + 1).encode("utf-8") + part
+        return f"GTDT{row_id + 1}{part_id + 1}".encode("utf-8") + part
 
     @staticmethod
     def lock_regulator(reg_id: int, state: bool) -> str:
@@ -1021,7 +1042,7 @@ class PckGenerator:
         """
         if (reg_id < 0) or (reg_id > 1):
             raise ValueError("Wrong reg_id.")
-        return "RE{:s}X{:s}".format("A" if reg_id == 0 else "B", "S" if state else "A")
+        return f"RE{'A' if reg_id == 0 else 'B'}X{'S' if state else 'A'}"
 
     @staticmethod
     def change_scene_register(register_id: int) -> str:
@@ -1185,7 +1206,7 @@ class PckGenerator:
             action = "S"
         else:
             action = "A"
-        return "SZ{:s}0{:03d}{:s}".format(action, scene_id, "".join(relays_mask))
+        return f"SZ{action}0{scene_id:03d}{''.join(relays_mask)}"
 
     @staticmethod
     def request_status_scene(register_id: int, scene_id: int) -> str:
