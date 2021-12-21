@@ -406,7 +406,7 @@ class AbstractConnection:
     async def var_abs(
         self,
         var: lcn_defs.Var,
-        value_or_float: Union[float, lcn_defs.VarValue],
+        value: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         software_serial: Optional[int] = None,
     ) -> bool:
@@ -419,10 +419,8 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        if isinstance(value_or_float, lcn_defs.VarValue):
-            value = value_or_float
-        else:
-            value = lcn_defs.VarValue.from_var_unit(value_or_float, unit, True)
+        if not isinstance(value, lcn_defs.VarValue):
+            value = lcn_defs.VarValue.from_var_unit(value, unit, True)
 
         if software_serial is None:
             await self.serial_known
@@ -474,7 +472,7 @@ class AbstractConnection:
     async def var_rel(
         self,
         var: lcn_defs.Var,
-        value_or_float: Union[float, lcn_defs.VarValue],
+        value: Union[float, lcn_defs.VarValue],
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         value_ref: lcn_defs.RelVarRef = lcn_defs.RelVarRef.CURRENT,
         software_serial: Optional[int] = None,
@@ -489,10 +487,8 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        if isinstance(value_or_float, lcn_defs.VarValue):
-            value = value_or_float
-        else:
-            value = lcn_defs.VarValue.from_var_unit(value_or_float, unit, True)
+        if not isinstance(value, lcn_defs.VarValue):
+            value = lcn_defs.VarValue.from_var_unit(value, unit, True)
 
         if software_serial is None:
             await self.serial_known
@@ -963,9 +959,7 @@ class ModuleConnection(AbstractConnection):
 
     def dump_details(self) -> Dict[str, Any]:
         """Dump detailed information about this module."""
-        is_local_segment = (
-            self.addr.seg_id == 0 or self.addr.seg_id == self.conn.local_seg_id
-        )
+        is_local_segment = self.addr.seg_id in (0, self.conn.local_seg_id)
         return {
             "segment": self.addr.seg_id,
             "address": self.addr.addr_id,

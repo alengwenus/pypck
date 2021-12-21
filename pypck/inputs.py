@@ -731,7 +731,7 @@ class ModStatusVar(ModInput):
             for thrs_id in range(5):
                 var = lcn_defs.Var.var_id_to_var(int(matcher.group("id")) - 1)
                 value = lcn_defs.VarValue.from_native(
-                    int(matcher.group("value{:d}".format(thrs_id + 1)))
+                    int(matcher.group(f"value{thrs_id + 1}"))
                 )
                 ret.append(ModStatusVar(addr, var, value))
             return ret
