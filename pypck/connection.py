@@ -136,9 +136,9 @@ class PchkConnection:
 
             try:
                 message = data.decode().split(PckGenerator.TERMINATION)[0]
-            except UnicodeDecodeError:
-                _LOGGER.exception(
-                    "Decoding error:  Unable to decode received PCK message"
+            except UnicodeDecodeError as err:
+                _LOGGER.warning(
+                    "PCK decoding error: %s - skipping received PCK message", err
                 )
                 continue
             await self.process_message(message)
