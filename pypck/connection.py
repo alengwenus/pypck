@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Iterable
+from functools import partial
 from types import TracebackType
 from typing import Any
 
@@ -84,7 +85,7 @@ class PchkConnection:
             [str], Awaitable[None]
         ] = self.default_event_handler
 
-    async def async_connect(self) -> None:
+    async def async_connect(self) -> str | None:
         """Connect to a PCHK server (no authentication or license error check)."""
         self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
         address = self.writer.get_extra_info("peername")
@@ -92,6 +93,7 @@ class PchkConnection:
 
         # main read loop
         self.task_registry.create_task(self.read_data_loop())
+        return None
 
     def connect(self) -> None:
         """Create a task to connect to a PCHK server concurrently."""
@@ -304,7 +306,7 @@ class PchkConnectionManager(PchkConnection):
             _LOGGER.debug("%s: LCN is not connected.", self.connection_id)
             self.task_registry.create_task(self.event_handler("lcn-disconnected"))
 
-    async def async_connect(self, timeout: int = 30) -> None:
+    async def async_connect(self, timeout: int = 30) -> str | None:
         """Establish a connection to PCHK at the given socket.
 
         Ensures that the LCN bus is present and authorizes at PCHK.
@@ -313,8 +315,11 @@ class PchkConnectionManager(PchkConnection):
 
         :param    int    timeout:    Timeout in seconds
         """
-        done: Iterable[asyncio.Future[Any]]
-        pending: Iterable[asyncio.Future[Any]]
+        self.authentication_completed_future = asyncio.Future()
+        self.license_error_future = asyncio.Future()
+
+        done: Iterable["asyncio.Future[Any]"]
+        pending: Iterable["asyncio.Future[Any]"]
         done, pending = await asyncio.wait(
             (
                 asyncio.create_task(super().async_connect()),
@@ -329,19 +334,29 @@ class PchkConnectionManager(PchkConnection):
         # (ConnectionRefusedError, PchkAuthenticationError, PchkLicenseError)
         for awaitable in done:
             if awaitable.exception():
-                raise awaitable.exception()  # type: ignore
+                if isinstance(awaitable.exception(), PchkAuthenticationError):
+                    event = "authentication-error"
+                elif isinstance(awaitable.exception(), PchkLicenseError):
+                    event = "license-error"
+                elif isinstance(awaitable.exception(), ConnectionRefusedError):
+                    event = "connection-refused-error"
+                else:
+                    raise awaitable.exception()  # type: ignore
+                await self.event_handler(event)
+                return event
 
         if pending:
             for task in pending:
                 task.cancel()
-            raise TimeoutError(
-                f"Timeout error while connecting to {self.connection_id}."
-            )
+            event = "timeout-error"
+            await self.event_handler(event)
+            return event
 
         # start segment scan
         await self.scan_segment_couplers(
             self.settings["SK_NUM_TRIES"], self.settings["DEFAULT_TIMEOUT_MSEC"]
         )
+        return None
 
     async def async_close(self) -> None:
         """Close the active connection."""
@@ -640,10 +655,11 @@ class PchkConnectionManager(PchkConnection):
         if coro is None:
             self.event_handler = self.default_event_handler
         else:
-            self.event_handler = coro
+            self.event_handler = partial(coro, self)
 
     async def default_event_handler(self, event: str) -> None:
         """Handle events for specific LCN events."""
+        print(event)
         if event == "lcn-connected":
             pass
         elif event == "lcn-disconnected":
@@ -652,3 +668,13 @@ class PchkConnectionManager(PchkConnection):
             pass
         elif event == "connection-lost":
             pass
+        elif event == "license-error":
+            raise PchkLicenseError()
+        elif event == "authentication-error":
+            raise PchkAuthenticationError()
+        elif event == "connection-refused-error":
+            raise ConnectionRefusedError()
+        elif event == "timeout-error":
+            raise TimeoutError(
+                f"Timeout error while connecting to {self.connection_id}."
+            )
