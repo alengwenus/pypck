@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Iterable
+from enum import Enum
 from functools import partial
 from types import TracebackType
 from typing import Any
@@ -17,8 +18,18 @@ from pypck.pck_commands import PckGenerator
 
 _LOGGER = logging.getLogger(__name__)
 
-READ_TIMEOUT = -1
-SOCKET_CLOSED = -2
+
+class LcnEvent(Enum):
+    """LCN events."""
+
+    CONNECTION_LOST = "connection-lost"
+    TIMEOUT_ERROR = "timeout-error"
+    LICENSE_ERROR = "license-error"
+    AUTHENTICATION_ERROR = "authentication-error"
+    CONNECTION_REFUSED_ERROR = "connection-refused-error"
+    LCN_CONNECTED = "lcn-connected"
+    LCN_DISCONNECTED = "lcn-disconnected"
+    LCN_CONNECTION_STATUS_CHANGED = "lcn-connection-status-changed"
 
 
 class PchkLicenseError(Exception):
@@ -82,10 +93,10 @@ class PchkConnection:
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
         self.event_handler: Callable[
-            [str], Awaitable[None]
+            [LcnEvent], Awaitable[None]
         ] = self.default_event_handler
 
-    async def async_connect(self) -> str | None:
+    async def async_connect(self) -> LcnEvent | None:
         """Connect to a PCHK server (no authentication or license error check)."""
         self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
         address = self.writer.get_extra_info("peername")
@@ -108,8 +119,8 @@ class PchkConnection:
                 data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
             except asyncio.IncompleteReadError:
                 _LOGGER.debug("Connection to %s lost", self.connection_id)
-                await self.event_handler("connection-lost")
                 await self.async_close()
+                await self.event_handler(LcnEvent.CONNECTION_LOST)
                 break
             except asyncio.CancelledError:
                 break
@@ -157,14 +168,14 @@ class PchkConnection:
             self.writer.close()
             await self.writer.wait_closed()
 
-    def set_event_handler(self, coro: Callable[[str], Awaitable[None]]) -> None:
+    def set_event_handler(self, coro: Callable[[LcnEvent], Awaitable[None]]) -> None:
         """Set the event handler for specific LCN events."""
         if coro is None:
             self.event_handler = self.default_event_handler
         else:
             self.event_handler = coro
 
-    async def default_event_handler(self, event: str) -> None:
+    async def default_event_handler(self, event: LcnEvent) -> None:
         """Handle events for specific LCN events."""
 
     async def wait_closed(self) -> None:
@@ -297,16 +308,18 @@ class PchkConnectionManager(PchkConnection):
         """
         self.is_lcn_connected = is_lcn_connected
         self.task_registry.create_task(
-            self.event_handler("lcn-connection-status-changed")
+            self.event_handler(LcnEvent.LCN_CONNECTION_STATUS_CHANGED)
         )
         if is_lcn_connected:
             _LOGGER.debug("%s: LCN is connected.", self.connection_id)
-            self.task_registry.create_task(self.event_handler("lcn-connected"))
+            self.task_registry.create_task(self.event_handler(LcnEvent.LCN_CONNECTED))
         else:
             _LOGGER.debug("%s: LCN is not connected.", self.connection_id)
-            self.task_registry.create_task(self.event_handler("lcn-disconnected"))
+            self.task_registry.create_task(
+                self.event_handler(LcnEvent.LCN_DISCONNECTED)
+            )
 
-    async def async_connect(self, timeout: int = 30) -> str | None:
+    async def async_connect(self, timeout: int = 30) -> LcnEvent | None:
         """Establish a connection to PCHK at the given socket.
 
         Ensures that the LCN bus is present and authorizes at PCHK.
@@ -317,6 +330,7 @@ class PchkConnectionManager(PchkConnection):
         """
         self.authentication_completed_future = asyncio.Future()
         self.license_error_future = asyncio.Future()
+        self.segment_scan_completed_event.clear()
 
         done: Iterable["asyncio.Future[Any]"]
         pending: Iterable["asyncio.Future[Any]"]
@@ -335,11 +349,11 @@ class PchkConnectionManager(PchkConnection):
         for awaitable in done:
             if awaitable.exception():
                 if isinstance(awaitable.exception(), PchkAuthenticationError):
-                    event = "authentication-error"
+                    event = LcnEvent.AUTHENTICATION_ERROR
                 elif isinstance(awaitable.exception(), PchkLicenseError):
-                    event = "license-error"
+                    event = LcnEvent.LICENSE_ERROR
                 elif isinstance(awaitable.exception(), ConnectionRefusedError):
-                    event = "connection-refused-error"
+                    event = LcnEvent.CONNECTION_REFUSED_ERROR
                 else:
                     raise awaitable.exception()  # type: ignore
                 await self.event_handler(event)
@@ -348,7 +362,7 @@ class PchkConnectionManager(PchkConnection):
         if pending:
             for task in pending:
                 task.cancel()
-            event = "timeout-error"
+            event = LcnEvent.TIMEOUT_ERROR
             await self.event_handler(event)
             return event
 
@@ -650,31 +664,31 @@ class PchkConnectionManager(PchkConnection):
         self.input_callbacks.add(callback)
         return lambda callback=callback: self.input_callbacks.remove(callback)
 
-    def set_event_handler(self, coro: Callable[[str], Awaitable[None]]) -> None:
+    def set_event_handler(self, coro: Callable[[LcnEvent], Awaitable[None]]) -> None:
         """Set the event handler for specific LCN events."""
         if coro is None:
             self.event_handler = self.default_event_handler
         else:
             self.event_handler = partial(coro, self)
 
-    async def default_event_handler(self, event: str) -> None:
+    async def default_event_handler(self, event: LcnEvent) -> None:
         """Handle events for specific LCN events."""
         print(event)
-        if event == "lcn-connected":
+        if event == LcnEvent.LCN_CONNECTED:
             pass
-        elif event == "lcn-disconnected":
+        elif event == LcnEvent.LCN_DISCONNECTED:
             pass
-        elif event == "lcn-connection-status-changed":
+        elif event == LcnEvent.LCN_CONNECTION_STATUS_CHANGED:
             pass
-        elif event == "connection-lost":
+        elif event == LcnEvent.CONNECTION_LOST:
             pass
-        elif event == "license-error":
+        elif event == LcnEvent.LICENSE_ERROR:
             raise PchkLicenseError()
-        elif event == "authentication-error":
+        elif event == LcnEvent.AUTHENTICATION_ERROR:
             raise PchkAuthenticationError()
-        elif event == "connection-refused-error":
+        elif event == LcnEvent.CONNECTION_REFUSED_ERROR:
             raise ConnectionRefusedError()
-        elif event == "timeout-error":
+        elif event == LcnEvent.TIMEOUT_ERROR:
             raise TimeoutError(
                 f"Timeout error while connecting to {self.connection_id}."
             )
