@@ -65,7 +65,7 @@ class PchkLcnNotConnectedError(Exception):
         super().__init__(message)
 
 
-class PchkConnection:
+class PchkSocketConnection:
     """Socket connection to LCN-PCHK server.
 
     :param    str    host:        Server IP address formatted as
@@ -190,7 +190,7 @@ class PchkConnection:
         return lambda callback=callback: self.event_callbacks.remove(callback)
 
 
-class PchkConnectionManager(PchkConnection):
+class PchkConnection(PchkSocketConnection):
     """Connection to LCN-PCHK.
 
     Has the following tasks:
@@ -219,7 +219,7 @@ class PchkConnectionManager(PchkConnection):
         settings: dict[str, Any] | None = None,
         connection_id: str = "PCHK",
     ):
-        """Construct PchkConnectionManager."""
+        """Construct PchkConnection."""
         super().__init__(host, port, connection_id)
 
         self.username = username
@@ -256,7 +256,7 @@ class PchkConnectionManager(PchkConnection):
 
         self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
 
-    async def __aenter__(self) -> "PchkConnectionManager":
+    async def __aenter__(self) -> "PchkConnection":
         """Context manager enter method."""
         await self.async_connect()
         return self
@@ -334,8 +334,8 @@ class PchkConnectionManager(PchkConnection):
         self.license_error_future = asyncio.Future()
         self.segment_scan_completed_event.clear()
 
-        done: Iterable["asyncio.Future[Any]"]
-        pending: Iterable["asyncio.Future[Any]"]
+        done: Iterable[asyncio.Future[Any]]
+        pending: Iterable[asyncio.Future[Any]]
         done, pending = await asyncio.wait(
             (
                 asyncio.create_task(super().async_connect()),
@@ -667,3 +667,35 @@ class PchkConnectionManager(PchkConnection):
         """
         self.input_callbacks.add(callback)
         return lambda callback=callback: self.input_callbacks.remove(callback)
+
+
+class PchkConnectionManager(PchkConnection):
+    """Connection to LCN-PCHK with reconnection."""
+
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        username: str,
+        password: str,
+        settings: dict[str, Any] | None = None,
+        connection_id: str = "PCHK",
+        auto_reconnect: bool = True,
+    ) -> None:
+        """Construct PchkConnectionManager."""
+        super().__init__(host, port, username, password, settings, connection_id)
+        self.auto_reconnect = auto_reconnect
+        self.reconnection_timeout = self.settings.get("RECONNECTION_TIMEOUT", 15)
+        self.register_for_events(self.event_callback)
+
+    def event_callback(self, event: LcnEvent) -> None:
+        """Handle events from PchkConnection."""
+        if event in (LcnEvent.CONNECTION_LOST, LcnEvent.TIMEOUT_ERROR):
+            if not self.auto_reconnect:
+                return
+            _LOGGER.debug('Trying to reconnect to PCHK "%s"', self.connection_id)
+            asyncio.get_event_loop().call_later(
+                self.reconnection_timeout,
+                asyncio.create_task,
+                self.async_connect(timeout=15),
+            )

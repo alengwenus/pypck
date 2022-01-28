@@ -21,7 +21,7 @@ from pypck.request_handlers import (
 )
 
 if TYPE_CHECKING:
-    from pypck.connection import PchkConnectionManager
+    from pypck.connection import PchkConnection
 
 
 class AbstractConnection:
@@ -32,7 +32,7 @@ class AbstractConnection:
 
     def __init__(
         self,
-        conn: PchkConnectionManager,
+        conn: "PchkConnection",
         addr: LcnAddr,
         software_serial: int | None = None,
     ):
@@ -644,7 +644,7 @@ class GroupConnection(AbstractConnection):
 
     def __init__(
         self,
-        conn: PchkConnectionManager,
+        conn: "PchkConnection",
         addr: LcnAddr,
         software_serial: int = 0x170206,
     ):
@@ -746,7 +746,7 @@ class ModuleConnection(AbstractConnection):
 
     def __init__(
         self,
-        conn: PchkConnectionManager,
+        conn: "PchkConnection",
         addr: LcnAddr,
         activate_status_requests: bool = False,
         has_s0_enabled: bool = False,

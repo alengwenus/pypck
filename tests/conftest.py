@@ -71,7 +71,12 @@ async def pypck_client() -> AsyncGenerator[PchkConnectionManager, None]:
     which returns if the specified message was received (and processed).
     """
     pcm = MockPchkConnectionManager(
-        HOST, PORT, USERNAME, PASSWORD, settings={"SK_NUM_TRIES": 0}
+        HOST,
+        PORT,
+        USERNAME,
+        PASSWORD,
+        settings={"SK_NUM_TRIES": 0},
+        auto_reconnect=False,
     )
     yield pcm
     await pcm.async_close()
