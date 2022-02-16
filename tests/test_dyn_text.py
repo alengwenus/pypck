@@ -1,9 +1,10 @@
 """Module connection tests."""
 
-import asyncio
+from unittest.mock import patch
 
 import pytest
 from pypck.lcn_addr import LcnAddr
+from pypck.module import ModuleConnection
 
 TEST_VECTORS = {
     # empty
@@ -58,12 +59,17 @@ TEST_VECTORS = {
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("text, parts", TEST_VECTORS.items())
-async def test_dyn_text(pchk_server, pypck_client, text, parts):
+async def test_dyn_text(pypck_client, text, parts):
     """dyn_text."""
-    await pypck_client.async_connect()
+    # await pypck_client.async_connect()
     module = pypck_client.get_address_conn(LcnAddr(0, 10, False))
-    task = asyncio.create_task(module.dyn_text(3, text))
-    for i, part in enumerate(parts):
-        assert await pchk_server.received(f">M000010!GTDT4{i+1:d}".encode() + part)
 
-    task.cancel()
+    with patch.object(ModuleConnection, "send_command") as send_command:
+        await module.dyn_text(3, text)
+
+    send_command.assert_awaited()
+    await_args = (call.args for call in send_command.await_args_list)
+    _, commands = zip(*await_args)
+
+    for i, part in enumerate(parts):
+        assert (f"GTDT4{i+1:d}".encode() + part) in commands
