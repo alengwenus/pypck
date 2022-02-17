@@ -253,8 +253,8 @@ async def test_groups_membership_discovery(pchk_server, pypck_client):
 
     task = asyncio.create_task(module.request_groups())
     assert await pchk_server.received(">M000010.GP")
-    assert await pchk_server.received(">M000010.GD")
     await pchk_server.send_message("=M000010.GP012011200051")
+    assert await pchk_server.received(">M000010.GD")
     await pchk_server.send_message("=M000010.GD008015100052")
     assert await task == {
         LcnAddr(0, 11, True),

@@ -315,23 +315,18 @@ class AbstractConnection:
         if not success:
             return False
 
-        coros = []
+        result = True
         if output_ports:
-            coros.append(
-                self.send_command(
-                    not self.is_group,
-                    PckGenerator.activate_scene_output(scene_id, output_ports, ramp),
-                )
+            result &= await self.send_command(
+                not self.is_group,
+                PckGenerator.activate_scene_output(scene_id, output_ports, ramp),
             )
         if relay_ports:
-            coros.append(
-                self.send_command(
-                    not self.is_group,
-                    PckGenerator.activate_scene_relay(scene_id, relay_ports),
-                )
+            result &= await self.send_command(
+                not self.is_group,
+                PckGenerator.activate_scene_relay(scene_id, relay_ports),
             )
-        results = await asyncio.gather(*coros)
-        return all(results)
+        return result
 
     async def store_scene(
         self,
@@ -361,23 +356,18 @@ class AbstractConnection:
         if not success:
             return False
 
-        coros = []
+        result = True
         if output_ports:
-            coros.append(
-                self.send_command(
-                    not self.is_group,
-                    PckGenerator.store_scene_output(scene_id, output_ports, ramp),
-                )
+            result &= await self.send_command(
+                not self.is_group,
+                PckGenerator.store_scene_output(scene_id, output_ports, ramp),
             )
         if relay_ports:
-            coros.append(
-                self.send_command(
-                    not self.is_group,
-                    PckGenerator.store_scene_relay(scene_id, relay_ports),
-                )
+            result &= await self.send_command(
+                not self.is_group,
+                PckGenerator.store_scene_relay(scene_id, relay_ports),
             )
-        results = await asyncio.gather(*coros)
-        return all(results)
+        return result
 
     async def store_scene_outputs_direct(
         self,
@@ -538,17 +528,16 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      list of bool
         """
-        coros = []
+        results: List[bool] = []
         for table_id, key_states in enumerate(keys):
             if True in key_states:
                 cmds = [lcn_defs.SendKeyCommand.DONTSEND] * 4
                 cmds[table_id] = cmd
-                coros.append(
-                    self.send_command(
+                results.append(
+                    await self.send_command(
                         not self.is_group, PckGenerator.send_keys(cmds, key_states)
                     )
                 )
-        results = await asyncio.gather(*coros)
         return results
 
     async def send_keys_hit_deferred(
@@ -566,18 +555,17 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      list of bool
         """
-        coros = []
+        results: List[bool] = []
         for table_id, key_states in enumerate(keys):
             if True in key_states:
-                coros.append(
-                    self.send_command(
+                results.append(
+                    await self.send_command(
                         not self.is_group,
                         PckGenerator.send_keys_hit_deferred(
                             table_id, delay_time, delay_unit, key_states
                         ),
-                    )
+                    ),
                 )
-        results = await asyncio.gather(*coros)
         return results
 
     async def lock_keys(
@@ -635,13 +623,13 @@ class AbstractConnection:
         """
         encoded_text = text.encode(lcn_defs.LCN_ENCODING)
         parts = [encoded_text[12 * part : 12 * part + 12] for part in range(5)]
+        result = True
         for part_id, part in enumerate(parts):
-            if not await self.send_command(
+            result &= await self.send_command(
                 not self.is_group,
                 PckGenerator.dyn_text_part(row_id, part_id, part),
-            ):
-                return False
-        return True
+            )
+        return result
 
     async def beep(self, sound: lcn_defs.BeepSound, count: int) -> bool:
         """Send a command to make count number of beep sounds.
@@ -700,9 +688,9 @@ class GroupConnection(AbstractConnection):
         :param     float      value:    Absolute value to set
         :param     VarUnit    unit:     Unit of variable
         """
-        coros = []
+        result = True
         # for new modules (>=0x170206)
-        coros.append(super().var_abs(var, value, unit, 0x170206))
+        result &= await super().var_abs(var, value, unit, 0x170206)
 
         # for old modules (<0x170206)
         if var in [
@@ -712,9 +700,8 @@ class GroupConnection(AbstractConnection):
             lcn_defs.Var.R1VARSETPOINT,
             lcn_defs.Var.R2VARSETPOINT,
         ]:
-            coros.append(super().var_abs(var, value, unit, 0x000000))
-        results = await asyncio.gather(*coros)
-        return all(results)
+            result &= await super().var_abs(var, value, unit, 0x000000)
+        return result
 
     async def var_reset(
         self, var: lcn_defs.Var, software_serial: Optional[int] = None
@@ -723,8 +710,8 @@ class GroupConnection(AbstractConnection):
 
         :param    Var    var:    Variable
         """
-        coros = []
-        coros.append(super().var_reset(var, 0x170206))
+        result = True
+        result &= await super().var_reset(var, 0x170206)
         if var in [
             lcn_defs.Var.TVAR,
             lcn_defs.Var.R1VAR,
@@ -732,9 +719,8 @@ class GroupConnection(AbstractConnection):
             lcn_defs.Var.R1VARSETPOINT,
             lcn_defs.Var.R2VARSETPOINT,
         ]:
-            coros.append(super().var_reset(var, 0))
-        results = await asyncio.gather(*coros)
-        return all(results)
+            result &= await super().var_reset(var, 0)
+        return result
 
     async def var_rel(
         self,
@@ -751,8 +737,8 @@ class GroupConnection(AbstractConnection):
                                         negative)
         :param     VarUnit    unit:     Unit of variable
         """
-        coros = []
-        coros.append(super().var_rel(var, value, software_serial=0x170206))
+        result = True
+        result &= await super().var_rel(var, value, software_serial=0x170206)
         if var in [
             lcn_defs.Var.TVAR,
             lcn_defs.Var.R1VAR,
@@ -765,9 +751,8 @@ class GroupConnection(AbstractConnection):
             lcn_defs.Var.THRS4,
             lcn_defs.Var.THRS5,
         ]:
-            coros.append(super().var_rel(var, value, software_serial=0))
-        results = await asyncio.gather(*coros)
-        return all(results)
+            result &= await super().var_rel(var, value, software_serial=0)
+        return result
 
     async def activate_status_request_handler(self, item: Any) -> None:
         """Activate a specific TimeoutRetryHandler for status requests."""
@@ -1051,8 +1036,6 @@ class ModuleConnection(AbstractConnection):
 
     async def request_groups(self) -> Set[LcnAddr]:
         """Request module group memberships."""
-        static_groups, dynamic_groups = await asyncio.gather(
-            self.static_groups_request_handler.request(),
-            self.dynamic_groups_request_handler.request(),
-        )
+        static_groups = await self.static_groups_request_handler.request()
+        dynamic_groups = await self.dynamic_groups_request_handler.request()
         return static_groups | dynamic_groups

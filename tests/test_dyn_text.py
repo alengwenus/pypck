@@ -72,4 +72,4 @@ async def test_dyn_text(pypck_client, text, parts):
     _, commands = zip(*await_args)
 
     for i, part in enumerate(parts):
-        assert (f"GTDT4{i+1:d}".encode() + part) in commands
+        assert f"GTDT4{i+1:d}".encode() + part in commands
