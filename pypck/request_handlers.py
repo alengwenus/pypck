@@ -1,24 +1,11 @@
-"""Copyright (c) 2006-2020 by the respective copyright holders.
-
-See the NOTICE file(s) distributed with this work for additional
-information.
-
-This program and the accompanying materials are made available under the
-terms of the Eclipse Public License 2.0 which is available at
-http://www.eclipse.org/legal/epl-2.0
-
-SPDX-License-Identifier: EPL-2.0
-
-Contributors:
-  Andre Lengwenus - Request handler logic
-"""
+"""Handlers for requests."""
 
 import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 from pypck import inputs, lcn_defs
-from pypck.lcn_addr import LcnAddr
 from pypck.helpers import TaskRegistry
+from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
 from pypck.timeout_retry import TimeoutRetryHandler
 

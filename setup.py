@@ -14,10 +14,10 @@ setuptools.setup(
     url="https://github.com/alengwenus/pypck",
     packages=setuptools.find_packages(exclude=(["tests", "tests.*"])),
     install_requires=[],
-    license="EPL-2.0",
+    license="MIT",
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: Eclipse Public License 2.0 (EPL-2.0)",
+        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Topic :: Home Automation",
     ],
