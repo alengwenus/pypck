@@ -23,6 +23,7 @@ from pypck.inputs import (
 from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import (
     AccessControlPeriphery,
+    BatteryStatus,
     HardwareType,
     KeyAction,
     LedStatus,
@@ -146,6 +147,15 @@ MESSAGES = {
         ],
     ),
     # Status Access Control
+    "=M000010.ZI026043060013002": (
+        ModStatusAccessControl,
+        AccessControlPeriphery.TRANSMITTER,
+        "1a2b3c",
+        1,
+        2,
+        KeyAction.MAKE,
+        BatteryStatus.FULL,
+    ),
     "=M000010.ZI026043060013011": (
         ModStatusAccessControl,
         AccessControlPeriphery.TRANSMITTER,
@@ -153,6 +163,7 @@ MESSAGES = {
         1,
         2,
         KeyAction.HIT,
+        BatteryStatus.WEAK,
     ),
     "=M000010.ZT026043060": (
         ModStatusAccessControl,
