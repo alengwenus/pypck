@@ -856,6 +856,7 @@ class ModStatusAccessControl(ModInput):
         level: Optional[int] = None,
         key: Optional[int] = None,
         action: Optional[lcn_defs.KeyAction] = None,
+        battery: Optional[lcn_defs.BatteryStatus] = None,
     ):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
@@ -864,6 +865,7 @@ class ModStatusAccessControl(ModInput):
         self.level = level
         self.key = key
         self.action = action
+        self.battery = battery
 
     @staticmethod
     def try_parse(data: str) -> Optional[List[Input]]:
@@ -890,13 +892,24 @@ class ModStatusAccessControl(ModInput):
             key = int(matcher.group("key")) - 1
 
             actions = {
-                "011": lcn_defs.KeyAction.HIT,
-                "012": lcn_defs.KeyAction.MAKE,
-                "013": lcn_defs.KeyAction.BREAK,
+                "1": lcn_defs.KeyAction.HIT,
+                "2": lcn_defs.KeyAction.MAKE,
+                "3": lcn_defs.KeyAction.BREAK,
             }
 
-            action = actions[matcher.group("action")]
-            return [ModStatusAccessControl(addr, periphery, code, level, key, action)]
+            battery_status = {
+                "0": lcn_defs.BatteryStatus.FULL,
+                "1": lcn_defs.BatteryStatus.WEAK,
+            }
+
+            action = actions[matcher.group("action")[2]]
+            battery = battery_status[matcher.group("action")[1]]
+
+            return [
+                ModStatusAccessControl(
+                    addr, periphery, code, level, key, action, battery
+                )
+            ]
 
         matcher = PckParser.PATTERN_STATUS_TRANSPONDER.match(data)
         if matcher:

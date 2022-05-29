@@ -149,6 +149,13 @@ class KeyAction(Enum):
     BREAK = "break"
 
 
+class BatteryStatus(Enum):
+    """Battery status."""
+
+    WEAK = "weak"
+    FULL = "full"
+
+
 class OutputPortDimMode(Enum):
     """LCN dimming mode.
 
