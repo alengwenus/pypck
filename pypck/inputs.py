@@ -933,6 +933,17 @@ class ModStatusAccessControl(ModInput):
             )
             return [ModStatusAccessControl(addr, periphery, code)]
 
+        matcher = PckParser.PATTERN_STATUS_CODELOCK.match(data)
+        if matcher:
+            periphery = lcn_defs.AccessControlPeriphery.CODELOCK
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            code = (
+                f"{int(matcher.group('code1')):02x}"
+                f"{int(matcher.group('code2')):02x}"
+                f"{int(matcher.group('code3')):02x}"
+            )
+            return [ModStatusAccessControl(addr, periphery, code)]
+
         return None
 
 
