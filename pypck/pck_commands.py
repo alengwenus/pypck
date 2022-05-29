@@ -181,6 +181,12 @@ class PckParser:
         r"(?P<code1>\d{3})(?P<code2>\d{3})(?P<code3>\d{3})"
     )
 
+    # Pattern to parse codelock status messages.
+    PATTERN_STATUS_CODELOCK = re.compile(
+        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.ZC"
+        r"(?P<code1>\d{3})(?P<code2>\d{3})(?P<code3>\d{3})"
+    )
+
     @staticmethod
     def get_boolean_value(input_byte: int) -> List[bool]:
         """Get boolean representation for the given byte.

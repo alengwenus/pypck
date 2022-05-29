@@ -175,6 +175,11 @@ MESSAGES = {
         AccessControlPeriphery.FINGERPRINT,
         "1a2b3c",
     ),
+    "=M000010.ZC026043060": (
+        ModStatusAccessControl,
+        AccessControlPeriphery.CODELOCK,
+        "1a2b3c",
+    ),
     # Status scene outputs
     "=M000010.SZ003025150075100140000033200": (
         ModStatusSceneOutputs,

@@ -1370,6 +1370,7 @@ class AccessControlPeriphery(Enum):
     TRANSMITTER = "transmitter"
     TRANSPONDER = "transponder"
     FINGERPRINT = "fingerprint"
+    CODELOCK = "codelock"
 
 
 default_connection_settings: Dict[str, Any] = {
