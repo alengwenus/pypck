@@ -14,7 +14,7 @@
 # not-an-iterable - https://github.com/PyCQA/pylint/issues/2311
 # logging-format-interpolation - ensure maintainability of future logging versions
 # no-self-use - an abstract method does not necessarily use self
-# redefined-outer-name - fixtures in tests rely on redifinitions
+# redefined-outer-name - fixtures in tests rely on redefinitions
 # arguments-differ - acceptable if parameters are only added in a subclass
 
 disable=

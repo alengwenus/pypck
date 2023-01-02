@@ -1,7 +1,7 @@
 """Handlers for requests."""
 
 import asyncio
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
@@ -104,7 +104,7 @@ class SerialRequestHandler(RequestHandler):
         else:
             self.serial_known.set()
 
-    async def request(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
+    async def request(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
         """Request serial number."""
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.serial_known.clear()
@@ -113,7 +113,7 @@ class SerialRequestHandler(RequestHandler):
         return self.serials
 
     @property
-    def serials(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
+    def serials(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
         """Return serial numbers of a module."""
         return {
             "hardware_serial": self.hardware_serial,
@@ -133,7 +133,7 @@ class NameRequestHandler(RequestHandler):
         timeout_msec: int = 1500,
     ):
         """Initialize class instance."""
-        self._name: List[Optional[str]] = [None] * 2
+        self._name: list[Optional[str]] = [None] * 2
         self.name_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
@@ -206,7 +206,7 @@ class CommentRequestHandler(RequestHandler):
         timeout_msec: int = 1500,
     ):
         """Initialize class instance."""
-        self._comment: List[Optional[str]] = [None] * 3
+        self._comment: list[Optional[str]] = [None] * 3
         self.comment_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
@@ -279,7 +279,7 @@ class OemTextRequestHandler(RequestHandler):
         timeout_msec: int = 1500,
     ):
         """Initialize class instance."""
-        self._oem_text: List[Optional[str]] = [None] * 4
+        self._oem_text: list[Optional[str]] = [None] * 4
         self.oem_text_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
@@ -317,7 +317,7 @@ class OemTextRequestHandler(RequestHandler):
         else:
             self.oem_text_known.set()
 
-    async def request(self) -> List[str]:
+    async def request(self) -> list[str]:
         """Request OEM text from a module."""
         self._oem_text = [None] * 4
         await self.addr_conn.conn.segment_scan_completed_event.wait()
@@ -337,7 +337,7 @@ class OemTextRequestHandler(RequestHandler):
             await self.trhs[block_id].cancel()
 
     @property
-    def oem_text(self) -> List[str]:
+    def oem_text(self) -> list[str]:
         """Return stored OEM text."""
         return [block.strip() if block else "" for block in self._oem_text]
         # return {'block{}'.format(idx):text
@@ -356,7 +356,7 @@ class GroupMembershipStaticRequestHandler(RequestHandler):
         timeout_msec: int = 1500,
     ):
         """Initialize class instance."""
-        self.groups: Set[LcnAddr] = set()
+        self.groups: set[LcnAddr] = set()
         self.groups_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
@@ -381,7 +381,7 @@ class GroupMembershipStaticRequestHandler(RequestHandler):
         else:
             self.groups_known.set()
 
-    async def request(self) -> Set[LcnAddr]:
+    async def request(self) -> set[LcnAddr]:
         """Request static group membership from a module."""
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.groups_known.clear()
@@ -400,7 +400,7 @@ class GroupMembershipDynamicRequestHandler(RequestHandler):
         timeout_msec: int = 1500,
     ):
         """Initialize class instance."""
-        self.groups: Set[LcnAddr] = set()
+        self.groups: set[LcnAddr] = set()
         self.groups_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
@@ -425,7 +425,7 @@ class GroupMembershipDynamicRequestHandler(RequestHandler):
         else:
             self.groups_known.set()
 
-    async def request(self) -> Set[LcnAddr]:
+    async def request(self) -> set[LcnAddr]:
         """Request dynamic group membership from a module."""
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.groups_known.clear()

@@ -1,8 +1,7 @@
 """Fake PCHK server used for testing."""
 
 import asyncio
-from typing import List, Optional, Union
-
+from typing import Optional, Union
 
 HOST = "127.0.0.1"
 PORT = 4114
@@ -46,7 +45,7 @@ class PchkServer:
         self.password = password
         self.separator = SEPARATOR
         self.license_error = False
-        self.data_received: List[bytes] = []
+        self.data_received: list[bytes] = []
         self.server: Optional[asyncio.AbstractServer] = None
         self.reader: Optional[asyncio.StreamReader] = None
         self.writer: Optional[asyncio.StreamWriter] = None

@@ -1,7 +1,8 @@
 """Core testing functionality."""
 
 import asyncio
-from typing import Any, AsyncGenerator, List
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import pytest
 from pypck.connection import PchkConnectionManager
@@ -22,7 +23,7 @@ class MockPchkConnectionManager(PchkConnectionManager):
 
     def __init__(self, *args: Any, **kwargs: Any):
         """Construct mock for PchkConnectionManager."""
-        self.data_received: List[str] = []
+        self.data_received: list[str] = []
         super().__init__(*args, **kwargs)
 
     async def process_message(self, message: str) -> None:
