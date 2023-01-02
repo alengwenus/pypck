@@ -460,7 +460,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         if not isinstance(value, lcn_defs.VarValue):
-            value = lcn_defs.VarValue.from_var_unit(value, unit, True)
+            value = lcn_defs.VarValue.from_var_unit(value, unit, False)
 
         if software_serial is None:
             await self.serial_known

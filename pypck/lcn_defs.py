@@ -777,7 +777,7 @@ class VarValue:
         elif unit == VarUnit.AMPERE:
             var_value = VarValue.from_ampere(value)
         elif unit == VarUnit.DEGREE:
-            var_value = VarValue.from_degree(value)
+            var_value = VarValue.from_degree(value, is_abs)
         else:
             raise ValueError("Wrong unit.")
         return var_value
@@ -945,7 +945,9 @@ class VarValue:
         return VarValue(number + 1000 if is_abs else number)
 
     def to_var_unit(
-        self, unit: VarUnit, is_lockable_regulator_source: bool = False
+        self,
+        unit: VarUnit,
+        is_lockable_regulator_source: bool = False,
     ) -> Union[int, float]:
         """Convert the given unit to a VarValue.
 
