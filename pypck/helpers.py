@@ -1,7 +1,8 @@
 """Helper functions for pypck."""
 
 import asyncio
-from typing import Any, Awaitable, List
+from collections.abc import Awaitable
+from typing import Any
 
 
 async def cancel_task(task: "asyncio.Task[Any]") -> bool:
@@ -22,7 +23,7 @@ class TaskRegistry:
 
     def __init__(self) -> None:
         """Init task registry instance."""
-        self.tasks: List["asyncio.Task[Any]"] = []
+        self.tasks: list["asyncio.Task[Any]"] = []
 
     def remove_task(self, task: "asyncio.Task[None]") -> None:
         """Remove a task from the task registry."""
@@ -31,7 +32,7 @@ class TaskRegistry:
 
     def create_task(self, coro: Awaitable[Any]) -> "asyncio.Task[None]":
         """Create a task and store a reference in the task registry."""
-        task = asyncio.create_task(coro)
+        task = asyncio.create_task(coro)  # type: ignore
         task.add_done_callback(self.remove_task)
         self.tasks.append(task)
         return task

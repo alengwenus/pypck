@@ -3,18 +3,8 @@
 import asyncio
 import logging
 from types import TracebackType
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Type,
-    Union,
-)
+from typing import Any, Callable, Optional, Union
+from collections.abc import Awaitable, Iterable
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
@@ -213,7 +203,7 @@ class PchkConnectionManager(PchkConnection):
         port: int,
         username: str,
         password: str,
-        settings: Optional[Dict[str, Any]] = None,
+        settings: Optional[dict[str, Any]] = None,
         connection_id: str = "PCHK",
     ):
         """Construct PchkConnectionManager."""
@@ -248,10 +238,10 @@ class PchkConnectionManager(PchkConnection):
         # stored in this dictionary.  Communication to groups is handled by
         # GroupConnection object that are created on the fly and not stored
         # permanently.
-        self.address_conns: Dict[LcnAddr, ModuleConnection] = {}
-        self.segment_coupler_ids: List[int] = []
+        self.address_conns: dict[LcnAddr, ModuleConnection] = {}
+        self.segment_coupler_ids: list[int] = []
 
-        self.input_callbacks: Set[Callable[[inputs.Input], None]] = set()
+        self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
 
     async def __aenter__(self) -> "PchkConnectionManager":
         """Context manager enter method."""
@@ -260,7 +250,7 @@ class PchkConnectionManager(PchkConnection):
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc_value: Optional[BaseException],
         exc_traceback: Optional[TracebackType],
     ) -> None:
@@ -487,9 +477,9 @@ class PchkConnectionManager(PchkConnection):
             return self.get_group_conn(addr)
         return self.get_module_conn(addr, request_serials)
 
-    def dump_modules(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    def dump_modules(self) -> dict[str, dict[str, dict[str, Any]]]:
         """Dump all modules and information about them in a JSON serializable dict."""
-        dump: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        dump: dict[str, dict[str, dict[str, Any]]] = {}
         for address_conn in self.address_conns.values():
             seg = f"{address_conn.addr.seg_id:d}"
             addr = f"{address_conn.addr.addr_id}"

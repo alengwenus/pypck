@@ -3,13 +3,13 @@
 import math
 import re
 from enum import Enum, auto
-from typing import Any, Dict, Tuple, Union, no_type_check
+from typing import Any, Union, no_type_check
 
 LCN_ENCODING = "utf-8"
 PATTERN_SPLIT_PORT_PIN = re.compile(r"(?P<port>[a-zA-Z]+)(?P<pin>\d+)")
 
 
-def split_port_pin(portpin: str) -> Tuple[str, int]:
+def split_port_pin(portpin: str) -> tuple[str, int]:
     """Split the port and the pin from the given input string.
 
     :param    str    portpin:    Input string
@@ -1373,7 +1373,7 @@ class AccessControlPeriphery(Enum):
     CODELOCK = "codelock"
 
 
-default_connection_settings: Dict[str, Any] = {
+default_connection_settings: dict[str, Any] = {
     "NUM_TRIES": 3,  # Total number of request to sent before going into
     # failed-state.
     "SK_NUM_TRIES": 3,  # Total number of segment coupler scan tries

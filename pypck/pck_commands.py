@@ -1,7 +1,8 @@
 """PCK command parsers and generators."""
 
 import re
-from typing import List, Optional, Sequence
+from typing import Optional
+from collections.abc import Sequence
 
 from pypck import lcn_defs
 from pypck.lcn_addr import LcnAddr
@@ -188,7 +189,7 @@ class PckParser:
     )
 
     @staticmethod
-    def get_boolean_value(input_byte: int) -> List[bool]:
+    def get_boolean_value(input_byte: int) -> list[bool]:
         """Get boolean representation for the given byte.
 
         :param    int    input_byte:    Input byte as int8.
@@ -487,7 +488,7 @@ class PckGenerator:
         return "SMR"
 
     @staticmethod
-    def control_relays(states: List[lcn_defs.RelayStateModifier]) -> str:
+    def control_relays(states: list[lcn_defs.RelayStateModifier]) -> str:
         """Generate a command to control relays.
 
         :param     RelayStateModifier    states:    The 8 modifiers for the
@@ -505,7 +506,7 @@ class PckGenerator:
 
     @staticmethod
     def control_relays_timer(
-        time_msec: int, states: List[lcn_defs.RelayStateModifier]
+        time_msec: int, states: list[lcn_defs.RelayStateModifier]
     ) -> str:
         """Generate a command to control relays.
 
@@ -531,7 +532,7 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def control_motors_relays(states: List[lcn_defs.MotorStateModifier]) -> str:
+    def control_motors_relays(states: list[lcn_defs.MotorStateModifier]) -> str:
         """Generate a command to control motors via relays.
 
         :param    MotorStateModifier    states:    The 4 modifiers for the
@@ -848,7 +849,7 @@ class PckGenerator:
         return f"LA{led_id + 1:03d}{state.value}"
 
     @staticmethod
-    def send_keys(cmds: List[lcn_defs.SendKeyCommand], keys: List[bool]) -> str:
+    def send_keys(cmds: list[lcn_defs.SendKeyCommand], keys: list[bool]) -> str:
         """Generate a command to send LCN keys.
 
         :param    SendKeyCommand    cmds:    The 4 concrete commands to send
@@ -877,7 +878,7 @@ class PckGenerator:
 
     @staticmethod
     def send_keys_hit_deferred(
-        table_id: int, time: int, time_unit: lcn_defs.TimeUnit, keys: List[bool]
+        table_id: int, time: int, time_unit: lcn_defs.TimeUnit, keys: list[bool]
     ) -> str:
         """Generate a command to send LCN keys deferred / delayed.
 
@@ -934,7 +935,7 @@ class PckGenerator:
         return "STX"
 
     @staticmethod
-    def lock_keys(table_id: int, states: List[lcn_defs.KeyLockStateModifier]) -> str:
+    def lock_keys(table_id: int, states: list[lcn_defs.KeyLockStateModifier]) -> str:
         """Generate a command to lock keys.
 
         :param     int           table_id:  Table id 0(A)..3(D)
@@ -956,7 +957,7 @@ class PckGenerator:
 
     @staticmethod
     def lock_keys_tab_a_temporary(
-        time: int, time_unit: lcn_defs.TimeUnit, keys: List[bool]
+        time: int, time_unit: lcn_defs.TimeUnit, keys: list[bool]
     ) -> str:
         """Generate a command to lock keys for table A temporary.
 
@@ -1021,7 +1022,7 @@ class PckGenerator:
             or (len(part) > 12)
         ):
             raise ValueError("Wrong row_id, part_id or part length.")
-        return f"GTDT{row_id + 1}{part_id + 1}".encode("utf-8") + part
+        return f"GTDT{row_id + 1}{part_id + 1}".encode() + part
 
     @staticmethod
     def lock_regulator(reg_id: int, state: bool) -> str:

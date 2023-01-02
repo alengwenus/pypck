@@ -4,16 +4,12 @@ import asyncio
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
     Callable,
-    Dict,
-    List,
     Optional,
-    Sequence,
-    Set,
     Union,
     cast,
 )
+from collections.abc import Awaitable, Sequence
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
@@ -74,7 +70,7 @@ class AbstractConnection:
         return self.addr.is_group
 
     @property
-    def serials(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
+    def serials(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
         """Return serial numbers of a module."""
         return {
             "hardware_serial": -1,
@@ -110,7 +106,7 @@ class AbstractConnection:
         event.set()
         return event.wait()
 
-    async def request_serials(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
+    async def request_serials(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
         """Request module serials."""
         return self.serials
 
@@ -210,7 +206,7 @@ class AbstractConnection:
             not self.is_group, PckGenerator.toggle_all_outputs(ramp)
         )
 
-    async def control_relays(self, states: List[lcn_defs.RelayStateModifier]) -> bool:
+    async def control_relays(self, states: list[lcn_defs.RelayStateModifier]) -> bool:
         """Send a command to control relays.
 
         :param    states:   The 8 modifiers for the relay states as alist
@@ -224,7 +220,7 @@ class AbstractConnection:
         )
 
     async def control_relays_timer(
-        self, time_msec: int, states: List[lcn_defs.RelayStateModifier]
+        self, time_msec: int, states: list[lcn_defs.RelayStateModifier]
     ) -> bool:
         """Send a command to control relays.
 
@@ -240,7 +236,7 @@ class AbstractConnection:
         )
 
     async def control_motors_relays(
-        self, states: List[lcn_defs.MotorStateModifier]
+        self, states: list[lcn_defs.MotorStateModifier]
     ) -> bool:
         """Send a command to control motors via relays.
 
@@ -502,8 +498,8 @@ class AbstractConnection:
         )
 
     async def send_keys(
-        self, keys: List[List[bool]], cmd: lcn_defs.SendKeyCommand
-    ) -> List[bool]:
+        self, keys: list[list[bool]], cmd: lcn_defs.SendKeyCommand
+    ) -> list[bool]:
         """Send a command to send keys.
 
         :param    list(bool)[4][8]    keys:    2d-list with [table_id][key_id]
@@ -514,7 +510,7 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      list of bool
         """
-        results: List[bool] = []
+        results: list[bool] = []
         for table_id, key_states in enumerate(keys):
             if True in key_states:
                 cmds = [lcn_defs.SendKeyCommand.DONTSEND] * 4
@@ -527,8 +523,8 @@ class AbstractConnection:
         return results
 
     async def send_keys_hit_deferred(
-        self, keys: List[List[bool]], delay_time: int, delay_unit: lcn_defs.TimeUnit
-    ) -> List[bool]:
+        self, keys: list[list[bool]], delay_time: int, delay_unit: lcn_defs.TimeUnit
+    ) -> list[bool]:
         """Send a command to send keys deferred.
 
         :param    list(bool)[4][8]    keys:          2d-list with
@@ -541,7 +537,7 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      list of bool
         """
-        results: List[bool] = []
+        results: list[bool] = []
         for table_id, key_states in enumerate(keys):
             if True in key_states:
                 results.append(
@@ -555,7 +551,7 @@ class AbstractConnection:
         return results
 
     async def lock_keys(
-        self, table_id: int, states: List[lcn_defs.KeyLockStateModifier]
+        self, table_id: int, states: list[lcn_defs.KeyLockStateModifier]
     ) -> bool:
         """Send a command to lock keys.
 
@@ -571,7 +567,7 @@ class AbstractConnection:
         )
 
     async def lock_keys_tab_a_temporary(
-        self, delay_time: int, delay_unit: lcn_defs.TimeUnit, states: List[bool]
+        self, delay_time: int, delay_unit: lcn_defs.TimeUnit, states: list[bool]
     ) -> bool:
         """Send a command to lock keys in table A temporary.
 
@@ -767,7 +763,7 @@ class ModuleConnection(AbstractConnection):
         self.activate_status_requests = activate_status_requests
         self.has_s0_enabled = has_s0_enabled
 
-        self.input_callbacks: Set[Callable[[inputs.Input], None]] = set()
+        self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
 
         # List of queued acknowledge codes from the LCN modules.
         self.acknowledges: "asyncio.Queue[int]" = asyncio.Queue()
@@ -925,7 +921,7 @@ class ModuleConnection(AbstractConnection):
         for input_callback in self.input_callbacks:
             input_callback(inp)
 
-    def dump_details(self) -> Dict[str, Any]:
+    def dump_details(self) -> dict[str, Any]:
         """Dump detailed information about this module."""
         is_local_segment = self.addr.seg_id in (0, self.conn.local_seg_id)
         return {
@@ -955,7 +951,7 @@ class ModuleConnection(AbstractConnection):
     # ## properties
 
     @property
-    def serials(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
+    def serials(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
         """Return serials number information."""
         return self.serials_request_handler.serials
 
@@ -970,22 +966,22 @@ class ModuleConnection(AbstractConnection):
         return self.comment_request_handler.comment
 
     @property
-    def oem_text(self) -> List[str]:
+    def oem_text(self) -> list[str]:
         """Return stored OEM text."""
         return self.oem_text_request_handler.oem_text
 
     @property
-    def static_groups(self) -> Set[LcnAddr]:
+    def static_groups(self) -> set[LcnAddr]:
         """Return static group membership."""
         return self.static_groups_request_handler.groups
 
     @property
-    def dynamic_groups(self) -> Set[LcnAddr]:
+    def dynamic_groups(self) -> set[LcnAddr]:
         """Return dynamic group membership."""
         return self.dynamic_groups_request_handler.groups
 
     @property
-    def groups(self) -> Set[LcnAddr]:
+    def groups(self) -> set[LcnAddr]:
         """Return static and dynamic group membership."""
         return self.static_groups | self.dynamic_groups
 
@@ -996,7 +992,7 @@ class ModuleConnection(AbstractConnection):
         """Check if serials have already been received from module."""
         return self.serials_request_handler.serial_known.wait()
 
-    async def request_serials(self) -> Dict[str, Union[int, lcn_defs.HardwareType]]:
+    async def request_serials(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
         """Request module serials."""
         return await self.serials_request_handler.request()
 
@@ -1008,19 +1004,19 @@ class ModuleConnection(AbstractConnection):
         """Request comments from a module."""
         return await self.comment_request_handler.request()
 
-    async def request_oem_text(self) -> List[str]:
+    async def request_oem_text(self) -> list[str]:
         """Request OEM text from a module."""
         return await self.oem_text_request_handler.request()
 
-    async def request_static_groups(self) -> Set[LcnAddr]:
+    async def request_static_groups(self) -> set[LcnAddr]:
         """Request module static group memberships."""
         return set(await self.static_groups_request_handler.request())
 
-    async def request_dynamic_groups(self) -> Set[LcnAddr]:
+    async def request_dynamic_groups(self) -> set[LcnAddr]:
         """Request module dynamic group memberships."""
         return set(await self.dynamic_groups_request_handler.request())
 
-    async def request_groups(self) -> Set[LcnAddr]:
+    async def request_groups(self) -> set[LcnAddr]:
         """Request module group memberships."""
         static_groups = await self.static_groups_request_handler.request()
         dynamic_groups = await self.dynamic_groups_request_handler.request()
