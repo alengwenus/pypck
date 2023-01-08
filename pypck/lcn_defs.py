@@ -1308,6 +1308,8 @@ HARDWARE_DESCRIPTIONS = dict(
         (28, "LCN-SHD"),
         (29, "LCN-SHU"),
         (30, "LCN-SR6"),
+        (31, "LCN-UMF"),
+        (32, "LCN-WBH"),
     ]
 )
 
@@ -1343,6 +1345,8 @@ class HardwareType(Enum):
     SHD = 28
     SHU = 29
     SR6 = 30
+    UMF = 31
+    WBH = 32
 
     @property
     def identifier(self) -> Any:
