@@ -1,10 +1,12 @@
 """Connection classes for pypck."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
-from types import TracebackType
-from typing import Any, Callable, Optional, Union
 from collections.abc import Awaitable, Iterable
+from types import TracebackType
+from typing import Any, Callable
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
@@ -21,7 +23,7 @@ SOCKET_CLOSED = -2
 class PchkLicenseError(Exception):
     """Exception which is raised if a license error occurred."""
 
-    def __init__(self, message: Optional[str] = None):
+    def __init__(self, message: str | None = None):
         """Initialize instance."""
         if message is None:
             message = (
@@ -34,7 +36,7 @@ class PchkLicenseError(Exception):
 class PchkAuthenticationError(Exception):
     """Exception which is raised if authentication failed."""
 
-    def __init__(self, message: Optional[str] = None):
+    def __init__(self, message: str | None = None):
         """Initialize instance."""
         if message is None:
             message = "Authentication failed."
@@ -44,7 +46,7 @@ class PchkAuthenticationError(Exception):
 class PchkLcnNotConnectedError(Exception):
     """Exception which is raised if there is no connection to the LCN bus."""
 
-    def __init__(self, message: Optional[str] = None):
+    def __init__(self, message: str | None = None):
         """Initialize instance."""
         if message is None:
             message = "LCN not connected."
@@ -76,8 +78,8 @@ class PchkConnection:
         self.host = host
         self.port = port
         self.connection_id = connection_id
-        self.reader: Optional[asyncio.StreamReader] = None
-        self.writer: Optional[asyncio.StreamWriter] = None
+        self.reader: asyncio.StreamReader | None = None
+        self.writer: asyncio.StreamWriter | None = None
         self.event_handler: Callable[
             [str], Awaitable[None]
         ] = self.default_event_handler
@@ -119,7 +121,7 @@ class PchkConnection:
                 continue
             await self.process_message(message)
 
-    async def send_command(self, pck: Union[bytes, str], **kwargs: Any) -> bool:
+    async def send_command(self, pck: bytes | str, **kwargs: Any) -> bool:
         """Send a PCK command to the PCHK server.
 
         :param    str    pck:    PCK command
@@ -203,7 +205,7 @@ class PchkConnectionManager(PchkConnection):
         port: int,
         username: str,
         password: str,
-        settings: Optional[dict[str, Any]] = None,
+        settings: dict[str, Any] | None = None,
         connection_id: str = "PCHK",
     ):
         """Construct PchkConnectionManager."""
@@ -228,8 +230,8 @@ class PchkConnectionManager(PchkConnection):
 
         # Events, Futures, Locks for synchronization
         self.segment_scan_completed_event = asyncio.Event()
-        self.authentication_completed_future: "asyncio.Future[bool]" = asyncio.Future()
-        self.license_error_future: "asyncio.Future[bool]" = asyncio.Future()
+        self.authentication_completed_future: asyncio.Future[bool] = asyncio.Future()
+        self.license_error_future: asyncio.Future[bool] = asyncio.Future()
         self.module_serial_number_received = asyncio.Lock()
         self.segment_coupler_response_received = asyncio.Lock()
 
@@ -250,16 +252,16 @@ class PchkConnectionManager(PchkConnection):
 
     async def __aexit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_value: Optional[BaseException],
-        exc_traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        exc_traceback: TracebackType | None,
     ) -> None:
         """Context manager exit method."""
         await self.async_close()
         return None
 
     async def send_command(
-        self, pck: Union[bytes, str], to_host: bool = False, **kwargs: Any
+        self, pck: bytes | str, to_host: bool = False, **kwargs: Any
     ) -> bool:
         """Send a PCK command to the PCHK server.
 
@@ -319,8 +321,8 @@ class PchkConnectionManager(PchkConnection):
 
         :param    int    timeout:    Timeout in seconds
         """
-        done: Iterable["asyncio.Future[Any]"]
-        pending: Iterable["asyncio.Future[Any]"]
+        done: Iterable[asyncio.Future[Any]]
+        pending: Iterable[asyncio.Future[Any]]
         done, pending = await asyncio.wait(
             (
                 super().async_connect(),

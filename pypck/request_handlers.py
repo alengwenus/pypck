@@ -1,7 +1,9 @@
 """Handlers for requests."""
 
+from __future__ import annotations
+
 import asyncio
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
@@ -18,7 +20,7 @@ class RequestHandler:
 
     def __init__(
         self,
-        addr_conn: "ModuleConnection",
+        addr_conn: ModuleConnection,
         num_tries: int = 3,
         timeout_msec: int = 1500,
     ):
@@ -65,10 +67,10 @@ class SerialRequestHandler(RequestHandler):
 
     def __init__(
         self,
-        addr_conn: "ModuleConnection",
+        addr_conn: ModuleConnection,
         num_tries: int = 3,
         timeout_msec: int = 1500,
-        software_serial: Optional[int] = None,
+        software_serial: int | None = None,
     ):
         """Initialize class instance."""
         self.hardware_serial = -1
@@ -104,7 +106,7 @@ class SerialRequestHandler(RequestHandler):
         else:
             self.serial_known.set()
 
-    async def request(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
+    async def request(self) -> dict[str, int | lcn_defs.HardwareType]:
         """Request serial number."""
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         self.serial_known.clear()
@@ -113,7 +115,7 @@ class SerialRequestHandler(RequestHandler):
         return self.serials
 
     @property
-    def serials(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
+    def serials(self) -> dict[str, int | lcn_defs.HardwareType]:
         """Return serial numbers of a module."""
         return {
             "hardware_serial": self.hardware_serial,
@@ -128,12 +130,12 @@ class NameRequestHandler(RequestHandler):
 
     def __init__(
         self,
-        addr_conn: "ModuleConnection",
+        addr_conn: ModuleConnection,
         num_tries: int = 3,
         timeout_msec: int = 1500,
     ):
         """Initialize class instance."""
-        self._name: list[Optional[str]] = [None] * 2
+        self._name: list[str | None] = [None] * 2
         self.name_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
@@ -182,7 +184,7 @@ class NameRequestHandler(RequestHandler):
         return self.name
 
     # pylint: disable=arguments-differ
-    async def cancel(self, block_id: Optional[int] = None) -> None:
+    async def cancel(self, block_id: int | None = None) -> None:
         """Cancel name request task."""
         if block_id is None:  # cancel all
             for trh in self.trhs:
@@ -201,12 +203,12 @@ class CommentRequestHandler(RequestHandler):
 
     def __init__(
         self,
-        addr_conn: "ModuleConnection",
+        addr_conn: ModuleConnection,
         num_tries: int = 3,
         timeout_msec: int = 1500,
     ):
         """Initialize class instance."""
-        self._comment: list[Optional[str]] = [None] * 3
+        self._comment: list[str | None] = [None] * 3
         self.comment_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
@@ -255,7 +257,7 @@ class CommentRequestHandler(RequestHandler):
         return self.comment
 
     # pylint: disable=arguments-differ
-    async def cancel(self, block_id: Optional[int] = None) -> None:
+    async def cancel(self, block_id: int | None = None) -> None:
         """Cancel comment request task."""
         if block_id is None:  # cancel all
             for trh in self.trhs:
@@ -274,12 +276,12 @@ class OemTextRequestHandler(RequestHandler):
 
     def __init__(
         self,
-        addr_conn: "ModuleConnection",
+        addr_conn: ModuleConnection,
         num_tries: int = 3,
         timeout_msec: int = 1500,
     ):
         """Initialize class instance."""
-        self._oem_text: list[Optional[str]] = [None] * 4
+        self._oem_text: list[str | None] = [None] * 4
         self.oem_text_known = asyncio.Event()
 
         super().__init__(addr_conn, num_tries, timeout_msec)
@@ -328,7 +330,7 @@ class OemTextRequestHandler(RequestHandler):
         return self.oem_text
 
     # pylint: disable=arguments-differ
-    async def cancel(self, block_id: Optional[int] = None) -> None:
+    async def cancel(self, block_id: int | None = None) -> None:
         """Cancel OEM text request task."""
         if block_id is None:  # cancel all
             for trh in self.trhs:
@@ -351,7 +353,7 @@ class GroupMembershipStaticRequestHandler(RequestHandler):
 
     def __init__(
         self,
-        addr_conn: "ModuleConnection",
+        addr_conn: ModuleConnection,
         num_tries: int = 3,
         timeout_msec: int = 1500,
     ):
@@ -395,7 +397,7 @@ class GroupMembershipDynamicRequestHandler(RequestHandler):
 
     def __init__(
         self,
-        addr_conn: "ModuleConnection",
+        addr_conn: ModuleConnection,
         num_tries: int = 3,
         timeout_msec: int = 1500,
     ):
@@ -437,7 +439,7 @@ class GroupMembershipDynamicRequestHandler(RequestHandler):
 class StatusRequestsHandler:
     """Manages all status requests for variables, software version, ..."""
 
-    def __init__(self, addr_conn: "ModuleConnection"):
+    def __init__(self, addr_conn: ModuleConnection):
         """Construct StatusRequestHandler instance."""
         self.addr_conn = addr_conn
         self.settings = addr_conn.conn.settings
@@ -548,7 +550,7 @@ class StatusRequestsHandler:
             )
 
     async def request_status_var_timeout(
-        self, failed: bool = False, var: Optional[lcn_defs.Var] = None
+        self, failed: bool = False, var: lcn_defs.Var | None = None
     ) -> None:
         """Is called on variable status request timeout."""
         assert var is not None

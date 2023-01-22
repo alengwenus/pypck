@@ -1,15 +1,10 @@
 """Module and group classes."""
 
+from __future__ import annotations
+
 import asyncio
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Optional,
-    Union,
-    cast,
-)
 from collections.abc import Awaitable, Sequence
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
@@ -37,9 +32,9 @@ class AbstractConnection:
 
     def __init__(
         self,
-        conn: "PchkConnectionManager",
+        conn: PchkConnectionManager,
         addr: LcnAddr,
-        software_serial: Optional[int] = None,
+        software_serial: int | None = None,
     ):
         """Construct AbstractConnection instance."""
         self.conn = conn
@@ -70,7 +65,7 @@ class AbstractConnection:
         return self.addr.is_group
 
     @property
-    def serials(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
+    def serials(self) -> dict[str, int | lcn_defs.HardwareType]:
         """Return serial numbers of a module."""
         return {
             "hardware_serial": -1,
@@ -106,11 +101,11 @@ class AbstractConnection:
         event.set()
         return event.wait()
 
-    async def request_serials(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
+    async def request_serials(self) -> dict[str, int | lcn_defs.HardwareType]:
         """Request module serials."""
         return self.serials
 
-    async def send_command(self, wants_ack: bool, pck: Union[str, bytes]) -> bool:
+    async def send_command(self, wants_ack: bool, pck: str | bytes) -> bool:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
@@ -142,7 +137,7 @@ class AbstractConnection:
         )
 
     async def dim_all_outputs(
-        self, percent: float, ramp: int, software_serial: Optional[int] = None
+        self, percent: float, ramp: int, software_serial: int | None = None
     ) -> bool:
         """Send a dim command for all output-ports.
 
@@ -253,7 +248,7 @@ class AbstractConnection:
     async def control_motors_outputs(
         self,
         state: lcn_defs.MotorStateModifier,
-        reverse_time: Optional[lcn_defs.MotorReverseTime] = None,
+        reverse_time: lcn_defs.MotorReverseTime | None = None,
     ) -> bool:
         """Send a command to control a motor via output ports 1+2.
 
@@ -276,7 +271,7 @@ class AbstractConnection:
         scene_id: int,
         output_ports: Sequence[lcn_defs.OutputPort] = (),
         relay_ports: Sequence[lcn_defs.RelayPort] = (),
-        ramp: Optional[int] = None,
+        ramp: int | None = None,
     ) -> bool:
         """Activate the stored states for the given scene.
 
@@ -316,7 +311,7 @@ class AbstractConnection:
         scene_id: int,
         output_ports: Sequence[lcn_defs.OutputPort] = (),
         relay_ports: Sequence[lcn_defs.RelayPort] = (),
-        ramp: Optional[int] = None,
+        ramp: int | None = None,
     ) -> bool:
         """Store states in the given scene.
 
@@ -378,9 +373,9 @@ class AbstractConnection:
     async def var_abs(
         self,
         var: lcn_defs.Var,
-        value: Union[float, lcn_defs.VarValue],
+        value: float | lcn_defs.VarValue,
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
-        software_serial: Optional[int] = None,
+        software_serial: int | None = None,
     ) -> bool:
         """Send a command to set the absolute value to a variable.
 
@@ -424,7 +419,7 @@ class AbstractConnection:
         )
 
     async def var_reset(
-        self, var: lcn_defs.Var, software_serial: Optional[int] = None
+        self, var: lcn_defs.Var, software_serial: int | None = None
     ) -> bool:
         """Send a command to reset the variable value.
 
@@ -444,10 +439,10 @@ class AbstractConnection:
     async def var_rel(
         self,
         var: lcn_defs.Var,
-        value: Union[float, lcn_defs.VarValue],
+        value: float | lcn_defs.VarValue,
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         value_ref: lcn_defs.RelVarRef = lcn_defs.RelVarRef.CURRENT,
-        software_serial: Optional[int] = None,
+        software_serial: int | None = None,
     ) -> bool:
         """Send a command to change the value of a variable.
 
@@ -649,7 +644,7 @@ class GroupConnection(AbstractConnection):
 
     def __init__(
         self,
-        conn: "PchkConnectionManager",
+        conn: PchkConnectionManager,
         addr: LcnAddr,
         software_serial: int = 0x170206,
     ):
@@ -660,9 +655,9 @@ class GroupConnection(AbstractConnection):
     async def var_abs(
         self,
         var: lcn_defs.Var,
-        value: Union[float, lcn_defs.VarValue],
+        value: float | lcn_defs.VarValue,
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
-        software_serial: Optional[int] = None,
+        software_serial: int | None = None,
     ) -> bool:
         """Send a command to set the absolute value to a variable.
 
@@ -686,7 +681,7 @@ class GroupConnection(AbstractConnection):
         return result
 
     async def var_reset(
-        self, var: lcn_defs.Var, software_serial: Optional[int] = None
+        self, var: lcn_defs.Var, software_serial: int | None = None
     ) -> bool:
         """Send a command to reset the variable value.
 
@@ -707,10 +702,10 @@ class GroupConnection(AbstractConnection):
     async def var_rel(
         self,
         var: lcn_defs.Var,
-        value: Union[float, lcn_defs.VarValue],
+        value: float | lcn_defs.VarValue,
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         value_ref: lcn_defs.RelVarRef = lcn_defs.RelVarRef.CURRENT,
-        software_serial: Optional[int] = None,
+        software_serial: int | None = None,
     ) -> bool:
         """Send a command to change the value of a variable.
 
@@ -751,11 +746,11 @@ class ModuleConnection(AbstractConnection):
 
     def __init__(
         self,
-        conn: "PchkConnectionManager",
+        conn: PchkConnectionManager,
         addr: LcnAddr,
         activate_status_requests: bool = False,
         has_s0_enabled: bool = False,
-        software_serial: Optional[int] = None,
+        software_serial: int | None = None,
     ):
         """Construct ModuleConnection instance."""
         assert not addr.is_group
@@ -766,7 +761,7 @@ class ModuleConnection(AbstractConnection):
         self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
 
         # List of queued acknowledge codes from the LCN modules.
-        self.acknowledges: "asyncio.Queue[int]" = asyncio.Queue()
+        self.acknowledges: asyncio.Queue[int] = asyncio.Queue()
 
         # RequestHandlers
         num_tries: int = self.conn.settings["NUM_TRIES"]
@@ -801,7 +796,7 @@ class ModuleConnection(AbstractConnection):
         if self.activate_status_requests:
             self.task_registry.create_task(self.activate_status_request_handlers())
 
-    async def send_command(self, wants_ack: bool, pck: Union[str, bytes]) -> bool:
+    async def send_command(self, wants_ack: bool, pck: str | bytes) -> bool:
         """Send a command to the module represented by this class.
 
         :param    bool    wants_ack:    Also send a request for acknowledge.
@@ -816,7 +811,7 @@ class ModuleConnection(AbstractConnection):
     # ## Retry logic if an acknowledge is requested
     # ##
 
-    async def send_command_with_ack(self, pck: Union[str, bytes]) -> bool:
+    async def send_command_with_ack(self, pck: str | bytes) -> bool:
         """Send a PCK command and ensure receiving of an acknowledgement.
 
         Resends the PCK command if no acknowledgement has been received
@@ -951,7 +946,7 @@ class ModuleConnection(AbstractConnection):
     # ## properties
 
     @property
-    def serials(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
+    def serials(self) -> dict[str, int | lcn_defs.HardwareType]:
         """Return serials number information."""
         return self.serials_request_handler.serials
 
@@ -992,7 +987,7 @@ class ModuleConnection(AbstractConnection):
         """Check if serials have already been received from module."""
         return self.serials_request_handler.serial_known.wait()
 
-    async def request_serials(self) -> dict[str, Union[int, lcn_defs.HardwareType]]:
+    async def request_serials(self) -> dict[str, int | lcn_defs.HardwareType]:
         """Request module serials."""
         return await self.serials_request_handler.request()
 
