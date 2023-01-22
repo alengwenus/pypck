@@ -1,9 +1,11 @@
 """Definitions and constants for pypck."""
 
+from __future__ import annotations
+
 import math
 import re
 from enum import Enum, auto
-from typing import Any, Union, no_type_check
+from typing import Any, no_type_check
 
 LCN_ENCODING = "utf-8"
 PATTERN_SPLIT_PORT_PIN = re.compile(r"(?P<port>[a-zA-Z]+)(?P<pin>\d+)")
@@ -327,7 +329,7 @@ class Var(Enum):
     S0INPUT4 = auto()  # LCN-BU4LJVarValue
 
     @staticmethod
-    def var_id_to_var(var_id: int) -> "Var":
+    def var_id_to_var(var_id: int) -> Var:
         """Translate a given id into a variable type.
 
         :param    int    varId:    The variable id (0..11)
@@ -340,7 +342,7 @@ class Var(Enum):
         return Var.variables[var_id]  # type: ignore
 
     @staticmethod
-    def set_point_id_to_var(set_point_id: int) -> "Var":
+    def set_point_id_to_var(set_point_id: int) -> Var:
         """Translate a given id into a LCN set-point variable type.
 
         :param     int    set_point_id:    Set-point id 0..1
@@ -353,7 +355,7 @@ class Var(Enum):
         return Var.set_points[set_point_id]  # type: ignore
 
     @staticmethod
-    def thrs_id_to_var(register_id: int, thrs_id: int) -> "Var":
+    def thrs_id_to_var(register_id: int, thrs_id: int) -> Var:
         """Translate given ids into a LCN threshold variable type.
 
         :param    int    register_id:    Register id 0..3
@@ -373,7 +375,7 @@ class Var(Enum):
         return Var.thresholds[register_id][thrs_id]  # type: ignore
 
     @staticmethod
-    def s0_id_to_var(s0_id: int) -> "Var":
+    def s0_id_to_var(s0_id: int) -> Var:
         """Translate a given id into a LCN S0-input variable type.
 
         :param     int    s0_id:     S0 id 0..3
@@ -386,7 +388,7 @@ class Var(Enum):
         return Var.s0s[s0_id]  # type: ignore
 
     @staticmethod
-    def to_var_id(var: "Var") -> int:
+    def to_var_id(var: Var) -> int:
         """Translate a given variable type into a variable id.
 
         :param     Var    var:    The variable type to translate
@@ -423,7 +425,7 @@ class Var(Enum):
         return var_id
 
     @staticmethod
-    def to_set_point_id(var: "Var") -> int:
+    def to_set_point_id(var: Var) -> int:
         """Translate a given variable type into a set-point id.
 
         :param     Var    var:     The variable type to translate
@@ -440,7 +442,7 @@ class Var(Enum):
         return set_point_id
 
     @staticmethod
-    def to_thrs_register_id(var: "Var") -> int:
+    def to_thrs_register_id(var: Var) -> int:
         """Translate a given variable type into a threshold register id.
 
         :param    Var    var:    The variable type to translate
@@ -461,7 +463,7 @@ class Var(Enum):
         return thrs_register_id
 
     @staticmethod
-    def to_thrs_id(var: "Var") -> int:
+    def to_thrs_id(var: Var) -> int:
         """Translate a given variable type into a threshold id.
 
         :param    Var    var:    The variable type to translate
@@ -484,7 +486,7 @@ class Var(Enum):
         return thrs_id
 
     @staticmethod
-    def to_s0_id(var: "Var") -> int:
+    def to_s0_id(var: Var) -> int:
         """Translate a given variable type into an S0-input id.
 
         :param    Var    var:    The variable type to translate
@@ -505,7 +507,7 @@ class Var(Enum):
         return s0_id
 
     @staticmethod
-    def is_lockable_regulator_source(var: "Var") -> bool:
+    def is_lockable_regulator_source(var: Var) -> bool:
         """Check if the the given variable type is lockable.
 
         :param    Var    var:    The variable type to check
@@ -516,7 +518,7 @@ class Var(Enum):
         return var in [Var.R1VARSETPOINT, Var.R2VARSETPOINT]
 
     @staticmethod
-    def use_lcn_special_values(var: "Var") -> bool:
+    def use_lcn_special_values(var: Var) -> bool:
         """Check if the given variable type uses special values.
 
         Examples for special values: 'No value yet', 'sensor defective' etc.
@@ -529,7 +531,7 @@ class Var(Enum):
         return var not in [Var.S0INPUT1, Var.S0INPUT2, Var.S0INPUT3, Var.S0INPUT4]
 
     @staticmethod
-    def has_type_in_response(var: "Var", software_serial: int) -> bool:
+    def has_type_in_response(var: Var, software_serial: int) -> bool:
         """Module-generation check.
 
         Check if the given variable type would receive a typed response if
@@ -554,7 +556,7 @@ class Var(Enum):
         return True
 
     @staticmethod
-    def is_event_based(var: "Var", software_serial: int) -> bool:
+    def is_event_based(var: Var, software_serial: int) -> bool:
         """Module-generation check.
 
         Check if the given variable type automatically sends status-updates
@@ -572,7 +574,7 @@ class Var(Enum):
         return software_serial >= 0x170206
 
     @staticmethod
-    def should_poll_status_after_command(var: "Var", is2013: bool) -> bool:
+    def should_poll_status_after_command(var: Var, is2013: bool) -> bool:
         """Module-generation check.
 
         Check if the target LCN module would automatically send status-updates
@@ -677,7 +679,7 @@ class VarUnit(Enum):
     DEGREE = "\u00b0"  # Used for angles,
 
     @staticmethod
-    def parse(unit: str) -> "VarUnit":
+    def parse(unit: str) -> VarUnit:
         """Parse the given unit string and return VarUnit.
 
         :param    str    unit:    The input unit
@@ -742,7 +744,7 @@ class VarValue:
         return (self.native_value & 0x8000) != 0
 
     @staticmethod
-    def from_var_unit(value: float, unit: VarUnit, is_abs: bool) -> "VarValue":
+    def from_var_unit(value: float, unit: VarUnit, is_abs: bool) -> VarValue:
         """Create a variable value from any input.
 
         :param    float    value:   The input value
@@ -783,7 +785,7 @@ class VarValue:
         return var_value
 
     @staticmethod
-    def from_native(value: int) -> "VarValue":
+    def from_native(value: int) -> VarValue:
         """Create a variable value from native input.
 
         :param    int    value:    The input value
@@ -794,7 +796,7 @@ class VarValue:
         return VarValue(value)
 
     @staticmethod
-    def from_celsius(value: float, is_abs: bool = True) -> "VarValue":
+    def from_celsius(value: float, is_abs: bool = True) -> VarValue:
         """Create a variable value from Celsius input.
 
         :param    float    value:    The input value
@@ -809,7 +811,7 @@ class VarValue:
         return VarValue(number + 1000 if is_abs else number)
 
     @staticmethod
-    def from_kelvin(value: float, is_abs: bool = True) -> "VarValue":
+    def from_kelvin(value: float, is_abs: bool = True) -> VarValue:
         """Create a variable value from Kelvin input.
 
         :param    float    value:    The input value
@@ -827,7 +829,7 @@ class VarValue:
         return VarValue(number + 1000 if is_abs else number)
 
     @staticmethod
-    def from_fahrenheit(value: float, is_abs: bool = True) -> "VarValue":
+    def from_fahrenheit(value: float, is_abs: bool = True) -> VarValue:
         """Create a variable value from Fahrenheit input.
 
         :param    float    value:    The input value
@@ -845,7 +847,7 @@ class VarValue:
         return VarValue(number + 1000 if is_abs else number)
 
     @staticmethod
-    def from_lux_t(lux: float) -> "VarValue":
+    def from_lux_t(lux: float) -> VarValue:
         """Create a variable value from lx input.
 
         Target must be connected to T-port.
@@ -858,7 +860,7 @@ class VarValue:
         return VarValue(int(round(math.log(lux) - 1.689646994) / 0.010380664))
 
     @staticmethod
-    def from_lux_i(lux: float) -> "VarValue":
+    def from_lux_i(lux: float) -> VarValue:
         """Create a variable value from lx input.
 
         Target must be connected to I-port.
@@ -871,7 +873,7 @@ class VarValue:
         return VarValue(int(round(math.log(lux) * 100)))
 
     @staticmethod
-    def from_percent(value: float) -> "VarValue":
+    def from_percent(value: float) -> VarValue:
         """Create a variable value from % input.
 
         :param    float    value:    The input value
@@ -882,7 +884,7 @@ class VarValue:
         return VarValue(int(round(value)))
 
     @staticmethod
-    def from_ppm(value: float) -> "VarValue":
+    def from_ppm(value: float) -> VarValue:
         """Create a variable value from ppm input.
 
         Used for CO2 sensors.
@@ -895,7 +897,7 @@ class VarValue:
         return VarValue(int(round(value)))
 
     @staticmethod
-    def from_meters_per_second(value: float) -> "VarValue":
+    def from_meters_per_second(value: float) -> VarValue:
         """Create a variable value from m/s input.
 
         Used for LCN-WIH wind speed.
@@ -908,7 +910,7 @@ class VarValue:
         return VarValue(int(round(value * 10)))
 
     @staticmethod
-    def from_volt(value: float) -> "VarValue":
+    def from_volt(value: float) -> VarValue:
         """Create a variable value from V input.
 
         :param    float    value:    The input value
@@ -919,7 +921,7 @@ class VarValue:
         return VarValue(int(round(value * 400)))
 
     @staticmethod
-    def from_ampere(value: float) -> "VarValue":
+    def from_ampere(value: float) -> VarValue:
         """Create a variable value from A input.
 
         :param    float    value:    The input value
@@ -930,7 +932,7 @@ class VarValue:
         return VarValue(int(round(value * 100000)))
 
     @staticmethod
-    def from_degree(value: float, is_abs: bool = True) -> "VarValue":
+    def from_degree(value: float, is_abs: bool = True) -> VarValue:
         """Create a variable value from degree (angle) input.
 
         :param    float    value:        The input value
@@ -948,7 +950,7 @@ class VarValue:
         self,
         unit: VarUnit,
         is_lockable_regulator_source: bool = False,
-    ) -> Union[int, float]:
+    ) -> int | float:
         """Convert the given unit to a VarValue.
 
         :param    VarUnit    unit:    The variable unit
@@ -1186,7 +1188,7 @@ class TimeUnit(Enum):
     DAYS = "D"
 
     @staticmethod
-    def parse(unit: str) -> "TimeUnit":
+    def parse(unit: str) -> TimeUnit:
         """Parse the given time_unit into a time unit.
 
         It supports several alternative terms.

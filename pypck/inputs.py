@@ -1,7 +1,8 @@
 """Parsers for incoming PCK messages."""
 
+from __future__ import annotations
+
 import logging
-from typing import Optional
 
 from pypck import lcn_defs
 from pypck.lcn_addr import LcnAddr
@@ -27,21 +28,16 @@ class Input:
         """Construct Input object."""
 
     @staticmethod
-    def try_parse(data: str) -> "Optional[list[Input]]":
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
         null).
-
-        :param    data    str:    The input data received from LCN-PCHK
-
-        :return:            The parsed Inputs
-        :rtype:             List with instances of :class:`~pypck.input.Input`
         """
         raise NotImplementedError
 
 
-class ModInput(Input):
+class ModInput(Input):  # pylint: disable=too-few-public-methods, abstract-method
     """Parent class of all inputs having an LCN module as its source.
 
     The class in inherited from :class:`~pypck.input.Input`
@@ -60,7 +56,7 @@ class AuthUsername(Input):
     """Authentication username message received from PCHK."""
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -80,7 +76,7 @@ class AuthPassword(Input):
     """Authentication password message received from PCHK."""
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -100,7 +96,7 @@ class AuthOk(Input):
     """Authentication ok message received from PCHK."""
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -120,7 +116,7 @@ class AuthFailed(Input):
     """Authentication failed message received from PCHK."""
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -155,7 +151,7 @@ class LcnConnState(Input):
         return self._is_lcn_connected
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -177,7 +173,7 @@ class LicenseError(Input):
     """LCN bus connected message received from PCHK."""
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -197,7 +193,7 @@ class DecModeSet(Input):
     """Decimal mode set received from PCHK."""
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -222,7 +218,7 @@ class CommandError(Input):
         self.message = message
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -259,7 +255,7 @@ class ModAck(ModInput):
         return self.code
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -304,7 +300,7 @@ class ModSk(ModInput):
         return self.reported_seg_id
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -342,7 +338,7 @@ class ModSn(ModInput):
         self.hardware_type = hardware_type
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -383,7 +379,7 @@ class ModNameComment(ModInput):
         self.text = text
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -422,7 +418,7 @@ class ModStatusGroups(ModInput):
         self.groups = groups
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -474,7 +470,7 @@ class ModStatusOutput(ModInput):
         return self.percent
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -525,7 +521,7 @@ class ModStatusOutputNative(ModInput):
         return self.value
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -570,7 +566,7 @@ class ModStatusRelays(ModInput):
         return self.states[relay_id]
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -612,7 +608,7 @@ class ModStatusBinSensors(ModInput):
         return self.states[bin_sensor_id]
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -667,7 +663,7 @@ class ModStatusVar(ModInput):
         return self.value
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -770,7 +766,7 @@ class ModStatusLedsAndLogicOps(ModInput):
         return self.states_logic_ops[logic_op_id]
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -821,7 +817,7 @@ class ModStatusKeyLocks(ModInput):
         return self.states[table_id][key_id]
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -853,10 +849,10 @@ class ModStatusAccessControl(ModInput):
         physical_source_addr: LcnAddr,
         periphery: lcn_defs.AccessControlPeriphery,
         code: str,
-        level: Optional[int] = None,
-        key: Optional[int] = None,
-        action: Optional[lcn_defs.KeyAction] = None,
-        battery: Optional[lcn_defs.BatteryStatus] = None,
+        level: int | None = None,
+        key: int | None = None,
+        action: lcn_defs.KeyAction | None = None,
+        battery: lcn_defs.BatteryStatus | None = None,
     ):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
@@ -868,7 +864,7 @@ class ModStatusAccessControl(ModInput):
         self.battery = battery
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -964,7 +960,7 @@ class ModStatusSceneOutputs(ModInput):
         self.ramps = ramps
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -1003,7 +999,7 @@ class ModSendCommandHost(ModInput):
         return self.parameters
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -1057,7 +1053,7 @@ class ModSendKeysHost(ModInput):
         return self.keys
 
     @staticmethod
-    def try_parse(data: str) -> Optional[list[Input]]:
+    def try_parse(data: str) -> list[Input] | None:
         """Try to parse the given input text.
 
         Will return a list of parsed Inputs. The list might be empty (but not
@@ -1169,7 +1165,7 @@ class InputParser:
         :rtype:     List with instances of :class:`~pypck.input.Input`
         """
         for parser in InputParser.parsers:
-            ret: Optional[list[Input]] = parser.try_parse(data)
+            ret: list[Input] | None = parser.try_parse(data)
             if ret is not None:
                 return ret
 

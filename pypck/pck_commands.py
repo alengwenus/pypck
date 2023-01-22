@@ -1,7 +1,8 @@
 """PCK command parsers and generators."""
 
+from __future__ import annotations
+
 import re
-from typing import Optional
 from collections.abc import Sequence
 
 from pypck import lcn_defs
@@ -571,7 +572,7 @@ class PckGenerator:
     @staticmethod
     def control_motors_outputs(
         state: lcn_defs.MotorStateModifier,
-        reverse_time: Optional[lcn_defs.MotorReverseTime] = None,
+        reverse_time: lcn_defs.MotorReverseTime | None = None,
     ) -> str:
         """Generate a command to control a motor via output ports 1+2.
 
@@ -1077,7 +1078,7 @@ class PckGenerator:
     def activate_scene_output(
         scene_id: int,
         output_ports: Sequence[lcn_defs.OutputPort] = (),
-        ramp: Optional[int] = None,
+        ramp: int | None = None,
     ) -> str:
         """Activate the stored output states for the given scene.
 
@@ -1100,7 +1101,7 @@ class PckGenerator:
     def store_scene_output(
         scene_id: int,
         output_ports: Sequence[lcn_defs.OutputPort] = (),
-        ramp: Optional[int] = None,
+        ramp: int | None = None,
     ) -> str:
         """Store the current output states in the given scene.
 
@@ -1123,7 +1124,7 @@ class PckGenerator:
     def _activate_or_store_scene_output(
         scene_id: int,
         output_ports: Sequence[lcn_defs.OutputPort] = (),
-        ramp: Optional[int] = None,
+        ramp: int | None = None,
         store: bool = False,
     ) -> str:
         if (scene_id < 0) or (scene_id > 9):

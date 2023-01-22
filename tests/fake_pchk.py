@@ -1,7 +1,8 @@
 """Fake PCHK server used for testing."""
 
+from __future__ import annotations
+
 import asyncio
-from typing import Optional, Union
 
 HOST = "127.0.0.1"
 PORT = 4114
@@ -15,7 +16,7 @@ SEPARATOR = b"\n"
 
 async def readuntil_timeout(
     reader: asyncio.StreamReader, separator: bytes, timeout: float
-) -> Union[bytes, int]:
+) -> bytes | int:
     """Read from socket with timeout."""
     try:
         data = await asyncio.wait_for(reader.readuntil(separator), timeout)
@@ -46,9 +47,9 @@ class PchkServer:
         self.separator = SEPARATOR
         self.license_error = False
         self.data_received: list[bytes] = []
-        self.server: Optional[asyncio.AbstractServer] = None
-        self.reader: Optional[asyncio.StreamReader] = None
-        self.writer: Optional[asyncio.StreamWriter] = None
+        self.server: asyncio.AbstractServer | None = None
+        self.reader: asyncio.StreamReader | None = None
+        self.writer: asyncio.StreamWriter | None = None
 
     async def run(self) -> None:
         """Start the server."""
@@ -159,7 +160,7 @@ class PchkServer:
         self.writer.write(message.encode() + self.separator)
 
     async def received(
-        self, message: Union[bytes, str], timeout: int = 5, remove: bool = True
+        self, message: bytes | str, timeout: int = 5, remove: bool = True
     ) -> bool:
         """Return if given message was received."""
         assert self.writer is not None

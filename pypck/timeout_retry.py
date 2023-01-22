@@ -1,9 +1,11 @@
 """Base classes for handling reoccurent tasks."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from collections.abc import Awaitable
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable
 
 from pypck.helpers import TaskRegistry, cancel_task
 
@@ -12,9 +14,6 @@ _LOGGER = logging.getLogger(__name__)
 # The default timeout to use for requests. Worst case: Requesting threshold
 # 4-4 takes at least 1.8s
 DEFAULT_TIMEOUT_MSEC = 3500
-
-
-TimeoutCallback = Union[Callable[..., None], Callable[..., Awaitable[None]]]
 
 
 class TimeoutRetryHandler:
@@ -37,10 +36,12 @@ class TimeoutRetryHandler:
         self.task_registry = task_registry
         self.num_tries = num_tries
         self.timeout_msec = timeout_msec
-        self._timeout_callback: Optional[TimeoutCallback] = None
+        self._timeout_callback: Callable[..., None] | Callable[
+            ..., Awaitable[None]
+        ] | None = None
         self._timeout_args: tuple[Any, ...] = ()
         self._timeout_kwargs: dict[str, Any] = {}
-        self.timeout_loop_task: Optional[asyncio.Task[None]] = None
+        self.timeout_loop_task: asyncio.Task[None] | None = None
 
     def set_timeout_msec(self, timeout_msec: int) -> None:
         """Set the timeout in milliseconds.
