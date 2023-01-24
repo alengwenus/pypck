@@ -95,7 +95,7 @@ class PchkSocketConnection:
         self.writer: asyncio.StreamWriter | None = None
         self.event_callbacks: set[Callable[[LcnEvent], None]] = set()
 
-    async def async_connect(self) -> LcnEvent | None:
+    async def async_connect(self) -> LcnEvent:
         """Connect to a PCHK server (no authentication or license error check)."""
         self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
         address = self.writer.get_extra_info("peername")
@@ -103,7 +103,7 @@ class PchkSocketConnection:
 
         # main read loop
         self.task_registry.create_task(self.read_data_loop())
-        return None
+        return LcnEvent.CONNECTION_ESTABLISHED
 
     def connect(self) -> None:
         """Create a task to connect to a PCHK server concurrently."""
@@ -321,14 +321,13 @@ class PchkConnection(PchkSocketConnection):
             _LOGGER.debug("%s: LCN is not connected.", self.connection_id)
             self.fire_event(LcnEvent.BUS_DISCONNECTED)
 
-    async def async_connect(self, timeout: int = 30) -> LcnEvent | None:
+    async def async_connect(self, timeout: int = 30) -> LcnEvent:
         """Establish a connection to PCHK at the given socket.
 
         Ensures that the LCN bus is present and authorizes at PCHK.
-        Raise a :class:`TimeoutError`, if connection could not be established
-        within the given timeout.
-
-        :param    int    timeout:    Timeout in seconds
+        Raise a TimeoutError, if connection could not be established
+        within the given timeout. On error the connection is automatically
+        closed.
         """
         self.authentication_completed_future = asyncio.Future()
         self.license_error_future = asyncio.Future()
@@ -358,6 +357,7 @@ class PchkConnection(PchkSocketConnection):
                     event = LcnEvent.CONNECTION_REFUSED_ERROR
                 else:
                     raise awaitable.exception()  # type: ignore
+                await self.async_close()
                 self.fire_event(event)
                 return event
 
@@ -365,8 +365,12 @@ class PchkConnection(PchkSocketConnection):
             for task in pending:
                 task.cancel()
             event = LcnEvent.TIMEOUT_ERROR
+            await self.async_close()
             self.fire_event(event)
             return event
+
+        if not self.is_lcn_connected:
+            return LcnEvent.BUS_DISCONNECTED
 
         # start segment scan
         await self.scan_segment_couplers(
@@ -374,7 +378,7 @@ class PchkConnection(PchkSocketConnection):
         )
 
         self.fire_event(LcnEvent.CONNECTION_ESTABLISHED)
-        return None
+        return LcnEvent.CONNECTION_ESTABLISHED
 
     async def async_close(self) -> None:
         """Close the active connection."""
