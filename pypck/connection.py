@@ -111,8 +111,8 @@ class PchkSocketConnection:
 
     async def read_data_loop(self) -> None:
         """Is called when some data is received."""
-        assert self.reader is not None
-        assert self.writer is not None
+        if self.writer is None or self.reader is None:
+            raise Exception("No connection stream opened.")
         while not self.writer.is_closing():
             try:
                 data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
@@ -177,7 +177,7 @@ class PchkSocketConnection:
     def fire_event(self, event: LcnEvent) -> None:
         """Fire event."""
         for event_callback in self.event_callbacks:
-            asyncio.get_event_loop().call_soon(event_callback, event)
+            event_callback(event)
 
     def register_for_events(
         self, callback: Callable[[LcnEvent], None]
@@ -649,7 +649,7 @@ class PchkConnection(PchkSocketConnection):
 
             # Forward all known inputs to callback listeners.
             for input_callback in self.input_callbacks:
-                asyncio.get_event_loop().call_soon(input_callback, inp)
+                input_callback(inp)
 
     async def cancel_requests(self) -> None:
         """Cancel all TimeoutRetryHandlers."""
