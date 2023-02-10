@@ -16,6 +16,7 @@ lib64
 # Python specific
 *.pyc
 /__pycache__
+/venv
 
 # pytest
 .pytest_cache
