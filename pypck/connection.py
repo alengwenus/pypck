@@ -112,7 +112,7 @@ class PchkSocketConnection:
     async def read_data_loop(self) -> None:
         """Is called when some data is received."""
         if self.writer is None or self.reader is None:
-            raise Exception("No connection stream opened.")
+            raise RuntimeError("No connection stream opened.")
         while not self.writer.is_closing():
             try:
                 data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
