@@ -4,6 +4,7 @@ import json
 from unittest.mock import AsyncMock, call
 
 import pytest
+
 from pypck.connection import PchkAuthenticationError, PchkLicenseError
 from pypck.lcn_addr import LcnAddr
 from pypck.module import ModuleConnection

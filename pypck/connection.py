@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from types import TracebackType
-from typing import Any, Callable
+from typing import Any
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
@@ -325,7 +325,7 @@ class PchkConnectionManager(PchkConnection):
         pending: Iterable[asyncio.Future[Any]]
         done, pending = await asyncio.wait(
             (
-                super().async_connect(),
+                asyncio.create_task(super().async_connect()),
                 self.authentication_completed_future,
                 self.license_error_future,
             ),
@@ -642,14 +642,14 @@ class PchkConnectionManager(PchkConnection):
 
     async def cancel_requests(self) -> None:
         """Cancel all TimeoutRetryHandlers."""
-        cancel_coros = [
-            address_conn.cancel_requests()
+        cancel_tasks = [
+            asyncio.create_task(address_conn.cancel_requests())
             for address_conn in self.address_conns.values()
             if isinstance(address_conn, ModuleConnection)
         ]
 
-        if cancel_coros:
-            await asyncio.wait(cancel_coros)
+        if cancel_tasks:
+            await asyncio.wait(cancel_tasks)
 
     def register_for_inputs(
         self, callback: Callable[[inputs.Input], None]
