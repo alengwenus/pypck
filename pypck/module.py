@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Sequence
-from typing import TYPE_CHECKING, Any, Callable, cast
+from collections.abc import Awaitable, Callable, Sequence
+from typing import TYPE_CHECKING, Any, cast
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry

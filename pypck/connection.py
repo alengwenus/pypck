@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from types import TracebackType
-from typing import Any, Callable
+from typing import Any
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
@@ -189,14 +189,6 @@ class PchkConnectionManager(PchkConnection):
 
     An example how to setup a proper connection to PCHK including login and
     (automatic) segment coupler scan is shown below.
-
-    :Example:
-
-    >>> import asyncio
-    >>> loop = asyncio.get_event_loop()
-    >>> connection = PchkConnectionManager(loop, '10.1.2.3', 4114,
-                                           'lcn', 'lcn')
-    >>> await connection.async_connect()
     """
 
     def __init__(
@@ -325,7 +317,7 @@ class PchkConnectionManager(PchkConnection):
         pending: Iterable[asyncio.Future[Any]]
         done, pending = await asyncio.wait(
             (
-                super().async_connect(),
+                asyncio.create_task(super().async_connect()),
                 self.authentication_completed_future,
                 self.license_error_future,
             ),
@@ -413,12 +405,6 @@ class PchkConnectionManager(PchkConnection):
 
         :returns: The address connection object (never null)
         :rtype: `~ModuleConnection`
-
-        :Example:
-
-        >>> address = LcnAddr(0, 7, False)
-        >>> module = pchk_connection.get_module_conn(address)
-        >>> module.toggle_output(0, 5)
         """
         assert not addr.is_group
         if addr.seg_id == 0 and self.local_seg_id != -1:
@@ -443,12 +429,6 @@ class PchkConnectionManager(PchkConnection):
 
         :returns: The address connection object (never null)
         :rtype: `~GroupConnection`
-
-        :Example:
-
-        >>> address = LcnAddr(0, 7, True)
-        >>> group = pchk_connection.get_group_conn(address)
-        >>> group.toggle_output(0, 5)
         """
         assert addr.is_group
         if addr.seg_id == 0 and self.local_seg_id != -1:
@@ -468,12 +448,6 @@ class PchkConnectionManager(PchkConnection):
 
         :returns: The address connection object (never null)
         :rtype: `~AbstractConnection`
-
-        :Example:
-
-        >>> address = LcnAddr(0, 7, False)
-        >>> target = pchk_connection.get_address_conn(address)
-        >>> target.toggle_output(0, 5)
         """
         if addr.is_group:
             return self.get_group_conn(addr)
@@ -642,14 +616,14 @@ class PchkConnectionManager(PchkConnection):
 
     async def cancel_requests(self) -> None:
         """Cancel all TimeoutRetryHandlers."""
-        cancel_coros = [
-            address_conn.cancel_requests()
+        cancel_tasks = [
+            asyncio.create_task(address_conn.cancel_requests())
             for address_conn in self.address_conns.values()
             if isinstance(address_conn, ModuleConnection)
         ]
 
-        if cancel_coros:
-            await asyncio.wait(cancel_coros)
+        if cancel_tasks:
+            await asyncio.wait(cancel_tasks)
 
     def register_for_inputs(
         self, callback: Callable[[inputs.Input], None]
