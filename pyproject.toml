@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name        = "pypck"
-version     = "0.7.16"
+version     = "0.7.17"
 license     = {text = "MIT"}
 description = "LCN-PCK library"
 readme      = "README.md"
@@ -36,7 +36,7 @@ include-package-data = true
 include = ["pypck*"]
 
 [tool.black]
-target-version = ["py39", "py310"]
+target-version = ["py310", "py311"]
 
 [tool.isort]
 # https://github.com/PyCQA/isort/wiki/isort-Settings
