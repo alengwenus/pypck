@@ -138,15 +138,14 @@ class PchkSocketConnection:
 
         :param    str    pck:    PCK command
         """
-        assert self.writer is not None
-        if not self.writer.is_closing():
+        if not self.writer.is_closing():  # type: ignore[union-attr]
             _LOGGER.debug("to %s: %s", self.connection_id, pck)
             if isinstance(pck, str):
                 data = (pck + PckGenerator.TERMINATION).encode()
             else:
                 data = pck + PckGenerator.TERMINATION.encode()
-            self.writer.write(data)
-            await self.writer.drain()
+            self.writer.write(data)  # type: ignore[union-attr]
+            await self.writer.drain()  # type: ignore[union-attr]
             return True
         return False
 
@@ -353,7 +352,7 @@ class PchkConnection(PchkSocketConnection):
                     event = LcnEvent.AUTHENTICATION_ERROR
                 elif isinstance(awaitable.exception(), PchkLicenseError):
                     event = LcnEvent.LICENSE_ERROR
-                elif isinstance(awaitable.exception(), ConnectionRefusedError):
+                elif isinstance(awaitable.exception(), OSError):
                     event = LcnEvent.CONNECTION_REFUSED_ERROR
                 else:
                     raise awaitable.exception()  # type: ignore
@@ -694,7 +693,11 @@ class PchkConnectionManager(PchkConnection):
 
     def event_callback(self, event: LcnEvent) -> None:
         """Handle events from PchkConnection."""
-        if event in (LcnEvent.CONNECTION_LOST, LcnEvent.TIMEOUT_ERROR):
+        if event in (
+            LcnEvent.CONNECTION_LOST,
+            LcnEvent.CONNECTION_REFUSED_ERROR,
+            LcnEvent.TIMEOUT_ERROR,
+        ):
             if not self.auto_reconnect:
                 return
             _LOGGER.debug('Trying to reconnect to PCHK "%s"', self.connection_id)
