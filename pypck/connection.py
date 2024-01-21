@@ -347,6 +347,8 @@ class PchkConnectionManager(PchkConnection):
         """Close the active connection."""
         await self.cancel_requests()
         await super().async_close()
+        # brief delay to allow host free up used license for validation
+        await asyncio.sleep(0.25)
         _LOGGER.debug("Connection to %s closed.", self.connection_id)
 
     def set_local_seg_id(self, local_seg_id: int) -> None:
