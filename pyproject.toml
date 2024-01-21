@@ -4,7 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name        = "pypck"
-version     = "0.7.17"
 license     = {text = "MIT"}
 description = "LCN-PCK library"
 readme      = "README.md"
@@ -21,6 +20,7 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 requires-python = ">=3.9"
+dynamic = ["version"]
 dependencies    = []
 
 [project.urls]
@@ -31,6 +31,9 @@ dependencies    = []
 platforms = ["any"]
 zip-safe  = false
 include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
 
 [tool.setuptools.packages.find]
 include = ["pypck*"]
