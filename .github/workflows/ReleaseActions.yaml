@@ -1,0 +1,37 @@
+name: "Release actions"
+
+on:
+  release:
+    types: ["published"]
+
+env:
+  PYTHON_VERSION: "3.x"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to PyPi
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: "Set version number from tag"
+        run: |
+          echo -n '${{ github.ref_name }}' > ./VERSION
+          cat ./VERSION
+
+      - name: Install dependencies
+        run: python -m pip install build twine
+
+      - name: Publish to PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          python -m build
+          twine upload dist/*
