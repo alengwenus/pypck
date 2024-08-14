@@ -1,4 +1,5 @@
 """Test the data flow for Input objects."""
+
 from unittest.mock import AsyncMock, patch
 
 import pytest

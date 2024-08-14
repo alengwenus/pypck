@@ -1,4 +1,5 @@
 """Tests for output status messages."""
+
 from unittest.mock import AsyncMock
 
 import pytest

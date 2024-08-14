@@ -36,9 +36,9 @@ class TimeoutRetryHandler:
         self.task_registry = task_registry
         self.num_tries = num_tries
         self.timeout_msec = timeout_msec
-        self._timeout_callback: Callable[..., None] | Callable[
-            ..., Awaitable[None]
-        ] | None = None
+        self._timeout_callback: (
+            Callable[..., None] | Callable[..., Awaitable[None]] | None
+        ) = None
         self._timeout_args: tuple[Any, ...] = ()
         self._timeout_kwargs: dict[str, Any] = {}
         self.timeout_loop_task: asyncio.Task[None] | None = None

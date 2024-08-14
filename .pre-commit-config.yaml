@@ -1,34 +1,21 @@
 repos:
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.3.1
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.7
     hooks:
-      - id: pyupgrade
-        args: [--py39-plus]
-  - repo: https://github.com/psf/black
-    rev: 22.12.0
-    hooks:
-      - id: black
+      - id: ruff
         args:
-          - --safe
-          - --quiet
-        files: ^((pypck|tests)/.+)?[^/]+\.py$
+          - --fix
+      - id: ruff-format
+        files: ^((pypck|tests)/.+)?[^/]+\.(py|pyi)$
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.2
+    rev: v2.3.0
     hooks:
       - id: codespell
         args:
-          - --ignore-words-list=authentification
+          - --ignore-words-list=authentification,SHS
           - --quiet-level=2
-  - repo: https://github.com/PyCQA/flake8
-    rev: 6.0.0
-    hooks:
-      - id: flake8
-        additional_dependencies:
-          - flake8-docstrings==1.5.0
-          - pydocstyle==5.1.1
-        files: ^(pypck|tests)/.+\.py$
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.991
+    rev: v1.11.1
     hooks:
       - id: mypy
         name: mypy pypck
@@ -44,7 +31,7 @@ repos:
         # Need to enumerate the deps with type hints since requirements.txt is
         # not read by pre-commit
         additional_dependencies:
-          - pytest==6.1.2
-          - pytest-cov==2.10.1
-          - pytest-timeout==1.4.2
-          - pytest-asyncio==0.14.0
+          - pytest==8.3.1
+          - pytest-cov==5.0.0
+          - pytest-timeout==2.3.1
+          - pytest-asyncio==0.23.8

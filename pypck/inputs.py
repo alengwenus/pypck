@@ -842,7 +842,7 @@ class ModStatusKeyLocks(ModInput):
 
 
 class ModStatusAccessControl(ModInput):
-    """Status of a tranmitter, transponder or fingerprint sensor."""
+    """Status of a transmitter, transponder or fingerprint sensor."""
 
     def __init__(
         self,

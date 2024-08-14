@@ -80,9 +80,9 @@ class PchkConnection:
         self.connection_id = connection_id
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
-        self.event_handler: Callable[
-            [str], Awaitable[None]
-        ] = self.default_event_handler
+        self.event_handler: Callable[[str], Awaitable[None]] = (
+            self.default_event_handler
+        )
 
     async def async_connect(self) -> None:
         """Connect to a PCHK server (no authentication or license error check)."""
