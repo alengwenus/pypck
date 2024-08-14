@@ -151,7 +151,7 @@ class PckParser:
 
     # Pattern to parse send command to host messages.
     PATTERN_SEND_COMMAND_HOST = re.compile(
-        r"\+M004(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.SKH"
+        r"(\$M|\+M004)(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.SKH"
         r"(?P<p1>\d{3})(?P<p2>\d{3})"
         r"(?:(?P<p3>\d{3})(?P<p4>\d{3})(?P<p5>\d{3})(?P<p6>\d{3}))?"
         r"(?:(?P<p7>\d{3})(?P<p8>\d{3})(?P<p9>\d{3})(?P<p10>\d{3})"
@@ -160,7 +160,7 @@ class PckParser:
 
     # Pattern to parse send key to host messages.
     PATTERN_SEND_KEYS_HOST = re.compile(
-        r"\+M004(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.STH"
+        r"(\$M|\+M004)(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.STH"
         r"(?P<actions>\d{3})(?P<keys>\d{3})"
     )
 

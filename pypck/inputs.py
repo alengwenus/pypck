@@ -1014,7 +1014,7 @@ class ModSendCommandHost(ModInput):
         if matcher:
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             parameters = tuple(
-                int(param) for param in matcher.groups()[2:] if param is not None
+                int(param) for param in matcher.groups()[3:] if param is not None
             )
             return [ModSendCommandHost(addr, parameters)]
 

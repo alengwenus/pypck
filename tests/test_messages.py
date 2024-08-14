@@ -205,6 +205,23 @@ MESSAGES = {
         ModSendCommandHost,
         tuple(i for i in range(6)),
     ),
+    # SKH (new header)
+    "$M000010.SKH000001": (ModSendCommandHost, (0, 1)),
+    "$M000010.SKH000001002003004005": (
+        ModSendCommandHost,
+        tuple(i for i in range(6)),
+    ),
+    "$M000010.SKH000001002003004005006007008009010011012013": (
+        ModSendCommandHost,
+        tuple(i for i in range(14)),
+    ),
+    # SKH (new header) with partially invalid data
+    "$M000010.SKH000001002": (ModSendCommandHost, (0, 1)),
+    "$M000010.SKH000001002003": (ModSendCommandHost, (0, 1)),
+    "$M000010.SKH000001002003004005006": (
+        ModSendCommandHost,
+        tuple(i for i in range(6)),
+    ),
     # STH
     "+M004000010.STH000000": (
         ModSendKeysHost,
@@ -212,6 +229,17 @@ MESSAGES = {
         [False] * 8,
     ),
     "+M004000010.STH057078": (
+        ModSendKeysHost,
+        [SendKeyCommand.HIT, SendKeyCommand.MAKE, SendKeyCommand.BREAK],
+        [False, True, True, True, False, False, True, False],
+    ),
+    # STH
+    "$M000010.STH000000": (
+        ModSendKeysHost,
+        [SendKeyCommand.DONTSEND] * 3,
+        [False] * 8,
+    ),
+    "$M000010.STH057078": (
         ModSendKeysHost,
         [SendKeyCommand.HIT, SendKeyCommand.MAKE, SendKeyCommand.BREAK],
         [False, True, True, True, False, False, True, False],
