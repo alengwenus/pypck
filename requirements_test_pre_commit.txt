@@ -1,5 +1,2 @@
-black==23.1.0
-codespell==2.2.2
-pydocstyle==6.3.0
-flake8==6.0.0
-flake8-docstrings==1.7.0
+codespell==2.3.0
+ruff==0.5.7
