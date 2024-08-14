@@ -23,8 +23,7 @@ TEST_VECTORS = {
         for n in (1, 5, 6)
     },
     **{
-        "ü"
-        * (24 + n): (
+        "ü" * (24 + n): (
             b"\xc3\xbc" * 6,
             b"\xc3\xbc" * 6,
             b"\xc3\xbc" * 6,
@@ -40,8 +39,7 @@ TEST_VECTORS = {
         for n in (1, 4)
     },
     **{
-        "\u20ac"
-        * (16 + n): (
+        "\u20ac" * (16 + n): (
             b"\xe2\x82\xac" * 4,
             b"\xe2\x82\xac" * 4,
             b"\xe2\x82\xac" * 4,

@@ -1396,7 +1396,7 @@ default_connection_settings: dict[str, Any] = {
     # values that do not send
     # their values on change
     # (always polled).
-    "STATUS_REQUEST_DELAY_AFTER_COMMAND_MSEC": 2000  # Status request delay
+    "STATUS_REQUEST_DELAY_AFTER_COMMAND_MSEC": 2000,  # Status request delay
     # after a command has
     # been send which
     # potentially changed

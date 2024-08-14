@@ -1,4 +1,5 @@
 """Tests for send command host."""
+
 from unittest.mock import AsyncMock
 
 import pytest
