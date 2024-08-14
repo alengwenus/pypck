@@ -5,12 +5,13 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
+
 from pypck.connection import PchkConnectionManager
 from pypck.lcn_addr import LcnAddr
 from pypck.module import ModuleConnection
 from pypck.pck_commands import PckGenerator
 
-from .fake_pchk import PchkServer
+from .mock_pchk import MockPchkServer
 
 HOST = "127.0.0.1"
 PORT = 4114
@@ -55,9 +56,11 @@ def encode_pck(pck: str) -> bytes:
 
 
 @pytest.fixture
-async def pchk_server() -> AsyncGenerator[PchkServer, None]:
+async def pchk_server() -> AsyncGenerator[MockPchkServer, None]:
     """Create a fake PchkServer and run."""
-    pchk_server = PchkServer(host=HOST, port=PORT, username=USERNAME, password=PASSWORD)
+    pchk_server = MockPchkServer(
+        host=HOST, port=PORT, username=USERNAME, password=PASSWORD
+    )
     await pchk_server.run()
     yield pchk_server
     await pchk_server.stop()
@@ -90,9 +93,9 @@ async def module10(
 
 
 @pytest.fixture
-async def pchk_server_2() -> AsyncGenerator[PchkServer, None]:
+async def pchk_server_2() -> AsyncGenerator[MockPchkServer, None]:
     """Create a fake PchkServer and run."""
-    pchk_server = PchkServer(
+    pchk_server = MockPchkServer(
         host=HOST, port=PORT + 1, username=USERNAME, password=PASSWORD
     )
     await pchk_server.run()

@@ -29,8 +29,8 @@ async def readuntil_timeout(
         return SOCKET_CLOSED
 
 
-class PchkServer:
-    """Fake PCHK server for integration tests."""
+class MockPchkServer:
+    """Mock PCHK server for integration tests."""
 
     def __init__(
         self,
