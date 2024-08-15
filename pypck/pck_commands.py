@@ -586,24 +586,24 @@ class PckGenerator:
         if state == lcn_defs.MotorStateModifier.UP:
             if reverse_time in [None, lcn_defs.MotorReverseTime.RT70]:
                 params = (0x01, 0xE4, 0x00)
+                ret = f"X2{params[0]:03d}{params[1]:03d}{params[2]:03d}"
             elif reverse_time == lcn_defs.MotorReverseTime.RT600:
-                params = (0x04, 0xC8, 0x08)
+                ret = PckGenerator.dim_output(0, 100, 8)
             elif reverse_time == lcn_defs.MotorReverseTime.RT1200:
-                params = (0x04, 0xC8, 0x0B)
+                ret = PckGenerator.dim_output(0, 100, 11)
             else:
                 raise ValueError("Wrong MotorReverseTime.")
-            ret = f"X2{params[0]:03d}{params[1]:03d}{params[2]:03d}"
 
         elif state == lcn_defs.MotorStateModifier.DOWN:
             if reverse_time in [None, lcn_defs.MotorReverseTime.RT70]:
                 params = (0x01, 0x00, 0xE4)
+                ret = f"X2{params[0]:03d}{params[1]:03d}{params[2]:03d}"
             elif reverse_time == lcn_defs.MotorReverseTime.RT600:
-                params = (0x05, 0xC8, 0x08)
+                ret = PckGenerator.dim_output(1, 100, 8)
             elif reverse_time == lcn_defs.MotorReverseTime.RT1200:
-                params = (0x05, 0xC8, 0x0B)
+                ret = PckGenerator.dim_output(1, 100, 11)
             else:
                 raise ValueError("Wrong MotorReverseTime.")
-            ret = f"X2{params[0]:03d}{params[1]:03d}{params[2]:03d}"
 
         elif state == lcn_defs.MotorStateModifier.STOP:
             ret = "AY000000"

@@ -1,6 +1,7 @@
 """Tests for command generation directed at bus modules and groups."""
 
 import pytest
+
 from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import (
     BeepSound,
@@ -215,12 +216,12 @@ COMMANDS = {
         MotorStateModifier.UP,
         MotorReverseTime.RT70,
     ),
-    "X2004200008": (
+    "A1DI100008": (
         PckGenerator.control_motors_outputs,
         MotorStateModifier.UP,
         MotorReverseTime.RT600,
     ),
-    "X2004200011": (
+    "A1DI100011": (
         PckGenerator.control_motors_outputs,
         MotorStateModifier.UP,
         MotorReverseTime.RT1200,
@@ -230,12 +231,12 @@ COMMANDS = {
         MotorStateModifier.DOWN,
         MotorReverseTime.RT70,
     ),
-    "X2005200008": (
+    "A2DI100008": (
         PckGenerator.control_motors_outputs,
         MotorStateModifier.DOWN,
         MotorReverseTime.RT600,
     ),
-    "X2005200011": (
+    "A2DI100011": (
         PckGenerator.control_motors_outputs,
         MotorStateModifier.DOWN,
         MotorReverseTime.RT1200,
