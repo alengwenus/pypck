@@ -2,29 +2,30 @@
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, call
+from unittest.mock import call
 
 import pytest
 
-from pypck.connection import PchkAuthenticationError, PchkLicenseError
+from pypck.connection import (
+    PchkAuthenticationError,
+    PchkLicenseError,
+)
 from pypck.lcn_addr import LcnAddr
+from pypck.lcn_defs import LcnEvent
 from pypck.module import ModuleConnection
 
 
-@pytest.mark.asyncio
 async def test_close_without_connect(pypck_client):
     """Test closing of PchkConnectionManager without connecting."""
     await pypck_client.async_close()
 
 
-@pytest.mark.asyncio
 async def test_authenticate(pchk_server, pypck_client):
     """Test authentication procedure."""
     await pypck_client.async_connect()
     assert pypck_client.is_ready()
 
 
-@pytest.mark.asyncio
 async def test_port_error(pchk_server, pypck_client):
     """Test wrong port."""
     pypck_client.port = 55555
@@ -32,7 +33,6 @@ async def test_port_error(pchk_server, pypck_client):
         await pypck_client.async_connect()
 
 
-@pytest.mark.asyncio
 async def test_authentication_error(pchk_server, pypck_client):
     """Test wrong login credentials."""
     pypck_client.password = "wrong_password"
@@ -40,7 +40,6 @@ async def test_authentication_error(pchk_server, pypck_client):
         await pypck_client.async_connect()
 
 
-@pytest.mark.asyncio
 async def test_license_error(pchk_server, pypck_client):
     """Test license error."""
     pchk_server.set_license_error(True)
@@ -49,72 +48,69 @@ async def test_license_error(pchk_server, pypck_client):
         await pypck_client.async_connect()
 
 
-@pytest.mark.asyncio
 async def test_timeout_error(pchk_server, pypck_client):
     """Test timeout when connecting."""
     with pytest.raises(TimeoutError):
         await pypck_client.async_connect(timeout=0)
 
 
-@pytest.mark.asyncio
+@pytest.mark.usefixtures("mock_event_callback")
 async def test_lcn_connected(pchk_server, pypck_client):
     """Test lcn disconnected event."""
-    pypck_client.event_handler = AsyncMock()
     await pypck_client.async_connect()
     await pchk_server.send_message("$io:#LCN:connected")
     await pypck_client.received("$io:#LCN:connected")
 
-    pypck_client.event_handler.assert_has_awaits(
-        [call("lcn-connection-status-changed"), call("lcn-connected")]
+    pypck_client.event_callback.assert_has_calls(
+        [
+            call(LcnEvent.BUS_CONNECTION_STATUS_CHANGED),
+            call(LcnEvent.BUS_CONNECTED),
+        ]
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.usefixtures("mock_event_callback")
 async def test_lcn_disconnected(pchk_server, pypck_client):
     """Test lcn disconnected event."""
-    pypck_client.event_handler = AsyncMock()
     await pypck_client.async_connect()
     await pchk_server.send_message("$io:#LCN:disconnected")
     await pypck_client.received("$io:#LCN:disconnected")
 
-    pypck_client.event_handler.assert_has_awaits(
-        [call("lcn-connection-status-changed"), call("lcn-disconnected")]
+    pypck_client.event_callback.assert_has_calls(
+        [call(LcnEvent.BUS_CONNECTION_STATUS_CHANGED), call(LcnEvent.BUS_DISCONNECTED)],
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.usefixtures("mock_event_callback")
 async def test_connection_lost(pchk_server, pypck_client):
     """Test pchk server connection close."""
-    pypck_client.event_handler = AsyncMock()
     await pypck_client.async_connect()
 
     await pchk_server.stop()
     # ensure that pypck_client is about to be closed
     await pypck_client.wait_closed()
 
-    pypck_client.event_handler.assert_has_awaits([call("connection-lost")])
+    pypck_client.event_callback.assert_has_calls([call(LcnEvent.CONNECTION_LOST)])
 
 
-@pytest.mark.asyncio
+@pytest.mark.usefixtures("mock_event_callback")
 async def test_multiple_connections(
     pchk_server, pypck_client, pchk_server_2, pypck_client_2
 ):
     """Test that two independent connections can coexists."""
     await pypck_client_2.async_connect()
 
-    pypck_client.event_handler = AsyncMock()
     await pypck_client.async_connect()
 
     await pchk_server.stop()
     await pypck_client.wait_closed()
 
-    pypck_client.event_handler.assert_has_awaits([call("connection-lost")])
+    pypck_client.event_callback.assert_has_calls([call(LcnEvent.CONNECTION_LOST)])
 
     assert len(pypck_client.task_registry.tasks) == 0
     assert len(pypck_client_2.task_registry.tasks) > 0
 
 
-@pytest.mark.asyncio
 async def test_segment_coupler_search(pchk_server, pypck_client):
     """Test segment coupler search."""
     await pypck_client.async_connect()
@@ -127,7 +123,6 @@ async def test_segment_coupler_search(pchk_server, pypck_client):
     assert pypck_client.is_ready()
 
 
-@pytest.mark.asyncio
 async def test_segment_coupler_response(pchk_server, pypck_client):
     """Test segment coupler response."""
     await pypck_client.async_connect()
@@ -145,7 +140,6 @@ async def test_segment_coupler_response(pchk_server, pypck_client):
     assert set(pypck_client.segment_coupler_ids) == {20, 21, 22}
 
 
-@pytest.mark.asyncio
 async def test_module_scan(pchk_server, pypck_client):
     """Test module scan."""
     await pypck_client.async_connect()
@@ -156,7 +150,6 @@ async def test_module_scan(pchk_server, pypck_client):
     assert await pchk_server.received(">G000003!LEER")
 
 
-@pytest.mark.asyncio
 async def test_module_sn_response(pchk_server, pypck_client):
     """Test module scan."""
     await pypck_client.async_connect()
@@ -173,7 +166,6 @@ async def test_module_sn_response(pchk_server, pypck_client):
     assert module.hardware_type.value == 15
 
 
-@pytest.mark.asyncio
 async def test_send_command_to_server(pchk_server, pypck_client):
     """Test sending a command to the PCHK server."""
     await pypck_client.async_connect()
@@ -182,14 +174,12 @@ async def test_send_command_to_server(pchk_server, pypck_client):
     assert await pchk_server.received(message)
 
 
-@pytest.mark.asyncio
 async def test_ping(pchk_server, pypck_client):
     """Test if pings are send."""
     await pypck_client.async_connect()
     assert await pchk_server.received("^ping0")
 
 
-@pytest.mark.asyncio
 async def test_add_address_connections(pypck_client):
     """Test if new address connections are added on request."""
     lcn_addr = LcnAddr(0, 10, False)
@@ -201,7 +191,6 @@ async def test_add_address_connections(pypck_client):
     assert lcn_addr in pypck_client.address_conns
 
 
-@pytest.mark.asyncio
 async def test_add_address_connections_by_message(pchk_server, pypck_client):
     """Test if new address connections are added by received message."""
     await pypck_client.async_connect()
@@ -215,7 +204,6 @@ async def test_add_address_connections_by_message(pchk_server, pypck_client):
     assert lcn_addr in pypck_client.address_conns
 
 
-@pytest.mark.asyncio
 async def test_groups_static_membership_discovery(pchk_server, pypck_client):
     """Test module scan."""
     await pypck_client.async_connect()
@@ -231,7 +219,6 @@ async def test_groups_static_membership_discovery(pchk_server, pypck_client):
     }
 
 
-@pytest.mark.asyncio
 async def test_groups_dynamic_membership_discovery(pchk_server, pypck_client):
     """Test module scan."""
     await pypck_client.async_connect()
@@ -247,7 +234,6 @@ async def test_groups_dynamic_membership_discovery(pchk_server, pypck_client):
     }
 
 
-@pytest.mark.asyncio
 async def test_groups_membership_discovery(pchk_server, pypck_client):
     """Test module scan."""
     await pypck_client.async_connect()
@@ -268,7 +254,6 @@ async def test_groups_membership_discovery(pchk_server, pypck_client):
     }
 
 
-@pytest.mark.asyncio
 async def test_multiple_serial_requests(pchk_server, pypck_client):
     """Test module scan."""
     await pypck_client.async_connect()
@@ -288,7 +273,6 @@ async def test_multiple_serial_requests(pchk_server, pypck_client):
     await pypck_client.async_close()
 
 
-@pytest.mark.asyncio
 async def test_dump_modules_no_segement_couplers(pchk_server, pypck_client):
     """Test module information dumping."""
     await pypck_client.async_connect()
@@ -345,7 +329,6 @@ async def test_dump_modules_no_segement_couplers(pchk_server, pypck_client):
     }
 
 
-@pytest.mark.asyncio
 async def test_dump_modules_multi_segment(pchk_server, pypck_client):
     """Test module information dumping."""
     await pypck_client.async_connect()

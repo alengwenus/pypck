@@ -1381,6 +1381,20 @@ class AccessControlPeriphery(Enum):
     CODELOCK = "codelock"
 
 
+class LcnEvent(Enum):
+    """LCN events."""
+
+    CONNECTION_ESTABLISHED = "connection-established"
+    CONNECTION_LOST = "connection-lost"
+    TIMEOUT_ERROR = "timeout-error"
+    LICENSE_ERROR = "license-error"
+    AUTHENTICATION_ERROR = "authentication-error"
+    CONNECTION_REFUSED_ERROR = "connection-refused-error"
+    BUS_CONNECTED = "bus-connected"
+    BUS_DISCONNECTED = "bus-disconnected"
+    BUS_CONNECTION_STATUS_CHANGED = "bus-connection-status-changed"
+
+
 default_connection_settings: dict[str, Any] = {
     "NUM_TRIES": 3,  # Total number of request to sent before going into
     # failed-state.

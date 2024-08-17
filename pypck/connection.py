@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Callable, Iterable
 from types import TracebackType
 from typing import Any
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
 from pypck.lcn_addr import LcnAddr
+from pypck.lcn_defs import LcnEvent
 from pypck.module import AbstractConnection, GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
 
@@ -80,9 +81,7 @@ class PchkConnection:
         self.connection_id = connection_id
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
-        self.event_handler: Callable[[str], Awaitable[None]] = (
-            self.default_event_handler
-        )
+        self.event_callbacks: set[Callable[[LcnEvent], None]] = set()
 
     async def async_connect(self) -> None:
         """Connect to a PCHK server (no authentication or license error check)."""
@@ -106,7 +105,7 @@ class PchkConnection:
                 data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
             except asyncio.IncompleteReadError:
                 _LOGGER.debug("Connection to %s lost", self.connection_id)
-                await self.event_handler("connection-lost")
+                self.fire_event(LcnEvent.CONNECTION_LOST)
                 await self.async_close()
                 break
             except asyncio.CancelledError:
@@ -155,15 +154,20 @@ class PchkConnection:
             self.writer.close()
             await self.writer.wait_closed()
 
-    def set_event_handler(self, coro: Callable[[str], Awaitable[None]]) -> None:
-        """Set the event handler for specific LCN events."""
-        if coro is None:
-            self.event_handler = self.default_event_handler
-        else:
-            self.event_handler = coro
+    def fire_event(self, event: LcnEvent) -> None:
+        """Fire event."""
+        for event_callback in self.event_callbacks:
+            event_callback(event)
 
-    async def default_event_handler(self, event: str) -> None:
-        """Handle events for specific LCN events."""
+    def register_for_events(
+        self, callback: Callable[[lcn_defs.LcnEvent], None]
+    ) -> Callable[..., None]:
+        """Register a function for callback on LCN events.
+
+        Return a function to unregister the callback.
+        """
+        self.event_callbacks.add(callback)
+        return lambda callback=callback: self.event_callbacks.remove(callback)
 
     async def wait_closed(self) -> None:
         """Wait until connection to PCHK server is closed."""
@@ -237,6 +241,8 @@ class PchkConnectionManager(PchkConnection):
 
         self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
 
+        self.register_for_events(self.event_callback)
+
     async def __aenter__(self) -> "PchkConnectionManager":
         """Context manager enter method."""
         await self.async_connect()
@@ -294,15 +300,13 @@ class PchkConnectionManager(PchkConnection):
         :param    bool    is_lcn_connected: Current connection status
         """
         self.is_lcn_connected = is_lcn_connected
-        self.task_registry.create_task(
-            self.event_handler("lcn-connection-status-changed")
-        )
+        self.fire_event(LcnEvent.BUS_CONNECTION_STATUS_CHANGED)
         if is_lcn_connected:
             _LOGGER.debug("%s: LCN is connected.", self.connection_id)
-            self.task_registry.create_task(self.event_handler("lcn-connected"))
+            self.fire_event(LcnEvent.BUS_CONNECTED)
         else:
             _LOGGER.debug("%s: LCN is not connected.", self.connection_id)
-            self.task_registry.create_task(self.event_handler("lcn-disconnected"))
+            self.fire_event(LcnEvent.BUS_DISCONNECTED)
 
     async def async_connect(self, timeout: int = 30) -> None:
         """Establish a connection to PCHK at the given socket.
@@ -635,20 +639,5 @@ class PchkConnectionManager(PchkConnection):
         self.input_callbacks.add(callback)
         return lambda callback=callback: self.input_callbacks.remove(callback)
 
-    def set_event_handler(self, coro: Callable[[str], Awaitable[None]]) -> None:
-        """Set the event handler for specific LCN events."""
-        if coro is None:
-            self.event_handler = self.default_event_handler
-        else:
-            self.event_handler = coro
-
-    async def default_event_handler(self, event: str) -> None:
-        """Handle events for specific LCN events."""
-        if event == "lcn-connected":
-            pass
-        elif event == "lcn-disconnected":
-            pass
-        elif event == "lcn-connection-status-changed":
-            pass
-        elif event == "connection-lost":
-            pass
+    def event_callback(self, event: LcnEvent) -> None:
+        """Handle events from PchkConnection."""

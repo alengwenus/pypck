@@ -2,7 +2,8 @@
 
 import asyncio
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, Generator
+from unittest.mock import patch
 
 import pytest
 
@@ -64,6 +65,13 @@ async def pchk_server() -> AsyncGenerator[MockPchkServer, None]:
     await pchk_server.run()
     yield pchk_server
     await pchk_server.stop()
+
+
+@pytest.fixture
+def mock_event_callback() -> Generator[None, None, None]:
+    """Mock the event_callback method for PchkConnectionManager."""
+    with patch("pypck.connection.PchkConnectionManager.event_callback"):
+        yield
 
 
 @pytest.fixture
