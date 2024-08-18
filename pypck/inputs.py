@@ -235,6 +235,32 @@ class CommandError(Input):
         return None
 
 
+class Ping(Input):
+    """Ping received from PCHK."""
+
+    def __init__(self, number: int):
+        """Construct Input object."""
+        super().__init__()
+        self.number = number
+
+    @staticmethod
+    def try_parse(data: str) -> list[Input] | None:
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_PING.match(data)
+        if matcher:
+            return [Ping(int(matcher.group("number")))]
+        return None
+
+
 # ## Inputs received from modules
 
 
@@ -1136,6 +1162,7 @@ class InputParser:
         LicenseError,
         DecModeSet,
         CommandError,
+        Ping,
         ModAck,
         ModNameComment,
         ModSk,

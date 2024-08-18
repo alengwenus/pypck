@@ -40,6 +40,9 @@ class PckParser:
     # License Error
     LICENSE_ERROR = "$err:(license?)"
 
+    # Pattern to parse ping.
+    PATTERN_PING = re.compile(r"\^ping(?P<number>[0-9]+)\-")
+
     # Pattern to parse error messages.
     PATTERN_COMMAND_ERROR = re.compile(r"\((?P<message>.+)\?\)")
 

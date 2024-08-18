@@ -100,18 +100,14 @@ class PchkConnectionManager:
         self.dim_mode = self.settings["DIM_MODE"]
         self.status_mode = lcn_defs.OutputPortStatusMode.PERCENT
 
+        self.ping_received = True
         self.is_lcn_connected = True
         self.local_seg_id = 0
 
+        self.initialize_futures_events_locks()
+
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
-
-        # Events, Futures, Locks for synchronization
-        self.segment_scan_completed_event = asyncio.Event()
-        self.authentication_completed_future: asyncio.Future[bool] = asyncio.Future()
-        self.license_error_future: asyncio.Future[bool] = asyncio.Future()
-        self.module_serial_number_received = asyncio.Lock()
-        self.segment_coupler_response_received = asyncio.Lock()
 
         # All modules from or to a communication occurs are represented by a
         # unique ModuleConnection object.  All ModuleConnection objects are
@@ -140,6 +136,15 @@ class PchkConnectionManager:
         await self.async_close()
         return None
 
+    def initialize_futures_events_locks(self) -> None:
+        """Setup futures, events and locks."""
+        # Events, Futures, Locks for synchronization
+        self.segment_scan_completed_event = asyncio.Event()
+        self.authentication_completed_future: asyncio.Future[bool] = asyncio.Future()
+        self.license_error_future: asyncio.Future[bool] = asyncio.Future()
+        self.module_serial_number_received = asyncio.Lock()
+        self.segment_coupler_response_received = asyncio.Lock()
+
     #
     # Methods for establishing connection and socket communication
     #
@@ -164,6 +169,7 @@ class PchkConnectionManager:
 
         Ensures that the LCN bus is present and authorizes at PCHK.
         """
+        self.initialize_futures_events_locks()
         done: Iterable[asyncio.Future[Any]]
         pending: Iterable[asyncio.Future[Any]]
         done, pending = await asyncio.wait(
@@ -201,9 +207,6 @@ class PchkConnectionManager:
             await self.async_close()
             self.fire_event(event)
             return
-            # raise TimeoutError(
-            #     f"Timeout error while connecting to {self.connection_id}."
-            # )
 
         if not self.is_lcn_connected:
             self.fire_event(LcnEvent.BUS_DISCONNECTED)
@@ -369,6 +372,7 @@ class PchkConnectionManager:
         while not self.writer.is_closing():
             await self.send_command(f"^ping{self.ping_counter:d}", to_host=True)
             self.ping_counter += 1
+            self.ping_received = False
             await asyncio.sleep(self.ping_timeout)
 
     async def scan_modules(self, num_tries: int = 3, timeout_msec: int = 3000) -> None:
@@ -545,6 +549,9 @@ class PchkConnectionManager:
             await self.on_successful_login()
         elif isinstance(inp, inputs.CommandError):
             _LOGGER.debug("LCN command error: %s", inp.message)
+        elif isinstance(inp, inputs.Ping):
+            # _LOGGER.debug("Ping received: %i", inp.number)
+            self.ping_received = True
         elif isinstance(inp, inputs.ModSk):
             if inp.physical_source_addr.seg_id == 0:
                 self.set_local_seg_id(inp.reported_seg_id)
