@@ -73,6 +73,7 @@ class PchkConnectionManager:
         password: str,
         settings: dict[str, Any] | None = None,
         connection_id: str = "PCHK",
+        auto_reconnect: bool = True,
     ):
         """Construct PchkConnectionManager."""
         self.task_registry = TaskRegistry()
@@ -88,6 +89,10 @@ class PchkConnectionManager:
         self.settings.update(settings)
 
         self.connection_id = connection_id
+        self.auto_reconnect = auto_reconnect
+        self.reconnection_timeout = (
+            self.settings["RECONNECTION_TIMEOUT"] / 1000
+        )  # seconds
 
         self.ping_timeout = self.settings["PING_TIMEOUT"] / 1000  # seconds
         self.ping_counter = 0
@@ -141,6 +146,12 @@ class PchkConnectionManager:
 
     async def create_connection(self) -> None:
         """Connect to a PCHK server (no authentication or license error check)."""
+        _LOGGER.debug(
+            "Establishing connection to %s server at %s:%d",
+            self.connection_id,
+            self.host,
+            self.port,
+        )
         self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
         address = self.writer.get_extra_info("peername")
         _LOGGER.debug("%s server connected at %s:%d", self.connection_id, *address)
@@ -168,15 +179,35 @@ class PchkConnectionManager:
         # Raise any exception which occurs
         # (ConnectionRefusedError, PchkAuthenticationError, PchkLicenseError)
         for awaitable in done:
-            if awaitable.exception():
-                raise awaitable.exception()  # type: ignore
+            if exc := awaitable.exception():
+                if isinstance(exc, OSError):
+                    event = LcnEvent.CONNECTION_REFUSED
+                    _LOGGER.debug(
+                        "Connection to %s server at %s:%d refused",
+                        self.connection_id,
+                        self.host,
+                        self.port,
+                    )
+                else:
+                    raise awaitable.exception()  # type: ignore
+                await self.async_close()
+                self.fire_event(event)
+                return
 
         if pending:
             for task in pending:
                 task.cancel()
-            raise TimeoutError(
-                f"Timeout error while connecting to {self.connection_id}."
-            )
+            event = LcnEvent.TIMEOUT_ERROR
+            await self.async_close()
+            self.fire_event(event)
+            return
+            # raise TimeoutError(
+            #     f"Timeout error while connecting to {self.connection_id}."
+            # )
+
+        if not self.is_lcn_connected:
+            self.fire_event(LcnEvent.BUS_DISCONNECTED)
+            return
 
         # start segment scan
         await self.scan_segment_couplers(
@@ -191,8 +222,7 @@ class PchkConnectionManager:
         if self.writer:
             self.writer.close()
             await self.writer.wait_closed()
-
-        _LOGGER.debug("Connection to %s closed.", self.connection_id)
+            _LOGGER.debug("Connection to %s closed.", self.connection_id)
 
     async def wait_closed(self) -> None:
         """Wait until connection to PCHK server is closed."""
@@ -244,6 +274,24 @@ class PchkConnectionManager:
 
     def event_callback(self, event: LcnEvent) -> None:
         """Handle events from PchkConnection."""
+        _LOGGER.debug("LCN-Event: %s", event)
+        if event in (
+            LcnEvent.CONNECTION_LOST,
+            LcnEvent.CONNECTION_REFUSED,
+            LcnEvent.TIMEOUT_ERROR,
+        ):
+            if not self.auto_reconnect:
+                return
+            _LOGGER.debug(
+                'Trying to reconnect to server "%s" in %i seconds',
+                self.connection_id,
+                self.reconnection_timeout,
+            )
+            asyncio.get_event_loop().call_later(
+                self.reconnection_timeout,
+                asyncio.create_task,
+                self.async_connect(timeout=15),
+            )
 
     #
     #   Addresses, modules and groups

@@ -1386,10 +1386,11 @@ class LcnEvent(Enum):
 
     CONNECTION_ESTABLISHED = "connection-established"
     CONNECTION_LOST = "connection-lost"
+    CONNECTION_REFUSED = "connection-refused"
+    CONNECTION_TIMEOUT = "connection-timeout"
     TIMEOUT_ERROR = "timeout-error"
     LICENSE_ERROR = "license-error"
     AUTHENTICATION_ERROR = "authentication-error"
-    CONNECTION_REFUSED_ERROR = "connection-refused-error"
     BUS_CONNECTED = "bus-connected"
     BUS_DISCONNECTED = "bus-disconnected"
     BUS_CONNECTION_STATUS_CHANGED = "bus-connection-status-changed"
@@ -1401,6 +1402,7 @@ default_connection_settings: dict[str, Any] = {
     "SK_NUM_TRIES": 3,  # Total number of segment coupler scan tries
     "DIM_MODE": OutputPortDimMode.STEPS50,
     "PING_TIMEOUT": 600000,  # The default timeout for pings sent to PCHK.
+    "RECONNECTION_TIMEOUT": 15000,  # The default timeout for reconnection attempts
     "DEFAULT_TIMEOUT_MSEC": 3500,  # Default timeout for send command retries
     "MAX_STATUS_EVENTBASED_VALUEAGE_MSEC": 600000,  # Poll interval for
     # status values that
