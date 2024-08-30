@@ -6,6 +6,8 @@
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/pypck)](https://pypi.org/project/pypck/)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
+<a href="https://www.buymeacoffee.com/alengwenus" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/white_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
+
 ## Overview
 
 **pypck** is an open source library written in Python which allows the connection to the [LCN (local control network) system](https://www.lcn.eu). It uses the vendor protocol LCN-PCK.
