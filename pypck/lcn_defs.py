@@ -695,9 +695,9 @@ class VarUnit(Enum):
             var_unit = VarUnit.FAHRENHEIT
         elif unit in ["LUX_T", "LX_T"]:
             var_unit = VarUnit.LUX_T
-        elif unit in ["LUX", "LX"]:
+        elif unit in ["LUX", "LUX_I", "LX"]:
             var_unit = VarUnit.LUX_I
-        elif unit == "M/S":
+        elif unit in ["M/S", "METERPERSECOND"]:
             var_unit = VarUnit.METERPERSECOND
         elif unit in ["%", "PERCENT"]:
             var_unit = VarUnit.PERCENT
