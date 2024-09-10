@@ -35,10 +35,12 @@ class AbstractConnection:
         conn: PchkConnectionManager,
         addr: LcnAddr,
         software_serial: int | None = None,
-    ):
+        wants_ack: bool = False,
+    ) -> None:
         """Construct AbstractConnection instance."""
         self.conn = conn
         self.addr = addr
+        self.wants_ack = wants_ack
 
         if software_serial is None:
             software_serial = -1
@@ -133,7 +135,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group, PckGenerator.dim_output(output_id, percent, ramp)
+            self.wants_ack, PckGenerator.dim_output(output_id, percent, ramp)
         )
 
     async def dim_all_outputs(
@@ -154,7 +156,7 @@ class AbstractConnection:
             software_serial = self.software_serial
 
         return await self.send_command(
-            not self.is_group,
+            self.wants_ack,
             PckGenerator.dim_all_outputs(percent, ramp, software_serial),
         )
 
@@ -169,7 +171,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group, PckGenerator.rel_output(output_id, percent)
+            self.wants_ack, PckGenerator.rel_output(output_id, percent)
         )
 
     async def toggle_output(self, output_id: int, ramp: int) -> bool:
@@ -184,7 +186,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group, PckGenerator.toggle_output(output_id, ramp)
+            self.wants_ack, PckGenerator.toggle_output(output_id, ramp)
         )
 
     async def toggle_all_outputs(self, ramp: int) -> bool:
@@ -198,7 +200,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group, PckGenerator.toggle_all_outputs(ramp)
+            self.wants_ack, PckGenerator.toggle_all_outputs(ramp)
         )
 
     async def control_relays(self, states: list[lcn_defs.RelayStateModifier]) -> bool:
@@ -211,7 +213,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group, PckGenerator.control_relays(states)
+            self.wants_ack, PckGenerator.control_relays(states)
         )
 
     async def control_relays_timer(
@@ -227,7 +229,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group, PckGenerator.control_relays_timer(time_msec, states)
+            self.wants_ack, PckGenerator.control_relays_timer(time_msec, states)
         )
 
     async def control_motors_relays(
@@ -242,7 +244,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group, PckGenerator.control_motors_relays(states)
+            self.wants_ack, PckGenerator.control_motors_relays(states)
         )
 
     async def control_motors_outputs(
@@ -261,7 +263,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group,
+            self.wants_ack,
             PckGenerator.control_motors_outputs(state, reverse_time),
         )
 
@@ -287,7 +289,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         success = await self.send_command(
-            not self.is_group, PckGenerator.change_scene_register(register_id)
+            self.wants_ack, PckGenerator.change_scene_register(register_id)
         )
         if not success:
             return False
@@ -295,12 +297,12 @@ class AbstractConnection:
         result = True
         if output_ports:
             result &= await self.send_command(
-                not self.is_group,
+                self.wants_ack,
                 PckGenerator.activate_scene_output(scene_id, output_ports, ramp),
             )
         if relay_ports:
             result &= await self.send_command(
-                not self.is_group,
+                self.wants_ack,
                 PckGenerator.activate_scene_relay(scene_id, relay_ports),
             )
         return result
@@ -327,7 +329,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         success = await self.send_command(
-            not self.is_group, PckGenerator.change_scene_register(register_id)
+            self.wants_ack, PckGenerator.change_scene_register(register_id)
         )
 
         if not success:
@@ -336,12 +338,12 @@ class AbstractConnection:
         result = True
         if output_ports:
             result &= await self.send_command(
-                not self.is_group,
+                self.wants_ack,
                 PckGenerator.store_scene_output(scene_id, output_ports, ramp),
             )
         if relay_ports:
             result &= await self.send_command(
-                not self.is_group,
+                self.wants_ack,
                 PckGenerator.store_scene_relay(scene_id, relay_ports),
             )
         return result
@@ -364,7 +366,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group,
+            self.wants_ack,
             PckGenerator.store_scene_outputs_direct(
                 register_id, scene_id, percents, ramps
             ),
@@ -398,24 +400,24 @@ class AbstractConnection:
             if self.addr_id == 4 and self.is_group:
                 # group 4 are status messages
                 return await self.send_command(
-                    not self.is_group,
+                    self.wants_ack,
                     PckGenerator.update_status_var(var, value.to_native()),
                 )
             # We fake the missing command by using reset and relative
             # commands.
             success = await self.send_command(
-                not self.is_group, PckGenerator.var_reset(var, software_serial)
+                self.wants_ack, PckGenerator.var_reset(var, software_serial)
             )
             if not success:
                 return False
             return await self.send_command(
-                not self.is_group,
+                self.wants_ack,
                 PckGenerator.var_rel(
                     var, lcn_defs.RelVarRef.CURRENT, value.to_native(), software_serial
                 ),
             )
         return await self.send_command(
-            not self.is_group, PckGenerator.var_abs(var, value.to_native())
+            self.wants_ack, PckGenerator.var_abs(var, value.to_native())
         )
 
     async def var_reset(
@@ -433,7 +435,7 @@ class AbstractConnection:
             software_serial = self.software_serial
 
         return await self.send_command(
-            not self.is_group, PckGenerator.var_reset(var, software_serial)
+            self.wants_ack, PckGenerator.var_reset(var, software_serial)
         )
 
     async def var_rel(
@@ -462,7 +464,7 @@ class AbstractConnection:
             software_serial = self.software_serial
 
         return await self.send_command(
-            not self.is_group,
+            self.wants_ack,
             PckGenerator.var_rel(var, value_ref, value.to_native(), software_serial),
         )
 
@@ -477,7 +479,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group, PckGenerator.lock_regulator(reg_id, state)
+            self.wants_ack, PckGenerator.lock_regulator(reg_id, state)
         )
 
     async def control_led(
@@ -489,7 +491,7 @@ class AbstractConnection:
         :param    LedStatus    state:      Led status
         """
         return await self.send_command(
-            not self.is_group, PckGenerator.control_led(led.value, state)
+            self.wants_ack, PckGenerator.control_led(led.value, state)
         )
 
     async def send_keys(
@@ -512,7 +514,7 @@ class AbstractConnection:
                 cmds[table_id] = cmd
                 results.append(
                     await self.send_command(
-                        not self.is_group, PckGenerator.send_keys(cmds, key_states)
+                        self.wants_ack, PckGenerator.send_keys(cmds, key_states)
                     )
                 )
         return results
@@ -537,7 +539,7 @@ class AbstractConnection:
             if True in key_states:
                 results.append(
                     await self.send_command(
-                        not self.is_group,
+                        self.wants_ack,
                         PckGenerator.send_keys_hit_deferred(
                             table_id, delay_time, delay_unit, key_states
                         ),
@@ -558,7 +560,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group, PckGenerator.lock_keys(table_id, states)
+            self.wants_ack, PckGenerator.lock_keys(table_id, states)
         )
 
     async def lock_keys_tab_a_temporary(
@@ -575,7 +577,7 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            not self.is_group,
+            self.wants_ack,
             PckGenerator.lock_keys_tab_a_temporary(delay_time, delay_unit, states),
         )
 
@@ -603,7 +605,7 @@ class AbstractConnection:
         result = True
         for part_id, part in enumerate(parts):
             result &= await self.send_command(
-                not self.is_group,
+                self.wants_ack,
                 PckGenerator.dyn_text_part(row_id, part_id, part),
             )
         return result
@@ -617,9 +619,7 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.send_command(
-            not self.is_group, PckGenerator.beep(sound, count)
-        )
+        return await self.send_command(self.wants_ack, PckGenerator.beep(sound, count))
 
     async def ping(self) -> bool:
         """Send a command that does nothing and request an acknowledgement."""
@@ -633,7 +633,7 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.send_command(not self.is_group, pck)
+        return await self.send_command(self.wants_ack, pck)
 
 
 class GroupConnection(AbstractConnection):
@@ -650,7 +650,7 @@ class GroupConnection(AbstractConnection):
     ):
         """Construct GroupConnection instance."""
         assert addr.is_group
-        super().__init__(conn, addr, software_serial=software_serial)
+        super().__init__(conn, addr, software_serial=software_serial, wants_ack=False)
 
     async def var_abs(
         self,
@@ -754,7 +754,7 @@ class ModuleConnection(AbstractConnection):
     ):
         """Construct ModuleConnection instance."""
         assert not addr.is_group
-        super().__init__(conn, addr, software_serial=software_serial)
+        super().__init__(conn, addr, software_serial=software_serial, wants_ack=True)
         self.activate_status_requests = activate_status_requests
         self.has_s0_enabled = has_s0_enabled
 
@@ -795,6 +795,10 @@ class ModuleConnection(AbstractConnection):
         self.status_requests_handler = StatusRequestsHandler(self)
         if self.activate_status_requests:
             self.task_registry.create_task(self.activate_status_request_handlers())
+
+    def set_wants_ack(self, wants_ack: bool) -> None:
+        """Set request acknowledgement."""
+        self.wants_ack = wants_ack
 
     async def send_command(self, wants_ack: bool, pck: str | bytes) -> bool:
         """Send a command to the module represented by this class.
