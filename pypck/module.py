@@ -751,10 +751,13 @@ class ModuleConnection(AbstractConnection):
         activate_status_requests: bool = False,
         has_s0_enabled: bool = False,
         software_serial: int | None = None,
+        wants_ack: bool = True,
     ):
         """Construct ModuleConnection instance."""
         assert not addr.is_group
-        super().__init__(conn, addr, software_serial=software_serial, wants_ack=True)
+        super().__init__(
+            conn, addr, software_serial=software_serial, wants_ack=wants_ack
+        )
         self.activate_status_requests = activate_status_requests
         self.has_s0_enabled = has_s0_enabled
 
@@ -795,10 +798,6 @@ class ModuleConnection(AbstractConnection):
         self.status_requests_handler = StatusRequestsHandler(self)
         if self.activate_status_requests:
             self.task_registry.create_task(self.activate_status_request_handlers())
-
-    def set_wants_ack(self, wants_ack: bool) -> None:
-        """Set request acknowledgement."""
-        self.wants_ack = wants_ack
 
     async def send_command(self, wants_ack: bool, pck: str | bytes) -> bool:
         """Send a command to the module represented by this class.

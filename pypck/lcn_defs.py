@@ -1386,6 +1386,7 @@ default_connection_settings: dict[str, Any] = {
     # failed-state.
     "SK_NUM_TRIES": 3,  # Total number of segment coupler scan tries
     "DIM_MODE": OutputPortDimMode.STEPS50,
+    "ACKNOWLEDGE": True,  # modules request an acknowledge command
     "PING_TIMEOUT": 600000,  # The default timeout for pings sent to PCHK.
     "DEFAULT_TIMEOUT_MSEC": 3500,  # Default timeout for send command retries
     "MAX_STATUS_EVENTBASED_VALUEAGE_MSEC": 600000,  # Poll interval for
