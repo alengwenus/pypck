@@ -411,7 +411,9 @@ class PchkConnectionManager(PchkConnection):
             addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
         address_conn = self.address_conns.get(addr, None)
         if address_conn is None:
-            address_conn = ModuleConnection(self, addr)
+            address_conn = ModuleConnection(
+                self, addr, wants_ack=self.settings["ACKNOWLEDGE"]
+            )
             if request_serials:
                 self.task_registry.create_task(address_conn.request_serials())
             self.address_conns[addr] = address_conn
