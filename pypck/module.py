@@ -495,83 +495,104 @@ class AbstractConnection:
         )
 
     async def send_keys(
-        self, keys: list[list[bool]], cmd: lcn_defs.SendKeyCommand
-    ) -> list[bool]:
-        """Send a command to send keys.
+        self, keys: list[lcn_defs.Key], cmd: lcn_defs.SendKeyCommand
+    ) -> bool:
+        """Sends commands to send keys.
 
-        :param    list(bool)[4][8]    keys:    2d-list with [table_id][key_id]
-                                               bool values, if command should
-                                               be sent to specific key
+        :param    list(Key)           keys:    list with Keys
         :param    SendKeyCommand      cmd:     command to send for each table
 
-        :returns:    True if command was sent successfully, False otherwise
-        :rtype:      list of bool
+        :returns:    True if commands were sent successfully, False otherwise
+        :rtype:      bool
         """
-        results: list[bool] = []
-        for table_id, key_states in enumerate(keys):
+        result: bool = False
+
+        key_matrix = [[False] * 8 for i in range(4)]
+
+        for key in keys:
+            table_id, key_id = key.value
+            key_matrix[table_id][key_id] = True
+
+        for table_id, key_states in enumerate(key_matrix):
             if True in key_states:
                 cmds = [lcn_defs.SendKeyCommand.DONTSEND] * 4
                 cmds[table_id] = cmd
-                results.append(
-                    await self.send_command(
-                        self.wants_ack, PckGenerator.send_keys(cmds, key_states)
-                    )
+                result |= await self.send_command(
+                    self.wants_ack, PckGenerator.send_keys(cmds, key_states)
                 )
-        return results
+        return result
 
     async def send_keys_hit_deferred(
-        self, keys: list[list[bool]], delay_time: int, delay_unit: lcn_defs.TimeUnit
-    ) -> list[bool]:
-        """Send a command to send keys deferred.
+        self, keys: list[lcn_defs.Key], delay_time: int, delay_unit: lcn_defs.TimeUnit
+    ) -> bool:
+        """Sends commands to send keys deferred.
 
-        :param    list(bool)[4][8]    keys:          2d-list with
-                                                     [table_id][key_id] bool
-                                                     values, if command should
-                                                     be sent to specific key
+        :param    list(Key)           keys:          list with Keys
         :param    int                 delay_time:    Delay time
         :param    TimeUnit            delay_unit:    Unit of time
 
-        :returns:    True if command was sent successfully, False otherwise
-        :rtype:      list of bool
+        :returns:    True if commands were sent successfully, False otherwise
+        :rtype:      bool
         """
-        results: list[bool] = []
-        for table_id, key_states in enumerate(keys):
+        result: bool = True
+
+        key_matrix = [[False] * 8 for i in range(4)]
+
+        for key in keys:
+            table_id, key_id = key.value
+            key_matrix[table_id][key_id] = True
+
+        for table_id, key_states in enumerate(key_matrix):
             if True in key_states:
-                results.append(
-                    await self.send_command(
-                        self.wants_ack,
-                        PckGenerator.send_keys_hit_deferred(
-                            table_id, delay_time, delay_unit, key_states
-                        ),
+                result |= await self.send_command(
+                    self.wants_ack,
+                    PckGenerator.send_keys_hit_deferred(
+                        table_id, delay_time, delay_unit, key_states
                     ),
                 )
-        return results
+        return result
 
     async def lock_keys(
-        self, table_id: int, states: list[lcn_defs.KeyLockStateModifier]
+        self, keys: list[lcn_defs.Key], state: lcn_defs.KeyLockStateModifier
     ) -> bool:
         """Send a command to lock keys.
 
-        :param    int                     table_id:  Table id: 0..3
-        :param    keyLockStateModifier    states:    The 8 modifiers for the
-                                                     key lock states as a list
+        :param    list(Key)               keys:      list with Keys
+        :param    KeyLockStateModifier    states:    The modifier for the keys
 
-        :returns:    True if command was sent successfully, False otherwise
+        :return:     True if commands were sent successfully, False otherwise
         :rtype:      bool
         """
-        return await self.send_command(
-            self.wants_ack, PckGenerator.lock_keys(table_id, states)
-        )
+        result: bool = True
+
+        states_matrix = [[lcn_defs.KeyLockStateModifier.NOCHANGE] * 8 for i in range(4)]
+
+        for key in keys:
+            table_id, key_id = key.value
+            states_matrix[table_id][key_id] = state
+
+        for table_id, lock_states in enumerate(states_matrix):
+            if any(
+                lock_state != lcn_defs.KeyLockStateModifier.NOCHANGE
+                for lock_state in lock_states
+            ):
+                result |= await self.send_command(
+                    self.wants_ack, PckGenerator.lock_keys(table_id, lock_states)
+                )
+
+        return result
 
     async def lock_keys_tab_a_temporary(
-        self, delay_time: int, delay_unit: lcn_defs.TimeUnit, states: list[bool]
+        self,
+        delay_time: int,
+        delay_unit: lcn_defs.TimeUnit,
+        states: list[lcn_defs.KeyLockStateModifier],
     ) -> bool:
         """Send a command to lock keys in table A temporary.
 
-        :param    int        delay_time:    Time to lock keys
-        :param    TimeUnit   delay_unit:    Unit of time
-        :param    list(bool) states:        The 8 lock states of the keys as
-                                            list (locked=True, unlocked=False)
+        :param    int                           delay_time:    Time to lock keys
+        :param    TimeUnit                      delay_unit:    Unit of time
+        :param    list(KeyLockStateModifier)    states:        The 8 lock states
 
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool

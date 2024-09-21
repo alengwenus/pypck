@@ -958,21 +958,22 @@ class PckGenerator:
 
     @staticmethod
     def lock_keys_tab_a_temporary(
-        time: int, time_unit: lcn_defs.TimeUnit, keys: list[bool]
+        time: int,
+        time_unit: lcn_defs.TimeUnit,
+        states: list[lcn_defs.KeyLockStateModifier],
     ) -> str:
         """Generate a command to lock keys for table A temporary.
 
         There is no hardware-support for locking tables B-D.
 
-        :param     int         time:         The lock time
-        :param     TimeUnit    time_unit:    The time unit
-        :param     list(bool)  keys:         The 8 key-lock states (True means
-                                             lock) as list
+        :param     int                         time:         The lock time
+        :param     TimeUnit                    time_unit:    The time unit
+        :param     list(KeyLockStateModifier)  states:         The 8 key-lock states
         :return:   The PCK command (without address header) as text
         :rtype:    str
         """
-        if len(keys) != 8:
-            raise ValueError("Wrong keys length.")
+        if len(states) != 8:
+            raise ValueError("Wrong states length.")
         ret = f"TXZA{time:03d}"
 
         if time_unit == lcn_defs.TimeUnit.SECONDS:
@@ -994,8 +995,8 @@ class PckGenerator:
         else:
             raise ValueError("Wrong time_unit.")
 
-        for key in keys:
-            ret += "1" if key else "0"
+        for state in states:
+            ret += "1" if (state == lcn_defs.KeyLockStateModifier.ON) else "0"
 
         return ret
 
