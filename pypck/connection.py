@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from collections import deque
 from collections.abc import Awaitable, Callable, Iterable
 from types import TracebackType
 from typing import Any
@@ -80,6 +82,9 @@ class PchkConnection:
         self.connection_id = connection_id
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
+        self.buffer: deque[bytes] = deque()
+        self.idle_time = 0.05
+        self.last_bus_activity = time.time()
         self.event_handler: Callable[[str], Awaitable[None]] = (
             self.default_event_handler
         )
@@ -89,6 +94,9 @@ class PchkConnection:
         self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
         address = self.writer.get_extra_info("peername")
         _LOGGER.debug("%s server connected at %s:%d", self.connection_id, *address)
+
+        # main write loop
+        self.task_registry.create_task(self.write_data_loop())
 
         # main read loop
         self.task_registry.create_task(self.read_data_loop())
@@ -104,6 +112,7 @@ class PchkConnection:
         while not self.writer.is_closing():
             try:
                 data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
+                self.last_bus_activity = time.time()
             except asyncio.IncompleteReadError:
                 _LOGGER.debug("Connection to %s lost", self.connection_id)
                 await self.event_handler("connection-lost")
@@ -121,6 +130,26 @@ class PchkConnection:
                 continue
             await self.process_message(message)
 
+    async def write_data_loop(self) -> None:
+        """Processes queue and writes data."""
+        assert self.writer is not None
+        while not self.writer.is_closing():
+            await asyncio.sleep(self.idle_time)
+            if len(self.buffer) == 0:
+                continue
+            if time.time() - self.last_bus_activity < self.idle_time:
+                continue
+            data = self.buffer.popleft()
+            self.last_bus_activity = time.time()
+
+            _LOGGER.debug(
+                "to %s: %s",
+                self.connection_id,
+                data.decode().rstrip(PckGenerator.TERMINATION),
+            )
+            self.writer.write(data)
+            await self.writer.drain()
+
     async def send_command(self, pck: bytes | str, **kwargs: Any) -> bool:
         """Send a PCK command to the PCHK server.
 
@@ -128,13 +157,11 @@ class PchkConnection:
         """
         assert self.writer is not None
         if not self.writer.is_closing():
-            _LOGGER.debug("to %s: %s", self.connection_id, pck)
             if isinstance(pck, str):
                 data = (pck + PckGenerator.TERMINATION).encode()
             else:
                 data = pck + PckGenerator.TERMINATION.encode()
-            self.writer.write(data)
-            await self.writer.drain()
+            self.buffer.append(data)
             return True
         return False
 
@@ -210,6 +237,8 @@ class PchkConnectionManager(PchkConnection):
             settings = {}
         self.settings = lcn_defs.default_connection_settings
         self.settings.update(settings)
+
+        self.idle_time = self.settings["BUS_IDLE_TIME"]
 
         self.ping_timeout = self.settings["PING_TIMEOUT"] / 1000  # seconds
         self.ping_counter = 0
