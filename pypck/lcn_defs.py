@@ -1402,4 +1402,5 @@ default_connection_settings: dict[str, Any] = {
     # been send which
     # potentially changed
     # that status.
+    "BUS_IDLE_TIME": 0.05,  # Time to wait for message traffic before sending.
 }
