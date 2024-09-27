@@ -902,19 +902,19 @@ class PckGenerator:
         ret += f"{time:03d}"
         if time_unit == lcn_defs.TimeUnit.SECONDS:
             if (time < 1) or (time > 60):
-                raise ValueError("Wrong time.")
+                raise ValueError("Wrong time. Seconds must be between 1 and 60.")
             ret += "S"
         elif time_unit == lcn_defs.TimeUnit.MINUTES:
             if (time < 1) or (time > 90):
-                raise ValueError("Wrong time.")
+                raise ValueError("Wrong time. Minutes must be between 1 and 90.")
             ret += "M"
         elif time_unit == lcn_defs.TimeUnit.HOURS:
             if (time < 1) or (time > 50):
-                raise ValueError("Wrong time.")
+                raise ValueError("Wrong time. Hours must be between 1 and 50.")
             ret += "H"
         elif time_unit == lcn_defs.TimeUnit.DAYS:
             if (time < 1) or (time > 45):
-                raise ValueError("Wrong time.")
+                raise ValueError("Wrong time. Days must be between 1 and 45.")
             ret += "D"
         else:
             raise ValueError("Wrong time_unit.")
@@ -978,19 +978,19 @@ class PckGenerator:
 
         if time_unit == lcn_defs.TimeUnit.SECONDS:
             if (time < 1) or (time > 60):
-                raise ValueError("Wrong time.")
+                raise ValueError("Wrong time. Seconds must be between 1 and 60.")
             ret += "S"
         elif time_unit == lcn_defs.TimeUnit.MINUTES:
             if (time < 1) or (time > 90):
-                raise ValueError("Wrong time.")
+                raise ValueError("Wrong time. Minutes must be between 1 and 90.")
             ret += "M"
         elif time_unit == lcn_defs.TimeUnit.HOURS:
             if (time < 1) or (time > 50):
-                raise ValueError("Wrong time.")
+                raise ValueError("Wrong time. Hours must be between 1 and 50.")
             ret += "H"
         elif time_unit == lcn_defs.TimeUnit.DAYS:
             if (time < 1) or (time > 45):
-                raise ValueError("Wrong time.")
+                raise ValueError("Wrong time. Days must be between 1 and 45.")
             ret += "D"
         else:
             raise ValueError("Wrong time_unit.")
