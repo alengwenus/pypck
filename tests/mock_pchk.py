@@ -129,6 +129,7 @@ class MockPchkServer:
 
         if self.license_error:
             self.writer.write(b"$err:(license?)" + self.separator)
+            await self.writer.drain()
             return False
 
         return True
@@ -158,6 +159,7 @@ class MockPchkServer:
         """Send the given message to the socket."""
         assert self.writer is not None
         self.writer.write(message.encode() + self.separator)
+        await self.writer.drain()
 
     async def received(
         self, message: bytes | str, timeout: int = 5, remove: bool = True
