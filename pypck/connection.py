@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections import deque
 from collections.abc import Awaitable, Callable, Iterable
 from types import TracebackType
 from typing import Any
@@ -82,7 +81,7 @@ class PchkConnection:
         self.connection_id = connection_id
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
-        self.buffer: deque[bytes] = deque()
+        self.buffer: asyncio.Queue[bytes] = asyncio.Queue()
         self.idle_time = 0.05
         self.last_bus_activity = time.time()
         self.event_handler: Callable[[str], Awaitable[None]] = (
@@ -109,46 +108,53 @@ class PchkConnection:
         """Is called when some data is received."""
         assert self.reader is not None
         assert self.writer is not None
-        while not self.writer.is_closing():
-            try:
-                data = await self.reader.readuntil(PckGenerator.TERMINATION.encode())
-                self.last_bus_activity = time.time()
-            except asyncio.IncompleteReadError:
-                _LOGGER.debug("Connection to %s lost", self.connection_id)
-                await self.event_handler("connection-lost")
-                await self.async_close()
-                break
-            except asyncio.CancelledError:
-                break
+        try:
+            while not self.writer.is_closing():
+                try:
+                    data = await self.reader.readuntil(
+                        PckGenerator.TERMINATION.encode()
+                    )
+                    self.last_bus_activity = time.time()
+                except asyncio.IncompleteReadError:
+                    _LOGGER.debug("Connection to %s lost", self.connection_id)
+                    await self.event_handler("connection-lost")
+                    await self.async_close()
+                    break
 
-            try:
-                message = data.decode().split(PckGenerator.TERMINATION)[0]
-            except UnicodeDecodeError as err:
-                _LOGGER.warning(
-                    "PCK decoding error: %s - skipping received PCK message", err
-                )
-                continue
-            await self.process_message(message)
+                try:
+                    message = data.decode().split(PckGenerator.TERMINATION)[0]
+                except UnicodeDecodeError as err:
+                    _LOGGER.warning(
+                        "PCK decoding error: %s - skipping received PCK message", err
+                    )
+                    continue
+                await self.process_message(message)
+        except asyncio.CancelledError:
+            pass
 
     async def write_data_loop(self) -> None:
         """Processes queue and writes data."""
         assert self.writer is not None
-        while not self.writer.is_closing():
-            await asyncio.sleep(self.idle_time)
-            if len(self.buffer) == 0:
-                continue
-            if time.time() - self.last_bus_activity < self.idle_time:
-                continue
-            data = self.buffer.popleft()
-            self.last_bus_activity = time.time()
+        try:
+            while not self.writer.is_closing():
+                data = await self.buffer.get()
+                while (time.time() - self.last_bus_activity) < self.idle_time:
+                    await asyncio.sleep(self.idle_time)
 
-            _LOGGER.debug(
-                "to %s: %s",
-                self.connection_id,
-                data.decode().rstrip(PckGenerator.TERMINATION),
-            )
-            self.writer.write(data)
-            await self.writer.drain()
+                _LOGGER.debug(
+                    "to %s: %s",
+                    self.connection_id,
+                    data.decode().rstrip(PckGenerator.TERMINATION),
+                )
+                self.writer.write(data)
+                await self.writer.drain()
+                self.last_bus_activity = time.time()
+        except asyncio.CancelledError:
+            pass
+
+        # empty the queue
+        while not self.buffer.empty():
+            await self.buffer.get()
 
     async def send_command(self, pck: bytes | str, **kwargs: Any) -> bool:
         """Send a PCK command to the PCHK server.
@@ -161,7 +167,7 @@ class PchkConnection:
                 data = (pck + PckGenerator.TERMINATION).encode()
             else:
                 data = pck + PckGenerator.TERMINATION.encode()
-            self.buffer.append(data)
+            await self.buffer.put(data)
             return True
         return False
 
