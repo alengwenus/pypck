@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Callable, Iterable
 from types import TracebackType
 from typing import Any
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
 from pypck.lcn_addr import LcnAddr
+from pypck.lcn_defs import LcnEvent
 from pypck.module import AbstractConnection, GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
 
@@ -57,6 +58,10 @@ class PchkLcnNotConnectedError(Exception):
 class PchkConnectionManager:
     """Connection to LCN-PCHK."""
 
+    connection_timeout: int
+    authentication_completed_future: asyncio.Future[bool]
+    license_error_future: asyncio.Future[bool]
+
     def __init__(
         self,
         host: str,
@@ -65,19 +70,19 @@ class PchkConnectionManager:
         password: str,
         settings: dict[str, Any] | None = None,
         connection_id: str = "PCHK",
+        auto_reconnect: bool = True,
     ) -> None:
         """Construct PchkConnectionManager."""
         self.task_registry = TaskRegistry()
         self.host = host
         self.port = port
         self.connection_id = connection_id
+        self.auto_reconnect = auto_reconnect
+
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
         self.buffer: asyncio.Queue[bytes] = asyncio.Queue()
         self.last_bus_activity = time.time()
-        self.event_handler: Callable[[str], Awaitable[None]] = (
-            self.default_event_handler
-        )
 
         self.username = username
         self.password = password
@@ -91,6 +96,9 @@ class PchkConnectionManager:
         self.idle_time = self.settings["BUS_IDLE_TIME"]
         self.ping_timeout = self.settings["PING_TIMEOUT"] / 1000  # seconds
         self.ping_counter = 0
+        self.reconnection_timeout = (
+            self.settings["RECONNECTION_TIMEOUT"] / 1000
+        )  # seconds
         self.dim_mode = self.settings["DIM_MODE"]
         self.status_mode = lcn_defs.OutputPortStatusMode.PERCENT
 
@@ -99,8 +107,8 @@ class PchkConnectionManager:
 
         # Events, Futures, Locks for synchronization
         self.segment_scan_completed_event = asyncio.Event()
-        self.authentication_completed_future: asyncio.Future[bool] = asyncio.Future()
-        self.license_error_future: asyncio.Future[bool] = asyncio.Future()
+        self.authentication_completed_future = asyncio.Future()
+        self.license_error_future = asyncio.Future()
         self.module_serial_number_received = asyncio.Lock()
         self.segment_coupler_response_received = asyncio.Lock()
 
@@ -113,6 +121,8 @@ class PchkConnectionManager:
         self.segment_coupler_ids: list[int] = []
 
         self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
+        self.event_callbacks: set[Callable[[LcnEvent], None]] = set()
+        self.register_for_events(self.event_callback)
 
     # Socket read/write
 
@@ -120,6 +130,7 @@ class PchkConnectionManager:
         """Processes incoming data."""
         assert self.reader is not None
         assert self.writer is not None
+        _LOGGER.debug("Read data loop started")
         try:
             while not self.writer.is_closing():
                 try:
@@ -129,7 +140,7 @@ class PchkConnectionManager:
                     self.last_bus_activity = time.time()
                 except asyncio.IncompleteReadError:
                     _LOGGER.debug("Connection to %s lost", self.connection_id)
-                    await self.event_handler("connection-lost")
+                    self.fire_event(LcnEvent.CONNECTION_LOST)
                     await self.async_close()
                     break
 
@@ -144,10 +155,13 @@ class PchkConnectionManager:
         except asyncio.CancelledError:
             pass
 
+        _LOGGER.debug("Read data loop closed")
+
     async def write_data_loop(self) -> None:
         """Processes queue and writes data."""
         assert self.writer is not None
         try:
+            _LOGGER.debug("Write data loop started")
             while not self.writer.is_closing():
                 data = await self.buffer.get()
                 while (time.time() - self.last_bus_activity) < self.idle_time:
@@ -168,17 +182,23 @@ class PchkConnectionManager:
         while not self.buffer.empty():
             await self.buffer.get()
 
+        _LOGGER.debug("Write data loop closed")
+
     # Open/close connection, authentication & setup.
 
     async def async_connect(self, timeout: int = 30) -> None:
         """Establish a connection to PCHK at the given socket."""
+        self.connection_timeout = timeout
+        self.authentication_completed_future = asyncio.Future()
+        self.license_error_future = asyncio.Future()
+
         done: Iterable[asyncio.Future[Any]]
         pending: Iterable[asyncio.Future[Any]]
         done, pending = await asyncio.wait(
             (
                 asyncio.create_task(self.open_connection()),
-                self.authentication_completed_future,
                 self.license_error_future,
+                self.authentication_completed_future,
             ),
             timeout=timeout,
             return_when=asyncio.FIRST_EXCEPTION,
@@ -187,15 +207,33 @@ class PchkConnectionManager:
         # Raise any exception which occurs
         # (ConnectionRefusedError, PchkAuthenticationError, PchkLicenseError)
         for awaitable in done:
-            if awaitable.exception():
-                raise awaitable.exception()  # type: ignore
+            if not awaitable.cancelled():
+                if exc := awaitable.exception():
+                    if isinstance(exc, OSError):
+                        event = LcnEvent.CONNECTION_REFUSED
+                        _LOGGER.debug(
+                            "Connection to %s server at %s:%d refused",
+                            self.connection_id,
+                            self.host,
+                            self.port,
+                        )
+                    else:
+                        raise awaitable.exception()  # type: ignore
+                    await self.async_close()
+                    self.fire_event(event)
+                    return
 
         if pending:
-            for task in pending:
-                task.cancel()
-            raise TimeoutError(
-                f"Timeout error while connecting to {self.connection_id}."
-            )
+            for awaitable in pending:
+                awaitable.cancel()
+            event = LcnEvent.TIMEOUT_ERROR
+            await self.async_close()
+            self.fire_event(event)
+            return
+
+        if not self.is_lcn_connected:
+            self.fire_event(LcnEvent.BUS_DISCONNECTED)
+            return
 
         # start segment scan
         await self.scan_segment_couplers(
@@ -205,6 +243,7 @@ class PchkConnectionManager:
     async def open_connection(self) -> None:
         """Connect to PCHK server (no authentication or license error check)."""
         self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
+
         address = self.writer.get_extra_info("peername")
         _LOGGER.debug("%s server connected at %s:%d", self.connection_id, *address)
 
@@ -272,15 +311,19 @@ class PchkConnectionManager:
     async def lcn_connection_status_changed(self, is_lcn_connected: bool) -> None:
         """Set the current connection state to the LCN bus."""
         self.is_lcn_connected = is_lcn_connected
-        self.task_registry.create_task(
-            self.event_handler("lcn-connection-status-changed")
-        )
+        self.fire_event(LcnEvent.BUS_CONNECTION_STATUS_CHANGED)
         if is_lcn_connected:
             _LOGGER.debug("%s: LCN is connected.", self.connection_id)
-            self.task_registry.create_task(self.event_handler("lcn-connected"))
+            self.fire_event(LcnEvent.BUS_CONNECTED)
         else:
             _LOGGER.debug("%s: LCN is not connected.", self.connection_id)
-            self.task_registry.create_task(self.event_handler("lcn-disconnected"))
+            self.fire_event(LcnEvent.BUS_DISCONNECTED)
+
+    def is_ready(self) -> bool:
+        """Retrieve the overall connection state."""
+        return self.segment_scan_completed_event.is_set()
+
+    # Addresses, modules and groups
 
     def set_local_seg_id(self, local_seg_id: int) -> None:
         """Set the local segment id."""
@@ -304,12 +347,6 @@ class PchkConnectionManager:
             addr.addr_id,
             addr.is_group,
         )
-
-    def is_ready(self) -> bool:
-        """Retrieve the overall connection state."""
-        return self.segment_scan_completed_event.is_set()
-
-    # Module/Group handling
 
     def get_module_conn(
         self, addr: LcnAddr, request_serials: bool = True
@@ -344,6 +381,8 @@ class PchkConnectionManager:
             return self.get_group_conn(addr)
         return self.get_module_conn(addr, request_serials)
 
+    # Other
+
     def dump_modules(self) -> dict[str, dict[str, dict[str, Any]]]:
         """Dump all modules and information about them in a JSON serializable dict."""
         dump: dict[str, dict[str, dict[str, Any]]] = {}
@@ -354,85 +393,6 @@ class PchkConnectionManager:
                 dump[seg] = {}
             dump[seg][addr] = address_conn.dump_details()
         return dump
-
-    async def scan_modules(self, num_tries: int = 3, timeout_msec: int = 3000) -> None:
-        """Scan for modules on the bus.
-
-        This is a convenience coroutine which handles all the logic when
-        scanning modules on the bus. Because of heavy bus traffic, not all
-        modules might respond to a scan command immediately.
-        The coroutine will make 'num_tries' attempts to send a scan command
-        and waits 'timeout_msec' after the last module response before
-        proceeding to the next try.
-        """
-        segment_coupler_ids = (
-            self.segment_coupler_ids if self.segment_coupler_ids else [0]
-        )
-
-        for _ in range(num_tries):
-            for segment_id in segment_coupler_ids:
-                if segment_id == self.local_seg_id:
-                    segment_id = 0
-                await self.send_command(
-                    PckGenerator.generate_address_header(
-                        LcnAddr(segment_id, 3, True), self.local_seg_id, True
-                    )
-                    + PckGenerator.empty()
-                )
-
-            # Wait loop which is extended on every serial number received
-            while True:
-                try:
-                    await asyncio.wait_for(
-                        self.module_serial_number_received.acquire(),
-                        timeout_msec / 1000,
-                    )
-                except asyncio.TimeoutError:
-                    break
-
-    async def scan_segment_couplers(
-        self, num_tries: int = 3, timeout_msec: int = 1500
-    ) -> None:
-        """Scan for segment couplers on the bus.
-
-        This is a convenience coroutine which handles all the logic when
-        scanning segment couplers on the bus. Because of heavy bus traffic,
-        not all segment couplers might respond to a scan command immediately.
-        The coroutine will make 'num_tries' attempts to send a scan command
-        and waits 'timeout_msec' after the last segment coupler response
-        before proceeding to the next try.
-        """
-        for _ in range(num_tries):
-            await self.send_command(
-                PckGenerator.generate_address_header(
-                    LcnAddr(3, 3, True), self.local_seg_id, False
-                )
-                + PckGenerator.segment_coupler_scan()
-            )
-
-            # Wait loop which is extended on every segment coupler response
-            while True:
-                try:
-                    await asyncio.wait_for(
-                        self.segment_coupler_response_received.acquire(),
-                        timeout_msec / 1000,
-                    )
-                except asyncio.TimeoutError:
-                    break
-
-        # No segment coupler expected (num_tries=0)
-        if len(self.segment_coupler_ids) == 0:
-            _LOGGER.debug("%s: No segment coupler found.", self.connection_id)
-
-        self.segment_scan_completed_event.set()
-
-    async def ping(self) -> None:
-        """Send pings."""
-        assert self.writer is not None
-        while not self.writer.is_closing():
-            await self.send_command(f"^ping{self.ping_counter:d}", to_host=True)
-            self.ping_counter += 1
-            await asyncio.sleep(self.ping_timeout)
 
     # Command sending / retrieval.
 
@@ -510,6 +470,87 @@ class PchkConnectionManager:
             for input_callback in self.input_callbacks:
                 input_callback(inp)
 
+    async def ping(self) -> None:
+        """Send pings."""
+        assert self.writer is not None
+        while not self.writer.is_closing():
+            await self.send_command(f"^ping{self.ping_counter:d}", to_host=True)
+            self.ping_counter += 1
+            await asyncio.sleep(self.ping_timeout)
+
+    async def scan_modules(self, num_tries: int = 3, timeout_msec: int = 3000) -> None:
+        """Scan for modules on the bus.
+
+        This is a convenience coroutine which handles all the logic when
+        scanning modules on the bus. Because of heavy bus traffic, not all
+        modules might respond to a scan command immediately.
+        The coroutine will make 'num_tries' attempts to send a scan command
+        and waits 'timeout_msec' after the last module response before
+        proceeding to the next try.
+        """
+        segment_coupler_ids = (
+            self.segment_coupler_ids if self.segment_coupler_ids else [0]
+        )
+
+        for _ in range(num_tries):
+            for segment_id in segment_coupler_ids:
+                if segment_id == self.local_seg_id:
+                    segment_id = 0
+                await self.send_command(
+                    PckGenerator.generate_address_header(
+                        LcnAddr(segment_id, 3, True), self.local_seg_id, True
+                    )
+                    + PckGenerator.empty()
+                )
+
+            # Wait loop which is extended on every serial number received
+            while True:
+                try:
+                    await asyncio.wait_for(
+                        self.module_serial_number_received.acquire(),
+                        timeout_msec / 1000,
+                    )
+                except asyncio.TimeoutError:
+                    break
+
+    async def scan_segment_couplers(
+        self, num_tries: int = 3, timeout_msec: int = 1500
+    ) -> None:
+        """Scan for segment couplers on the bus.
+
+        This is a convenience coroutine which handles all the logic when
+        scanning segment couplers on the bus. Because of heavy bus traffic,
+        not all segment couplers might respond to a scan command immediately.
+        The coroutine will make 'num_tries' attempts to send a scan command
+        and waits 'timeout_msec' after the last segment coupler response
+        before proceeding to the next try.
+        """
+        for _ in range(num_tries):
+            await self.send_command(
+                PckGenerator.generate_address_header(
+                    LcnAddr(3, 3, True), self.local_seg_id, False
+                )
+                + PckGenerator.segment_coupler_scan()
+            )
+
+            # Wait loop which is extended on every segment coupler response
+            while True:
+                try:
+                    await asyncio.wait_for(
+                        self.segment_coupler_response_received.acquire(),
+                        timeout_msec / 1000,
+                    )
+                except asyncio.TimeoutError:
+                    break
+
+        # No segment coupler expected (num_tries=0)
+        if len(self.segment_coupler_ids) == 0:
+            _LOGGER.debug("%s: No segment coupler found.", self.connection_id)
+
+        self.segment_scan_completed_event.set()
+
+    # Status requests, responses
+
     async def cancel_requests(self) -> None:
         """Cancel all TimeoutRetryHandlers."""
         cancel_tasks = [
@@ -521,6 +562,8 @@ class PchkConnectionManager:
         if cancel_tasks:
             await asyncio.wait(cancel_tasks)
 
+    # Callbacks for inputs and events
+
     def register_for_inputs(
         self, callback: Callable[[inputs.Input], None]
     ) -> Callable[..., None]:
@@ -531,20 +574,38 @@ class PchkConnectionManager:
         self.input_callbacks.add(callback)
         return lambda callback=callback: self.input_callbacks.remove(callback)
 
-    def set_event_handler(self, coro: Callable[[str], Awaitable[None]]) -> None:
-        """Set the event handler for specific LCN events."""
-        if coro is None:
-            self.event_handler = self.default_event_handler
-        else:
-            self.event_handler = coro
+    def fire_event(self, event: LcnEvent) -> None:
+        """Fire event."""
+        for event_callback in self.event_callbacks:
+            event_callback(event)
 
-    async def default_event_handler(self, event: str) -> None:
-        """Handle events for specific LCN events."""
-        if event == "lcn-connected":
-            pass
-        elif event == "lcn-disconnected":
-            pass
-        elif event == "lcn-connection-status-changed":
-            pass
-        elif event == "connection-lost":
-            pass
+    def register_for_events(
+        self, callback: Callable[[lcn_defs.LcnEvent], None]
+    ) -> Callable[..., None]:
+        """Register a function for callback on LCN events.
+
+        Return a function to unregister the callback.
+        """
+        self.event_callbacks.add(callback)
+        return lambda callback=callback: self.event_callbacks.remove(callback)
+
+    def event_callback(self, event: LcnEvent) -> None:
+        """Handle events from PchkConnection."""
+        _LOGGER.debug("%s: LCN-Event: %s", self.connection_id, event)
+        if event in (
+            LcnEvent.CONNECTION_LOST,
+            LcnEvent.CONNECTION_REFUSED,
+            LcnEvent.TIMEOUT_ERROR,
+        ):
+            if not self.auto_reconnect:
+                return
+            _LOGGER.debug(
+                "Trying to reconnect to server '%s' in %i seconds",
+                self.connection_id,
+                self.reconnection_timeout,
+            )
+            asyncio.get_event_loop().call_later(
+                self.reconnection_timeout,
+                asyncio.create_task,
+                self.async_connect(timeout=self.connection_timeout),
+            )

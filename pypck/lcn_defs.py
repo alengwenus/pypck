@@ -1381,6 +1381,21 @@ class AccessControlPeriphery(Enum):
     CODELOCK = "codelock"
 
 
+class LcnEvent(Enum):
+    """LCN events."""
+
+    CONNECTION_ESTABLISHED = "connection-established"
+    CONNECTION_LOST = "connection-lost"
+    CONNECTION_REFUSED = "connection-refused"
+    CONNECTION_TIMEOUT = "connection-timeout"
+    TIMEOUT_ERROR = "timeout-error"
+    LICENSE_ERROR = "license-error"
+    AUTHENTICATION_ERROR = "authentication-error"
+    BUS_CONNECTED = "bus-connected"
+    BUS_DISCONNECTED = "bus-disconnected"
+    BUS_CONNECTION_STATUS_CHANGED = "bus-connection-status-changed"
+
+
 default_connection_settings: dict[str, Any] = {
     "NUM_TRIES": 3,  # Total number of request to sent before going into
     # failed-state.
@@ -1388,6 +1403,7 @@ default_connection_settings: dict[str, Any] = {
     "DIM_MODE": OutputPortDimMode.STEPS50,
     "ACKNOWLEDGE": True,  # modules request an acknowledge command
     "PING_TIMEOUT": 600000,  # The default timeout for pings sent to PCHK.
+    "RECONNECTION_TIMEOUT": 1000,  # The default timeout for reconnection attempts
     "DEFAULT_TIMEOUT_MSEC": 3500,  # Default timeout for send command retries
     "MAX_STATUS_EVENTBASED_VALUEAGE_MSEC": 600000,  # Poll interval for
     # status values that
