@@ -55,23 +55,7 @@ class PchkLcnNotConnectedError(Exception):
 
 
 class PchkConnection:
-    """Socket connection to LCN-PCHK server.
-
-    :param    str    host:        Server IP address formatted as
-                                  xxx.xxx.xxx.xxx
-    :param    int    port:        Server port
-
-    :Note:
-
-    :class:`PchkConnection` does only open a port to the
-    PCHK server and allows to send and receive plain text. Use
-    :func:`~PchkConnection.send_command` and
-    :func:`~PchkConnection.process_input` callback to send and receive
-    text messages.
-
-    For login logic or communication with modules use
-    :class:`~PchkConnectionManager`.
-    """
+    """Socket connection to LCN-PCHK server."""
 
     def __init__(self, host: str, port: int, connection_id: str = "PCHK"):
         """Construct PchkConnection."""
@@ -172,13 +156,7 @@ class PchkConnection:
         return False
 
     async def process_message(self, message: str) -> None:
-        """Is called when a new text message is received from the PCHK server.
-
-        This class should be reimplemented in any subclass which evaluates
-        received messages.
-
-        :param    str    input:    Input text message
-        """
+        """Is called when a new text message is received from the PCHK server."""
         _LOGGER.debug("from %s: %s", self.connection_id, message)
 
     async def async_close(self) -> None:
@@ -205,24 +183,7 @@ class PchkConnection:
 
 
 class PchkConnectionManager(PchkConnection):
-    """Connection to LCN-PCHK.
-
-    Has the following tasks:
-    - Initiates login procedure.
-    - Ping PCHK.
-    - Parse incoming commands and create input objects.
-    - Calls input object's process method.
-    - Updates seg_id of ModuleConnections if segment scan finishes.
-
-    :param    str    host:        Server IP address formatted as
-                                  xxx.xxx.xxx.xxx
-    :param    int    port:        Server port
-    :param    str    username:    usernam for login.
-    :param    str    password:    Password for login.
-
-    An example how to setup a proper connection to PCHK including login and
-    (automatic) segment coupler scan is shown below.
-    """
+    """Connection to LCN-PCHK."""
 
     def __init__(
         self,
@@ -290,10 +251,7 @@ class PchkConnectionManager(PchkConnection):
     async def send_command(
         self, pck: bytes | str, to_host: bool = False, **kwargs: Any
     ) -> bool:
-        """Send a PCK command to the PCHK server.
-
-        :param    str    pck:    PCK command
-        """
+        """Send a PCK command to the PCHK server."""
         if not self.is_lcn_connected and not to_host:
             return False
         return await super().send_command(pck)
@@ -324,10 +282,7 @@ class PchkConnectionManager(PchkConnection):
         self.task_registry.create_task(self.ping())
 
     async def lcn_connection_status_changed(self, is_lcn_connected: bool) -> None:
-        """Set the current connection state to the LCN bus.
-
-        :param    bool    is_lcn_connected: Current connection status
-        """
+        """Set the current connection state to the LCN bus."""
         self.is_lcn_connected = is_lcn_connected
         self.task_registry.create_task(
             self.event_handler("lcn-connection-status-changed")
@@ -340,14 +295,7 @@ class PchkConnectionManager(PchkConnection):
             self.task_registry.create_task(self.event_handler("lcn-disconnected"))
 
     async def async_connect(self, timeout: int = 30) -> None:
-        """Establish a connection to PCHK at the given socket.
-
-        Ensures that the LCN bus is present and authorizes at PCHK.
-        Raise a :class:`TimeoutError`, if connection could not be established
-        within the given timeout.
-
-        :param    int    timeout:    Timeout in seconds
-        """
+        """Establish a connection to PCHK at the given socket."""
         done: Iterable[asyncio.Future[Any]]
         pending: Iterable[asyncio.Future[Any]]
         done, pending = await asyncio.wait(
@@ -385,10 +333,7 @@ class PchkConnectionManager(PchkConnection):
         _LOGGER.debug("Connection to %s closed.", self.connection_id)
 
     def set_local_seg_id(self, local_seg_id: int) -> None:
-        """Set the local segment id.
-
-        :param    int    local_seg_id:    The local segment_id.
-        """
+        """Set the local segment id."""
         old_local_seg_id = self.local_seg_id
 
         self.local_seg_id = local_seg_id
@@ -403,14 +348,7 @@ class PchkConnectionManager(PchkConnection):
                 self.address_conns[address_conn.addr] = address_conn
 
     def physical_to_logical(self, addr: LcnAddr) -> LcnAddr:
-        """Convert the physical segment id of an address to the logical one.
-
-        :param    addr:    The module's/group's address
-        :type     addr:    :class:`~LcnAddr`
-
-        :returns:    The module's/group's address
-        :rtype:      :class:`~LcnAddr`
-        """
+        """Convert the physical segment id of an address to the logical one."""
         return LcnAddr(
             self.local_seg_id if addr.seg_id in (0, 4) else addr.seg_id,
             addr.addr_id,
@@ -418,29 +356,13 @@ class PchkConnectionManager(PchkConnection):
         )
 
     def is_ready(self) -> bool:
-        """Retrieve the overall connection state.
-
-        Nothing should be sent before this is signaled.
-
-        :returns:    True if everything is set-up, False otherwise
-        :rtype:      bool
-        """
+        """Retrieve the overall connection state."""
         return self.segment_scan_completed_event.is_set()
 
     def get_module_conn(
         self, addr: LcnAddr, request_serials: bool = True
     ) -> ModuleConnection:
-        """Create and/or return the given LCN module.
-
-        The ModuleConnection object is used for further communication
-        with the module (e.g. sending commands).
-
-        :param    addr:    The module's address
-        :type     addr:    :class:`~LcnAddr`
-
-        :returns: The address connection object (never null)
-        :rtype: `~ModuleConnection`
-        """
+        """Create and/or return the given LCN module."""
         assert not addr.is_group
         if addr.seg_id == 0 and self.local_seg_id != -1:
             addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
@@ -456,17 +378,7 @@ class PchkConnectionManager(PchkConnection):
         return address_conn
 
     def get_group_conn(self, addr: LcnAddr) -> GroupConnection:
-        """Create and return the GroupConnection for the given group.
-
-        The GroupConnection can be used for sending commands to all
-        modules that are static or dynamic members of the group.
-
-        :param    addr:    The group's address
-        :type     addr:    :class:`~LcnAddr`
-
-        :returns: The address connection object (never null)
-        :rtype: `~GroupConnection`
-        """
+        """Create and return the GroupConnection for the given group."""
         assert addr.is_group
         if addr.seg_id == 0 and self.local_seg_id != -1:
             addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
@@ -475,17 +387,7 @@ class PchkConnectionManager(PchkConnection):
     def get_address_conn(
         self, addr: LcnAddr, request_serials: bool = True
     ) -> AbstractConnection:
-        """Create and/or return an AbstractConnection to the given module or group.
-
-        The LCN module/group object is used for further communication
-        with the module/group (e.g. sending commands).
-
-        :param    addr:    The module's/group's address
-        :type     addr:    :class:`~LcnAddr`
-
-        :returns: The address connection object (never null)
-        :rtype: `~AbstractConnection`
-        """
+        """Create and/or return an AbstractConnection to the given module or group."""
         if addr.is_group:
             return self.get_group_conn(addr)
         return self.get_module_conn(addr, request_serials)
@@ -510,10 +412,6 @@ class PchkConnectionManager(PchkConnection):
         The coroutine will make 'num_tries' attempts to send a scan command
         and waits 'timeout_msec' after the last module response before
         proceeding to the next try.
-
-        :param      int     num_tries:      Scan attempts (default=3)
-        :param      int     timeout_msec:   Timeout in msec for each try
-                                            (default=3000)
         """
         segment_coupler_ids = (
             self.segment_coupler_ids if self.segment_coupler_ids else [0]
@@ -551,10 +449,6 @@ class PchkConnectionManager(PchkConnection):
         The coroutine will make 'num_tries' attempts to send a scan command
         and waits 'timeout_msec' after the last segment coupler response
         before proceeding to the next try.
-
-        :param      int     num_tries:      Scan attempts (default=3)
-        :param      int     timeout_msec:   Timeout in msec for each try
-                                            (default=3000)
         """
         for _ in range(num_tries):
             await self.send_command(
@@ -589,13 +483,7 @@ class PchkConnectionManager(PchkConnection):
             await asyncio.sleep(self.ping_timeout)
 
     async def process_message(self, message: str) -> None:
-        """Is called when a new text message is received from the PCHK server.
-
-        This class should be reimplemented in any subclass which evaluates
-        received messages.
-
-        :param    str    input:    Input text message
-        """
+        """Is called when a new text message is received from the PCHK server."""
         await super().process_message(message)
         inps = inputs.InputParser.parse(message)
 
