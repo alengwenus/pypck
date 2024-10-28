@@ -1402,21 +1402,22 @@ default_connection_settings: dict[str, Any] = {
     "SK_NUM_TRIES": 3,  # Total number of segment coupler scan tries
     "DIM_MODE": OutputPortDimMode.STEPS50,
     "ACKNOWLEDGE": True,  # modules request an acknowledge command
-    "PING_TIMEOUT": 600000,  # The default timeout for pings sent to PCHK.
-    "RECONNECTION_TIMEOUT": 1000,  # The default timeout for reconnection attempts
-    "DEFAULT_TIMEOUT_MSEC": 3500,  # Default timeout for send command retries
-    "MAX_STATUS_EVENTBASED_VALUEAGE_MSEC": 600000,  # Poll interval for
+    "DEFAULT_TIMEOUT": 3.5,  # Default timeout for send command retries
+    "MAX_STATUS_EVENTBASED_VALUEAGE": 600,  # Poll interval for
     # status values that
     # automatically send
-    # their values on change.
-    "MAX_STATUS_POLLED_VALUEAGE_MSEC": 30000,  # Poll interval for status
+    # their values on change
+    "MAX_STATUS_POLLED_VALUEAGE": 30,  # Poll interval for status
     # values that do not send
     # their values on change
-    # (always polled).
-    "STATUS_REQUEST_DELAY_AFTER_COMMAND_MSEC": 2000,  # Status request delay
+    # (always polled)
+    "STATUS_REQUEST_DELAY_AFTER_COMMAND": 2,  # Status request delay
     # after a command has
     # been send which
     # potentially changed
-    # that status.
-    "BUS_IDLE_TIME": 0.05,  # Time to wait for message traffic before sending.
+    # that status
+    "BUS_IDLE_TIME": 0.05,  # Time to wait for message traffic before sending
+    "PING_SEND_TIMEOUT": 600,  # The default timeout for pings sent to PCHK
+    "PING_RECV_TIMEOUT": 1800,  # The default timeout for pings expected from PCHK
+    "RECONNECTION_TIMEOUT": 1,  # The default timeout for reconnection attempts
 }

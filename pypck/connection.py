@@ -94,11 +94,9 @@ class PchkConnectionManager:
         self.settings.update(settings)
 
         self.idle_time = self.settings["BUS_IDLE_TIME"]
-        self.ping_timeout = self.settings["PING_TIMEOUT"] / 1000  # seconds
+        self.ping_send_timeout = self.settings["PING_SEND_TIMEOUT"]
         self.ping_counter = 0
-        self.reconnection_timeout = (
-            self.settings["RECONNECTION_TIMEOUT"] / 1000
-        )  # seconds
+        self.reconnection_timeout = self.settings["RECONNECTION_TIMEOUT"]
         self.dim_mode = self.settings["DIM_MODE"]
         self.status_mode = lcn_defs.OutputPortStatusMode.PERCENT
 
@@ -237,7 +235,7 @@ class PchkConnectionManager:
 
         # start segment scan
         await self.scan_segment_couplers(
-            self.settings["SK_NUM_TRIES"], self.settings["DEFAULT_TIMEOUT_MSEC"]
+            self.settings["SK_NUM_TRIES"], self.settings["DEFAULT_TIMEOUT"]
         )
 
     async def open_connection(self) -> None:
@@ -476,16 +474,16 @@ class PchkConnectionManager:
         while not self.writer.is_closing():
             await self.send_command(f"^ping{self.ping_counter:d}", to_host=True)
             self.ping_counter += 1
-            await asyncio.sleep(self.ping_timeout)
+            await asyncio.sleep(self.ping_send_timeout)
 
-    async def scan_modules(self, num_tries: int = 3, timeout_msec: int = 3000) -> None:
+    async def scan_modules(self, num_tries: int = 3, timeout: float = 3) -> None:
         """Scan for modules on the bus.
 
         This is a convenience coroutine which handles all the logic when
         scanning modules on the bus. Because of heavy bus traffic, not all
         modules might respond to a scan command immediately.
         The coroutine will make 'num_tries' attempts to send a scan command
-        and waits 'timeout_msec' after the last module response before
+        and waits 'timeout' after the last module response before
         proceeding to the next try.
         """
         segment_coupler_ids = (
@@ -508,13 +506,13 @@ class PchkConnectionManager:
                 try:
                     await asyncio.wait_for(
                         self.module_serial_number_received.acquire(),
-                        timeout_msec / 1000,
+                        timeout,
                     )
                 except asyncio.TimeoutError:
                     break
 
     async def scan_segment_couplers(
-        self, num_tries: int = 3, timeout_msec: int = 1500
+        self, num_tries: int = 3, timeout: float = 1.5
     ) -> None:
         """Scan for segment couplers on the bus.
 
@@ -522,7 +520,7 @@ class PchkConnectionManager:
         scanning segment couplers on the bus. Because of heavy bus traffic,
         not all segment couplers might respond to a scan command immediately.
         The coroutine will make 'num_tries' attempts to send a scan command
-        and waits 'timeout_msec' after the last segment coupler response
+        and waits 'timeout' after the last segment coupler response
         before proceeding to the next try.
         """
         for _ in range(num_tries):
@@ -538,7 +536,7 @@ class PchkConnectionManager:
                 try:
                     await asyncio.wait_for(
                         self.segment_coupler_response_received.acquire(),
-                        timeout_msec / 1000,
+                        timeout,
                     )
                 except asyncio.TimeoutError:
                     break

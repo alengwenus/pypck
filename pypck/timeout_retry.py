@@ -13,29 +13,22 @@ _LOGGER = logging.getLogger(__name__)
 
 # The default timeout to use for requests. Worst case: Requesting threshold
 # 4-4 takes at least 1.8s
-DEFAULT_TIMEOUT_MSEC = 3500
+DEFAULT_TIMEOUT = 3.5
 
 
 class TimeoutRetryHandler:
-    """Manage timeout and retry logic for an LCN request.
-
-    :param    int    num_tries:      The maximum number of tries until the
-                                     request is marked as failed (-1 means
-                                     forever)
-    :param    int    timeout_msec:   Default timeout in milliseconds
-
-    """
+    """Manage timeout and retry logic for an LCN request."""
 
     def __init__(
         self,
         task_registry: TaskRegistry,
         num_tries: int = 3,
-        timeout_msec: int = DEFAULT_TIMEOUT_MSEC,
+        timeout: float = DEFAULT_TIMEOUT,
     ):
         """Construct TimeoutRetryHandler."""
         self.task_registry = task_registry
         self.num_tries = num_tries
-        self.timeout_msec = timeout_msec
+        self.timeout = timeout
         self._timeout_callback: (
             Callable[..., None] | Callable[..., Awaitable[None]] | None
         ) = None
@@ -43,12 +36,9 @@ class TimeoutRetryHandler:
         self._timeout_kwargs: dict[str, Any] = {}
         self.timeout_loop_task: asyncio.Task[None] | None = None
 
-    def set_timeout_msec(self, timeout_msec: int) -> None:
-        """Set the timeout in milliseconds.
-
-        :param    int    timeout_msec:    The timeout in milliseconds
-        """
-        self.timeout_msec = timeout_msec
+    def set_timeout(self, timeout: int) -> None:
+        """Set the timeout in seconds."""
+        self.timeout = timeout
 
     def set_timeout_callback(
         self, timeout_callback: Any, *timeout_args: Any, **timeout_kwargs: Any
@@ -113,7 +103,7 @@ class TimeoutRetryHandler:
         while (tries_left > 0) or (tries_left == -1):
             if not self.timeout_loop_task.done():
                 await self.on_timeout()
-                await asyncio.sleep(self.timeout_msec / 1000)
+                await asyncio.sleep(self.timeout)
                 if self.num_tries != -1:
                     tries_left -= 1
             else:

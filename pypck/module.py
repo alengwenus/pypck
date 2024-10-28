@@ -768,31 +768,27 @@ class ModuleConnection(AbstractConnection):
 
         # RequestHandlers
         num_tries: int = self.conn.settings["NUM_TRIES"]
-        timeout_msec: int = self.conn.settings["DEFAULT_TIMEOUT_MSEC"]
+        timeout: int = self.conn.settings["DEFAULT_TIMEOUT"]
 
         # Serial Number request
         self.serials_request_handler = SerialRequestHandler(
             self,
             num_tries,
-            timeout_msec,
+            timeout,
             software_serial=software_serial,
         )
 
         # Name, Comment, OemText requests
-        self.name_request_handler = NameRequestHandler(self, num_tries, timeout_msec)
-        self.comment_request_handler = CommentRequestHandler(
-            self, num_tries, timeout_msec
-        )
-        self.oem_text_request_handler = OemTextRequestHandler(
-            self, num_tries, timeout_msec
-        )
+        self.name_request_handler = NameRequestHandler(self, num_tries, timeout)
+        self.comment_request_handler = CommentRequestHandler(self, num_tries, timeout)
+        self.oem_text_request_handler = OemTextRequestHandler(self, num_tries, timeout)
 
         # Group membership request
         self.static_groups_request_handler = GroupMembershipStaticRequestHandler(
-            self, num_tries, timeout_msec
+            self, num_tries, timeout
         )
         self.dynamic_groups_request_handler = GroupMembershipDynamicRequestHandler(
-            self, num_tries, timeout_msec
+            self, num_tries, timeout
         )
 
         self.status_requests_handler = StatusRequestsHandler(self)
@@ -830,7 +826,7 @@ class ModuleConnection(AbstractConnection):
             try:
                 code = await asyncio.wait_for(
                     self.acknowledges.get(),
-                    timeout=self.conn.settings["DEFAULT_TIMEOUT_MSEC"] / 1000,
+                    timeout=self.conn.settings["DEFAULT_TIMEOUT"],
                 )
             except asyncio.TimeoutError:
                 count += 1
