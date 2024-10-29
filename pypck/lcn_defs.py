@@ -1388,6 +1388,7 @@ class LcnEvent(Enum):
     CONNECTION_LOST = "connection-lost"
     CONNECTION_REFUSED = "connection-refused"
     CONNECTION_TIMEOUT = "connection-timeout"
+    PING_TIMEOUT = "ping-timeout"
     TIMEOUT_ERROR = "timeout-error"
     LICENSE_ERROR = "license-error"
     AUTHENTICATION_ERROR = "authentication-error"

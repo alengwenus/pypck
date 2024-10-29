@@ -58,7 +58,8 @@ class PchkLcnNotConnectedError(Exception):
 class PchkConnectionManager:
     """Connection to LCN-PCHK."""
 
-    connection_timeout: int
+    connection_timeout: float
+    last_ping: float
     authentication_completed_future: asyncio.Future[bool]
     license_error_future: asyncio.Future[bool]
 
@@ -95,6 +96,7 @@ class PchkConnectionManager:
 
         self.idle_time = self.settings["BUS_IDLE_TIME"]
         self.ping_send_timeout = self.settings["PING_SEND_TIMEOUT"]
+        self.ping_recv_timeout = self.settings["PING_RECV_TIMEOUT"]
         self.ping_counter = 0
         self.reconnection_timeout = self.settings["RECONNECTION_TIMEOUT"]
         self.dim_mode = self.settings["DIM_MODE"]
@@ -184,7 +186,7 @@ class PchkConnectionManager:
 
     # Open/close connection, authentication & setup.
 
-    async def async_connect(self, timeout: int = 30) -> None:
+    async def async_connect(self, timeout: float = 30) -> None:
         """Establish a connection to PCHK at the given socket."""
         self.connection_timeout = timeout
         self.authentication_completed_future = asyncio.Future()
@@ -317,6 +319,12 @@ class PchkConnectionManager:
             _LOGGER.debug("%s: LCN is not connected.", self.connection_id)
             self.fire_event(LcnEvent.BUS_DISCONNECTED)
 
+    async def ping_received(self, count: int | None) -> None:
+        """Ping was received."""
+        # Create task which times out after PING_RECV_TIMEOUT and fires LcnEvent.PING_LOST
+        # and closes connection
+        self.last_ping = time.time()
+
     def is_ready(self) -> bool:
         """Retrieve the overall connection state."""
         return self.segment_scan_completed_event.is_set()
@@ -440,6 +448,8 @@ class PchkConnectionManager:
             await self.on_successful_login()
         elif isinstance(inp, inputs.CommandError):
             _LOGGER.debug("LCN command error: %s", inp.message)
+        elif isinstance(inp, inputs.Ping):
+            await self.ping_received(inp.count)
         elif isinstance(inp, inputs.ModSk):
             if inp.physical_source_addr.seg_id == 0:
                 self.set_local_seg_id(inp.reported_seg_id)
