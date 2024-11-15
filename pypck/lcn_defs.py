@@ -1418,7 +1418,7 @@ default_connection_settings: dict[str, Any] = {
     # potentially changed
     # that status
     "BUS_IDLE_TIME": 0.05,  # Time to wait for message traffic before sending
-    "PING_SEND_TIMEOUT": 600,  # The default timeout for pings sent to PCHK
-    "PING_RECV_TIMEOUT": 1800,  # The default timeout for pings expected from PCHK
-    "RECONNECTION_TIMEOUT": 1,  # The default timeout for reconnection attempts
+    "PING_SEND_DELAY": 600,  # The default timeout for pings sent to PCHK
+    "PING_RECV_TIMEOUT": 10,  # The default timeout for pings expected from PCHK
+    "RECONNECTION_DELAY": 10,  # The default timeout for reconnection attempts
 }

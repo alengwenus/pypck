@@ -60,6 +60,7 @@ class PchkConnectionManager:
 
     connection_timeout: float
     last_ping: float
+    ping_timeout_handle: asyncio.TimerHandle | None
     authentication_completed_future: asyncio.Future[bool]
     license_error_future: asyncio.Future[bool]
 
@@ -95,10 +96,11 @@ class PchkConnectionManager:
         self.settings.update(settings)
 
         self.idle_time = self.settings["BUS_IDLE_TIME"]
-        self.ping_send_timeout = self.settings["PING_SEND_TIMEOUT"]
+        self.ping_send_delay = self.settings["PING_SEND_DELAY"]
         self.ping_recv_timeout = self.settings["PING_RECV_TIMEOUT"]
+        self.ping_timeout_handle = None
         self.ping_counter = 0
-        self.reconnection_timeout = self.settings["RECONNECTION_TIMEOUT"]
+        self.reconnection_delay = self.settings["RECONNECTION_DELAY"]
         self.dim_mode = self.settings["DIM_MODE"]
         self.status_mode = lcn_defs.OutputPortStatusMode.PERCENT
 
@@ -138,7 +140,11 @@ class PchkConnectionManager:
                         PckGenerator.TERMINATION.encode()
                     )
                     self.last_bus_activity = time.time()
-                except asyncio.IncompleteReadError:
+                except (
+                    asyncio.IncompleteReadError,
+                    asyncio.TimeoutError,
+                    OSError,
+                ):
                     _LOGGER.debug("Connection to %s lost", self.connection_id)
                     self.fire_event(LcnEvent.CONNECTION_LOST)
                     await self.async_close()
@@ -192,6 +198,13 @@ class PchkConnectionManager:
         self.authentication_completed_future = asyncio.Future()
         self.license_error_future = asyncio.Future()
 
+        _LOGGER.debug(
+            "Starting connection attempt to %s server at %s:%d",
+            self.connection_id,
+            self.host,
+            self.port,
+        )
+
         done: Iterable[asyncio.Future[Any]]
         pending: Iterable[asyncio.Future[Any]]
         done, pending = await asyncio.wait(
@@ -218,6 +231,7 @@ class PchkConnectionManager:
                             self.port,
                         )
                     else:
+                        _LOGGER.debug("Other exception.")
                         raise awaitable.exception()  # type: ignore
                     await self.async_close()
                     self.fire_event(event)
@@ -256,10 +270,15 @@ class PchkConnectionManager:
     async def async_close(self) -> None:
         """Close the active connection."""
         await self.cancel_requests()
+        if self.ping_timeout_handle is not None:
+            self.ping_timeout_handle.cancel()
         await self.task_registry.cancel_all_tasks()
         if self.writer:
             self.writer.close()
-            await self.writer.wait_closed()
+            try:
+                await self.writer.wait_closed()
+            except OSError:  # occurs when TCP connection is lost
+                pass
 
         _LOGGER.debug("Connection to %s closed.", self.connection_id)
 
@@ -321,8 +340,8 @@ class PchkConnectionManager:
 
     async def ping_received(self, count: int | None) -> None:
         """Ping was received."""
-        # Create task which times out after PING_RECV_TIMEOUT and fires LcnEvent.PING_LOST
-        # and closes connection
+        if self.ping_timeout_handle is not None:
+            self.ping_timeout_handle.cancel()
         self.last_ping = time.time()
 
     def is_ready(self) -> bool:
@@ -483,8 +502,11 @@ class PchkConnectionManager:
         assert self.writer is not None
         while not self.writer.is_closing():
             await self.send_command(f"^ping{self.ping_counter:d}", to_host=True)
+            self.ping_timeout_handle = asyncio.get_running_loop().call_later(
+                self.ping_recv_timeout, lambda: self.fire_event(LcnEvent.PING_TIMEOUT)
+            )
             self.ping_counter += 1
-            await asyncio.sleep(self.ping_send_timeout)
+            await asyncio.sleep(self.ping_send_delay)
 
     async def scan_modules(self, num_tries: int = 3, timeout: float = 3) -> None:
         """Scan for modules on the bus.
@@ -604,16 +626,17 @@ class PchkConnectionManager:
             LcnEvent.CONNECTION_LOST,
             LcnEvent.CONNECTION_REFUSED,
             LcnEvent.TIMEOUT_ERROR,
+            LcnEvent.PING_TIMEOUT,
         ):
             if not self.auto_reconnect:
                 return
             _LOGGER.debug(
                 "Trying to reconnect to server '%s' in %i seconds",
                 self.connection_id,
-                self.reconnection_timeout,
+                self.reconnection_delay,
             )
             asyncio.get_event_loop().call_later(
-                self.reconnection_timeout,
+                self.reconnection_delay,
                 asyncio.create_task,
                 self.async_connect(timeout=self.connection_timeout),
             )
