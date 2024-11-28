@@ -29,7 +29,7 @@ class PchkLicenseError(Exception):
         """Initialize instance."""
         if message is None:
             message = (
-                "Maximum number of connections was reached. An "
+                "License Error: Maximum number of connections was reached. An "
                 "additional license key is required."
             )
         super().__init__(message)
@@ -41,7 +41,27 @@ class PchkAuthenticationError(Exception):
     def __init__(self, message: str | None = None):
         """Initialize instance."""
         if message is None:
-            message = "Authentication failed."
+            message = "Authentication failed"
+        super().__init__(message)
+
+
+class PchkConnectionRefusedError(Exception):
+    """Exception which is raised if connection was refused."""
+
+    def __init__(self, message: str | None = None):
+        """Initialize instance."""
+        if message is None:
+            message = "Connection refused"
+        super().__init__(message)
+
+
+class PchkConnectionFailedError(Exception):
+    """Exception which is raised if connection was refused."""
+
+    def __init__(self, message: str | None = None):
+        """Initialize instance."""
+        if message is None:
+            message = "Connection failed"
         super().__init__(message)
 
 
@@ -58,7 +78,6 @@ class PchkLcnNotConnectedError(Exception):
 class PchkConnectionManager:
     """Connection to LCN-PCHK."""
 
-    connection_timeout: float
     last_ping: float
     ping_timeout_handle: asyncio.TimerHandle | None
     authentication_completed_future: asyncio.Future[bool]
@@ -72,14 +91,12 @@ class PchkConnectionManager:
         password: str,
         settings: dict[str, Any] | None = None,
         connection_id: str = "PCHK",
-        auto_reconnect: bool = True,
     ) -> None:
         """Construct PchkConnectionManager."""
         self.task_registry = TaskRegistry()
         self.host = host
         self.port = port
         self.connection_id = connection_id
-        self.auto_reconnect = auto_reconnect
 
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
@@ -142,7 +159,7 @@ class PchkConnectionManager:
                     self.last_bus_activity = time.time()
                 except (
                     asyncio.IncompleteReadError,
-                    asyncio.TimeoutError,
+                    TimeoutError,
                     OSError,
                 ):
                     _LOGGER.debug("Connection to %s lost", self.connection_id)
@@ -194,7 +211,6 @@ class PchkConnectionManager:
 
     async def async_connect(self, timeout: float = 30) -> None:
         """Establish a connection to PCHK at the given socket."""
-        self.connection_timeout = timeout
         self.authentication_completed_future = asyncio.Future()
         self.license_error_future = asyncio.Future()
 
@@ -222,32 +238,20 @@ class PchkConnectionManager:
         for awaitable in done:
             if not awaitable.cancelled():
                 if exc := awaitable.exception():
-                    if isinstance(exc, OSError):
-                        event = LcnEvent.CONNECTION_REFUSED
-                        _LOGGER.debug(
-                            "Connection to %s server at %s:%d refused",
-                            self.connection_id,
-                            self.host,
-                            self.port,
-                        )
-                    else:
-                        _LOGGER.debug("Other exception.")
-                        raise awaitable.exception()  # type: ignore
                     await self.async_close()
-                    self.fire_event(event)
-                    return
+                    if isinstance(exc, (ConnectionRefusedError, OSError)):
+                        raise PchkConnectionRefusedError()
+                    else:
+                        raise awaitable.exception()  # type: ignore
 
         if pending:
             for awaitable in pending:
                 awaitable.cancel()
-            event = LcnEvent.TIMEOUT_ERROR
             await self.async_close()
-            self.fire_event(event)
-            return
+            raise PchkConnectionFailedError()
 
         if not self.is_lcn_connected:
-            self.fire_event(LcnEvent.BUS_DISCONNECTED)
-            return
+            raise PchkLcnNotConnectedError()
 
         # start segment scan
         await self.scan_segment_couplers(
@@ -622,21 +626,3 @@ class PchkConnectionManager:
     def event_callback(self, event: LcnEvent) -> None:
         """Handle events from PchkConnection."""
         _LOGGER.debug("%s: LCN-Event: %s", self.connection_id, event)
-        if event in (
-            LcnEvent.CONNECTION_LOST,
-            LcnEvent.CONNECTION_REFUSED,
-            LcnEvent.TIMEOUT_ERROR,
-            LcnEvent.PING_TIMEOUT,
-        ):
-            if not self.auto_reconnect:
-                return
-            _LOGGER.debug(
-                "Trying to reconnect to server '%s' in %i seconds",
-                self.connection_id,
-                self.reconnection_delay,
-            )
-            asyncio.get_event_loop().call_later(
-                self.reconnection_delay,
-                asyncio.create_task,
-                self.async_connect(timeout=self.connection_timeout),
-            )
