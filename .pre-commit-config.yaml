@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.5.7
+    rev: v0.8.3
     hooks:
       - id: ruff
         args:
@@ -15,7 +15,7 @@ repos:
           - --ignore-words-list=authentification,SHS
           - --quiet-level=2
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.1
+    rev: v1.13.0
     hooks:
       - id: mypy
         name: mypy pypck
@@ -31,7 +31,7 @@ repos:
         # Need to enumerate the deps with type hints since requirements.txt is
         # not read by pre-commit
         additional_dependencies:
-          - pytest==8.3.1
-          - pytest-cov==5.0.0
+          - pytest==8.3.4
+          - pytest-cov==6.0.0
           - pytest-timeout==2.3.1
-          - pytest-asyncio==0.23.8
+          - pytest-asyncio==0.25.0
