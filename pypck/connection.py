@@ -18,9 +18,6 @@ from pypck.pck_commands import PckGenerator
 
 _LOGGER = logging.getLogger(__name__)
 
-READ_TIMEOUT = -1
-SOCKET_CLOSED = -2
-
 
 class PchkLicenseError(Exception):
     """Exception which is raised if a license error occurred."""
@@ -117,7 +114,6 @@ class PchkConnectionManager:
         self.ping_recv_timeout = self.settings["PING_RECV_TIMEOUT"]
         self.ping_timeout_handle = None
         self.ping_counter = 0
-        self.reconnection_delay = self.settings["RECONNECTION_DELAY"]
         self.dim_mode = self.settings["DIM_MODE"]
         self.status_mode = lcn_defs.OutputPortStatusMode.PERCENT
 
