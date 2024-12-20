@@ -2,12 +2,18 @@
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, call
+from unittest.mock import Mock, call
 
 import pytest
 
-from pypck.connection import PchkAuthenticationError, PchkLicenseError
+from pypck.connection import (
+    PchkAuthenticationError,
+    PchkConnectionFailedError,
+    PchkConnectionRefusedError,
+    PchkLicenseError,
+)
 from pypck.lcn_addr import LcnAddr
+from pypck.lcn_defs import LcnEvent
 from pypck.module import ModuleConnection
 
 
@@ -28,7 +34,7 @@ async def test_authenticate(pchk_server, pypck_client):
 async def test_port_error(pchk_server, pypck_client):
     """Test wrong port."""
     pypck_client.port = 55555
-    with pytest.raises(ConnectionRefusedError):
+    with pytest.raises(PchkConnectionRefusedError):
         await pypck_client.async_connect()
 
 
@@ -52,47 +58,53 @@ async def test_license_error(pchk_server, pypck_client):
 @pytest.mark.asyncio
 async def test_timeout_error(pchk_server, pypck_client):
     """Test timeout when connecting."""
-    with pytest.raises(TimeoutError):
+    with pytest.raises(PchkConnectionFailedError):
         await pypck_client.async_connect(timeout=0)
 
 
 @pytest.mark.asyncio
 async def test_lcn_connected(pchk_server, pypck_client):
     """Test lcn disconnected event."""
-    pypck_client.event_handler = AsyncMock()
+    event_callback = Mock()
+    pypck_client.register_for_events(event_callback)
     await pypck_client.async_connect()
     await pchk_server.send_message("$io:#LCN:connected")
     await pypck_client.received("$io:#LCN:connected")
 
-    pypck_client.event_handler.assert_has_awaits(
-        [call("lcn-connection-status-changed"), call("lcn-connected")]
+    event_callback.assert_has_calls(
+        [
+            call(LcnEvent.BUS_CONNECTION_STATUS_CHANGED),
+            call(LcnEvent.BUS_CONNECTED),
+        ]
     )
 
 
 @pytest.mark.asyncio
 async def test_lcn_disconnected(pchk_server, pypck_client):
     """Test lcn disconnected event."""
-    pypck_client.event_handler = AsyncMock()
+    event_callback = Mock()
+    pypck_client.register_for_events(event_callback)
     await pypck_client.async_connect()
     await pchk_server.send_message("$io:#LCN:disconnected")
     await pypck_client.received("$io:#LCN:disconnected")
 
-    pypck_client.event_handler.assert_has_awaits(
-        [call("lcn-connection-status-changed"), call("lcn-disconnected")]
+    event_callback.assert_has_calls(
+        [call(LcnEvent.BUS_CONNECTION_STATUS_CHANGED), call(LcnEvent.BUS_DISCONNECTED)]
     )
 
 
 @pytest.mark.asyncio
 async def test_connection_lost(pchk_server, pypck_client):
     """Test pchk server connection close."""
-    pypck_client.event_handler = AsyncMock()
+    event_callback = Mock()
+    pypck_client.register_for_events(event_callback)
     await pypck_client.async_connect()
 
     await pchk_server.stop()
     # ensure that pypck_client is about to be closed
     await pypck_client.wait_closed()
 
-    pypck_client.event_handler.assert_has_awaits([call("connection-lost")])
+    event_callback.assert_has_calls([call(LcnEvent.CONNECTION_LOST)])
 
 
 @pytest.mark.asyncio
@@ -102,13 +114,14 @@ async def test_multiple_connections(
     """Test that two independent connections can coexists."""
     await pypck_client_2.async_connect()
 
-    pypck_client.event_handler = AsyncMock()
+    event_callback = Mock()
+    pypck_client.register_for_events(event_callback)
     await pypck_client.async_connect()
 
     await pchk_server.stop()
     await pypck_client.wait_closed()
 
-    pypck_client.event_handler.assert_has_awaits([call("connection-lost")])
+    event_callback.assert_has_calls([call(LcnEvent.CONNECTION_LOST)])
 
     assert len(pypck_client.task_registry.tasks) == 0
     assert len(pypck_client_2.task_registry.tasks) > 0
