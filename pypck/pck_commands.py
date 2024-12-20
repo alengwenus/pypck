@@ -43,6 +43,9 @@ class PckParser:
     # Pattern to parse error messages.
     PATTERN_COMMAND_ERROR = re.compile(r"\((?P<message>.+)\?\)")
 
+    # Pattern to parse ping messages.
+    PATTERN_PING = re.compile(r"\^ping(?P<count>\d*)-")
+
     # Pattern to parse positive acknowledges.
     PATTERN_ACK_POS = re.compile(r"-M(?P<seg_id>\d{3})(?P<mod_id>\d{3})!")
 

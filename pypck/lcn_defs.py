@@ -1381,26 +1381,43 @@ class AccessControlPeriphery(Enum):
     CODELOCK = "codelock"
 
 
+class LcnEvent(Enum):
+    """LCN events."""
+
+    CONNECTION_ESTABLISHED = "connection-established"
+    CONNECTION_LOST = "connection-lost"
+    CONNECTION_REFUSED = "connection-refused"
+    CONNECTION_TIMEOUT = "connection-timeout"
+    PING_TIMEOUT = "ping-timeout"
+    TIMEOUT_ERROR = "timeout-error"
+    LICENSE_ERROR = "license-error"
+    AUTHENTICATION_ERROR = "authentication-error"
+    BUS_CONNECTED = "bus-connected"
+    BUS_DISCONNECTED = "bus-disconnected"
+    BUS_CONNECTION_STATUS_CHANGED = "bus-connection-status-changed"
+
+
 default_connection_settings: dict[str, Any] = {
     "NUM_TRIES": 3,  # Total number of request to sent before going into
     # failed-state.
     "SK_NUM_TRIES": 3,  # Total number of segment coupler scan tries
     "DIM_MODE": OutputPortDimMode.STEPS50,
     "ACKNOWLEDGE": True,  # modules request an acknowledge command
-    "PING_TIMEOUT": 600000,  # The default timeout for pings sent to PCHK.
-    "DEFAULT_TIMEOUT_MSEC": 3500,  # Default timeout for send command retries
-    "MAX_STATUS_EVENTBASED_VALUEAGE_MSEC": 600000,  # Poll interval for
+    "DEFAULT_TIMEOUT": 3.5,  # Default timeout for send command retries
+    "MAX_STATUS_EVENTBASED_VALUEAGE": 600,  # Poll interval for
     # status values that
     # automatically send
-    # their values on change.
-    "MAX_STATUS_POLLED_VALUEAGE_MSEC": 30000,  # Poll interval for status
+    # their values on change
+    "MAX_STATUS_POLLED_VALUEAGE": 30,  # Poll interval for status
     # values that do not send
     # their values on change
-    # (always polled).
-    "STATUS_REQUEST_DELAY_AFTER_COMMAND_MSEC": 2000,  # Status request delay
+    # (always polled)
+    "STATUS_REQUEST_DELAY_AFTER_COMMAND": 2,  # Status request delay
     # after a command has
     # been send which
     # potentially changed
-    # that status.
-    "BUS_IDLE_TIME": 0.05,  # Time to wait for message traffic before sending.
+    # that status
+    "BUS_IDLE_TIME": 0.05,  # Time to wait for message traffic before sending
+    "PING_SEND_DELAY": 600,  # The default timeout for pings sent to PCHK
+    "PING_RECV_TIMEOUT": 10,  # The default timeout for pings expected from PCHK
 }

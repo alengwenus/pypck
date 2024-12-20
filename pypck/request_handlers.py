@@ -22,12 +22,12 @@ class RequestHandler:
         self,
         addr_conn: ModuleConnection,
         num_tries: int = 3,
-        timeout_msec: int = 1500,
+        timeout: float = 1.5,
     ):
         """Initialize class instance."""
         self.addr_conn = addr_conn
 
-        self.trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout_msec)
+        self.trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout)
         self.trh.set_timeout_callback(self.timeout)
 
         # callback
@@ -69,7 +69,7 @@ class SerialRequestHandler(RequestHandler):
         self,
         addr_conn: ModuleConnection,
         num_tries: int = 3,
-        timeout_msec: int = 1500,
+        timeout: float = 1.5,
         software_serial: int | None = None,
     ):
         """Initialize class instance."""
@@ -83,7 +83,7 @@ class SerialRequestHandler(RequestHandler):
         # events
         self.serial_known = asyncio.Event()
 
-        super().__init__(addr_conn, num_tries, timeout_msec)
+        super().__init__(addr_conn, num_tries, timeout)
 
     async def async_process_input(self, inp: inputs.Input) -> None:
         """Process incoming input object.
@@ -132,17 +132,17 @@ class NameRequestHandler(RequestHandler):
         self,
         addr_conn: ModuleConnection,
         num_tries: int = 3,
-        timeout_msec: int = 1500,
+        timeout: float = 1.5,
     ):
         """Initialize class instance."""
         self._name: list[str | None] = [None] * 2
         self.name_known = asyncio.Event()
 
-        super().__init__(addr_conn, num_tries, timeout_msec)
+        super().__init__(addr_conn, num_tries, timeout)
 
         self.trhs = []
         for block_id in range(2):
-            trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout_msec)
+            trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout)
             trh.set_timeout_callback(self.timeout, block_id=block_id)
             self.trhs.append(trh)
 
@@ -205,17 +205,17 @@ class CommentRequestHandler(RequestHandler):
         self,
         addr_conn: ModuleConnection,
         num_tries: int = 3,
-        timeout_msec: int = 1500,
+        timeout: float = 1.5,
     ):
         """Initialize class instance."""
         self._comment: list[str | None] = [None] * 3
         self.comment_known = asyncio.Event()
 
-        super().__init__(addr_conn, num_tries, timeout_msec)
+        super().__init__(addr_conn, num_tries, timeout)
 
         self.trhs = []
         for block_id in range(3):
-            trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout_msec)
+            trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout)
             trh.set_timeout_callback(self.timeout, block_id=block_id)
             self.trhs.append(trh)
 
@@ -278,17 +278,17 @@ class OemTextRequestHandler(RequestHandler):
         self,
         addr_conn: ModuleConnection,
         num_tries: int = 3,
-        timeout_msec: int = 1500,
+        timeout: float = 1.5,
     ):
         """Initialize class instance."""
         self._oem_text: list[str | None] = [None] * 4
         self.oem_text_known = asyncio.Event()
 
-        super().__init__(addr_conn, num_tries, timeout_msec)
+        super().__init__(addr_conn, num_tries, timeout)
 
         self.trhs = []
         for block_id in range(4):
-            trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout_msec)
+            trh = TimeoutRetryHandler(self.task_registry, num_tries, timeout)
             trh.set_timeout_callback(self.timeout, block_id=block_id)
             self.trhs.append(trh)
 
@@ -355,13 +355,13 @@ class GroupMembershipStaticRequestHandler(RequestHandler):
         self,
         addr_conn: ModuleConnection,
         num_tries: int = 3,
-        timeout_msec: int = 1500,
+        timeout: float = 1500,
     ):
         """Initialize class instance."""
         self.groups: set[LcnAddr] = set()
         self.groups_known = asyncio.Event()
 
-        super().__init__(addr_conn, num_tries, timeout_msec)
+        super().__init__(addr_conn, num_tries, timeout)
 
     async def async_process_input(self, inp: inputs.Input) -> None:
         """Process incoming input object.
@@ -399,13 +399,13 @@ class GroupMembershipDynamicRequestHandler(RequestHandler):
         self,
         addr_conn: ModuleConnection,
         num_tries: int = 3,
-        timeout_msec: int = 1500,
+        timeout: float = 1.5,
     ):
         """Initialize class instance."""
         self.groups: set[LcnAddr] = set()
         self.groups_known = asyncio.Event()
 
-        super().__init__(addr_conn, num_tries, timeout_msec)
+        super().__init__(addr_conn, num_tries, timeout)
 
     async def async_process_input(self, inp: inputs.Input) -> None:
         """Process incoming input object.
@@ -453,14 +453,14 @@ class StatusRequestsHandler:
             trh = TimeoutRetryHandler(
                 self.task_registry,
                 -1,
-                self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"],
+                self.settings["MAX_STATUS_EVENTBASED_VALUEAGE"],
             )
             trh.set_timeout_callback(self.request_status_outputs_timeout, output_port)
             self.request_status_outputs.append(trh)
 
         # Relay request status (all 8)
         self.request_status_relays = TimeoutRetryHandler(
-            self.task_registry, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+            self.task_registry, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE"]
         )
         self.request_status_relays.set_timeout_callback(
             self.request_status_relays_timeout
@@ -468,7 +468,7 @@ class StatusRequestsHandler:
 
         # Binary-sensors request status (all 8)
         self.request_status_bin_sensors = TimeoutRetryHandler(
-            self.task_registry, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+            self.task_registry, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE"]
         )
         self.request_status_bin_sensors.set_timeout_callback(
             self.request_status_bin_sensors_timeout
@@ -483,7 +483,7 @@ class StatusRequestsHandler:
                 self.request_status_vars[var] = TimeoutRetryHandler(
                     self.task_registry,
                     -1,
-                    self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"],
+                    self.settings["MAX_STATUS_EVENTBASED_VALUEAGE"],
                 )
                 self.request_status_vars[var].set_timeout_callback(
                     self.request_status_var_timeout, var=var
@@ -491,7 +491,7 @@ class StatusRequestsHandler:
 
         # LEDs and logic-operations request status (all 12+4).
         self.request_status_leds_and_logic_ops = TimeoutRetryHandler(
-            self.task_registry, -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
+            self.task_registry, -1, self.settings["MAX_STATUS_POLLED_VALUEAGE"]
         )
         self.request_status_leds_and_logic_ops.set_timeout_callback(
             self.request_status_leds_and_logic_ops_timeout
@@ -499,7 +499,7 @@ class StatusRequestsHandler:
 
         # Key lock-states request status (all tables, A-D).
         self.request_status_locked_keys = TimeoutRetryHandler(
-            self.task_registry, -1, self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
+            self.task_registry, -1, self.settings["MAX_STATUS_POLLED_VALUEAGE"]
         )
         self.request_status_locked_keys.set_timeout_callback(
             self.request_status_locked_keys_timeout
@@ -597,10 +597,10 @@ class StatusRequestsHandler:
             # wait until we know the software version
             await self.addr_conn.serial_known
             if self.addr_conn.software_serial >= 0x170206:
-                timeout_msec = self.settings["MAX_STATUS_EVENTBASED_VALUEAGE_MSEC"]
+                timeout = self.settings["MAX_STATUS_EVENTBASED_VALUEAGE"]
             else:
-                timeout_msec = self.settings["MAX_STATUS_POLLED_VALUEAGE_MSEC"]
-            self.request_status_vars[item].set_timeout_msec(timeout_msec)
+                timeout = self.settings["MAX_STATUS_POLLED_VALUEAGE"]
+            self.request_status_vars[item].set_timeout(timeout)
             self.request_status_vars[item].activate()
         elif item in lcn_defs.OutputPort:
             self.request_status_outputs[item.value].activate()
