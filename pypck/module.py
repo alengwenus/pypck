@@ -468,18 +468,23 @@ class AbstractConnection:
             PckGenerator.var_rel(var, value_ref, value.to_native(), software_serial),
         )
 
-    async def lock_regulator(self, reg_id: int, state: bool) -> bool:
+    async def lock_regulator(
+        self, reg_id: int, state: bool, target_value: float = -1
+    ) -> bool:
         """Send a command to lock a regulator.
 
         :param    int        reg_id:        Regulator id
         :param    bool       state:         Lock state (locked=True,
                                             unlocked=False)
-
+        :param    float        target_value:  Target value in percent (use -1 to ignore)
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
         return await self.send_command(
-            self.wants_ack, PckGenerator.lock_regulator(reg_id, state)
+            self.wants_ack,
+            PckGenerator.lock_regulator(
+                reg_id, state, self.software_serial, target_value
+            ),
         )
 
     async def control_led(
