@@ -417,11 +417,30 @@ COMMANDS = {
     },
     # Lock regulator
     **{
-        f"RE{('A','B')[reg]:s}XS": (PckGenerator.lock_regulator, reg, True)
+        f"RE{('A','B')[reg]:s}XS": (PckGenerator.lock_regulator, reg, True, -1)
         for reg in range(2)
     },
     **{
-        f"RE{('A','B')[reg]:s}XA": (PckGenerator.lock_regulator, reg, False)
+        f"RE{('A','B')[reg]:s}XA": (PckGenerator.lock_regulator, reg, False, -1)
+        for reg in range(2)
+    },
+    **{
+        f"X2030{0x40*reg + 0x07:03d}{2*value:03d}": (
+            PckGenerator.lock_regulator,
+            reg,
+            True,
+            0x120301,
+            value,
+        )
+        for reg in range(2)
+        for value in (0, 50, 100)
+    },
+    **{
+        f"RE{('A','B')[reg]:s}XS": (PckGenerator.lock_regulator, reg, True, 0x120301)
+        for reg in range(2)
+    },
+    **{
+        f"RE{('A','B')[reg]:s}XA": (PckGenerator.lock_regulator, reg, False, 0x120301)
         for reg in range(2)
     },
     # scenes

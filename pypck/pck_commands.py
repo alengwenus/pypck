@@ -1029,16 +1029,29 @@ class PckGenerator:
         return f"GTDT{row_id + 1}{part_id + 1}".encode() + part
 
     @staticmethod
-    def lock_regulator(reg_id: int, state: bool) -> str:
+    def lock_regulator(
+        reg_id: int,
+        state: bool,
+        software_serial: int,
+        target_value: float = -1,
+    ) -> str:
         """Generate a command to lock a regulator.
 
         :param    int    reg_id:    Regulator id 0..1
         :param    bool   state:     The lock state
+        :param    int    software_serial: The expected firmware version of all
+                                           receiving modules.
+        :param    foat    target_value: The target value in percent (use -1 to ignore)
         :return:  The PCK command (without address header) as text
         :rtype:   str
         """
         if (reg_id < 0) or (reg_id > 1):
             raise ValueError("Wrong reg_id.")
+        if ((target_value < 0) or (target_value > 100)) and (target_value != -1):
+            raise ValueError("Wrong target_value.")
+        if (target_value != -1) and (software_serial >= 0x120301) and state:
+            reg_byte = reg_id * 0x40 + 0x07
+            return f"X2{0x1E:03d}{reg_byte:03d}{int(2*target_value):03d}"
         return f"RE{'A' if reg_id == 0 else 'B'}X{'S' if state else 'A'}"
 
     @staticmethod
