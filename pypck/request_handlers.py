@@ -355,7 +355,7 @@ class GroupMembershipStaticRequestHandler(RequestHandler):
         self,
         addr_conn: ModuleConnection,
         num_tries: int = 3,
-        timeout: float = 1500,
+        timeout: float = 1.5,
     ):
         """Initialize class instance."""
         self.groups: set[LcnAddr] = set()
