@@ -60,7 +60,7 @@ class PckParser:
     # Pattern to parse serial number and firmware date responses.
     PATTERN_SN = re.compile(
         r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.SN(?P<hardware_serial>[0-9|A-F]{10})"
-        r"(?P<manu>[0-9|A-F]{2})FW(?P<software_serial>[0-9|A-F]{6})"
+        r"(?P<manu>.{2})FW(?P<software_serial>[0-9|A-F]{6})"
         r"HW(?P<hardware_type>\d+)"
     )
 

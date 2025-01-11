@@ -392,7 +392,17 @@ class ModSn(ModInput):
         if matcher:
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             hardware_serial = int(matcher.group("hardware_serial"), 16)
-            manu = int(matcher.group("manu"), 16)
+            try:
+                manu = int(matcher.group("manu"), 16)
+            except (
+                ValueError
+            ):  # unconventional manufacturer code (e.g., due to LinHK VM)
+                manu = 0xFF
+                _LOGGER.debug(
+                    "Unconventional manufacturer code: %s. Defaulting to 0x%02X",
+                    matcher.group("manu"),
+                    manu,
+                )
             software_serial = int(matcher.group("software_serial"), 16)
             try:
                 hardware_type = lcn_defs.HardwareType(
