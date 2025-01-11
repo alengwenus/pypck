@@ -56,6 +56,13 @@ MESSAGES = {
         0x190011,
         HardwareType.UPP,
     ),
+    "=M000010.SN1234567890vMFW190011HW011": (
+        ModSn,
+        0x1234567890,
+        0xFF,
+        0x190011,
+        HardwareType.UPP,
+    ),
     # Name
     "=M000010.N1EG HWR Hau": (ModNameComment, "N", 0, "EG HWR Hau"),
     "=M000010.N2EG HWR Hau": (ModNameComment, "N", 1, "EG HWR Hau"),
