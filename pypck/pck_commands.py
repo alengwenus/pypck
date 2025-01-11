@@ -573,6 +573,34 @@ class PckGenerator:
         return ret
 
     @staticmethod
+    def control_motor_relay_position(motor: lcn_defs.MotorPort, position: float) -> str:
+        """Control motor position via relays and BS4.
+
+        :param    MotorPort     motor:      The motor port of the LCN module
+        :param    float         position:   The position to set in percentage (0..100)
+
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        if motor not in (
+            lcn_defs.MotorPort.MOTOR1,
+            lcn_defs.MotorPort.MOTOR2,
+            lcn_defs.MotorPort.MOTOR3,
+            lcn_defs.MotorPort.MOTOR4,
+        ):
+            raise ValueError("Invalid motor.")
+        motor_id = [1, 2, 5, 6][motor.value]
+
+        if position == 0:
+            action = "AU"
+        elif position == 100:
+            action = "ZU"
+        else:
+            action = f"GO{int(2*position):03d}"
+
+        return f"RLM{motor_id}{action}"
+
+    @staticmethod
     def control_motors_outputs(
         state: lcn_defs.MotorStateModifier,
         reverse_time: lcn_defs.MotorReverseTime | None = None,

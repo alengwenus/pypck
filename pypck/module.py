@@ -247,6 +247,21 @@ class AbstractConnection:
             self.wants_ack, PckGenerator.control_motors_relays(states)
         )
 
+    async def control_motor_relay_position(
+        self, motor: lcn_defs.MotorPort, position: float
+    ) -> bool:
+        """Control motor position via relays and BS4.
+
+        :param    MotorPort     motor:      The motor port of the LCN module
+        :param    float         position:   The position to set in percentage (0..100)
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.send_command(
+            self.wants_ack, PckGenerator.control_motor_relay_position(motor, position)
+        )
+
     async def control_motors_outputs(
         self,
         state: lcn_defs.MotorStateModifier,
