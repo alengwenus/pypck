@@ -573,11 +573,11 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def control_motor_relay_position(motor: lcn_defs.MotorPort, position: float) -> str:
+    def control_motor_relay_position(motor: lcn_defs.MotorPort, position: int) -> str:
         """Control motor position via relays and BS4.
 
         :param    MotorPort     motor:      The motor port of the LCN module
-        :param    float         position:   The position to set in percentage (0..100)
+        :param    int           position:   The position to set in percentage (0..200)
 
         :return:  The PCK command (without address header) as text
         :rtype:   str
@@ -596,9 +596,9 @@ class PckGenerator:
         elif position == 100:
             action = "ZU"
         else:
-            action = f"GO{int(2*position):03d}"
+            action = f"GP{int(position):03d}"
 
-        return f"RLM{motor_id}{action}"
+        return f"R8M{motor_id}{action}"
 
     @staticmethod
     def control_motors_outputs(

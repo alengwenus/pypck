@@ -259,7 +259,8 @@ class AbstractConnection:
         :rtype:      bool
         """
         return await self.send_command(
-            self.wants_ack, PckGenerator.control_motor_relay_position(motor, position)
+            self.wants_ack,
+            PckGenerator.control_motor_relay_position(motor, int(2 * position)),
         )
 
     async def control_motors_outputs(
