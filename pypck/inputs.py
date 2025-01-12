@@ -1031,6 +1031,64 @@ class ModStatusSceneOutputs(ModInput):
         return None
 
 
+class ModStatusMotorPositionBS4(ModInput):
+    """Status of motor positions (if BS4 connected) received from an LCN module."""
+
+    def __init__(
+        self,
+        physical_source_addr: LcnAddr,
+        motor: int,
+        position: int,
+        limit: int | None,
+        time_down: int | None,
+        time_up: int | None,
+    ):
+        """Construct ModInput object."""
+        super().__init__(physical_source_addr)
+        self.motor = motor
+        self.position = position
+        self.limit = limit
+        self.time_down = time_down
+        self.time_up = time_up
+
+    @staticmethod
+    def try_parse(data: str) -> list[Input] | None:
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_STATUS_MOTOR_POSITION_BS4.match(data)
+        if matcher:
+            motor_status_inputs: list[Input] = []
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            for idx in (1, 2):
+                motor = int(matcher.group(f"motor{idx}_id"))
+                position = matcher.group(f"position{idx}")
+                limit = matcher.group(f"limit{idx}")
+                time_down = matcher.group(f"time_down{idx}")
+                time_up = matcher.group(f"time_up{idx}")
+
+                motor_status_inputs.append(
+                    ModStatusMotorPositionBS4(
+                        addr,
+                        motor,
+                        int(position),
+                        None if limit == "?" else int(limit),
+                        None if time_down == "?" else int(time_down),
+                        None if time_up == "?" else int(time_up),
+                    )
+                )
+            return motor_status_inputs
+
+        return None
+
+
 class ModSendCommandHost(ModInput):
     """Send command to host message from module."""
 
