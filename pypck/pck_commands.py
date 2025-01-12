@@ -194,10 +194,10 @@ class PckParser:
 
     # Pattern to parse motor position status messages.
     PATTERN_STATUS_MOTOR_POSITION_BS4 = re.compile(
-        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\.RM"
-        r"(?P<motor1_id>\d)(?P<position1>[0-9]{3})(?P<limit1>[0-9]{3}|\?)"
+        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\."
+        r"RM(?P<motor1_id>\d)(?P<position1>[0-9]{3})(?P<limit1>[0-9]{3}|\?)"
         r"(?P<time_down1>[0-9]{5}|\?)(?P<time_up1>[0-9]{5}|\?)"
-        r"(?P<motor2_id>\d)(?P<position2>[0-9]{3})(?P<limit2>[0-9]{3}|\?)"
+        r"RM(?P<motor2_id>\d)(?P<position2>[0-9]{3})(?P<limit2>[0-9]{3}|\?)"
         r"(?P<time_down2>[0-9]{5}|\?)(?P<time_up2>[0-9]{5}|\?)"
     )
 

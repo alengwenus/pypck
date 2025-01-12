@@ -1047,6 +1047,7 @@ class ModStatusMotorPositionBS4(ModInput):
         super().__init__(physical_source_addr)
         self.motor = motor
         self.position = position
+        self.position_percent = self.position // 2
         self.limit = limit
         self.time_down = time_down
         self.time_up = time_up
@@ -1258,6 +1259,7 @@ class InputParser:
         ModStatusKeyLocks,
         ModStatusAccessControl,
         ModStatusSceneOutputs,
+        ModStatusMotorPositionBS4,
         ModSendCommandHost,
         ModSendKeysHost,
         Unknown,
