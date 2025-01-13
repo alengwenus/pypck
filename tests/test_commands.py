@@ -193,6 +193,7 @@ COMMANDS = {
             RelayStateModifier.OFF,
         ],
     ),
+    # Motor state manipulation
     "R810110---": (
         PckGenerator.control_motors_relays,
         [
@@ -210,6 +211,14 @@ COMMANDS = {
             MotorStateModifier.CYCLE,
             MotorStateModifier.NOCHANGE,
         ],
+    ),
+    "R8M3P1": (
+        PckGenerator.request_motor_position_status,
+        0,
+    ),
+    "R8M7P2": (
+        PckGenerator.request_motor_position_status,
+        1,
     ),
     "X2001228000": (
         PckGenerator.control_motors_outputs,

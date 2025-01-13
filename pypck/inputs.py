@@ -398,8 +398,10 @@ class ModSn(ModInput):
                 ValueError
             ):  # unconventional manufacturer code (e.g., due to LinHK VM)
                 manu = 0xFF
-                _LOGGER.debug(
-                    "Unconventional manufacturer code: %s. Defaulting to 0x%02X",
+                _LOGGER.warning(
+                    "Unconventional manufacturer code for module (S%d, M%d): %s. Defaulting to 0x%02X",
+                    addr.seg_id,
+                    addr.addr_id,
                     matcher.group("manu"),
                     manu,
                 )
@@ -1069,7 +1071,7 @@ class ModStatusMotorPositionBS4(ModInput):
             motor_status_inputs: list[Input] = []
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             for idx in (1, 2):
-                motor = int(matcher.group(f"motor{idx}_id"))
+                motor = int(matcher.group(f"motor{idx}_id")) - 1
                 position = matcher.group(f"position{idx}")
                 limit = matcher.group(f"limit{idx}")
                 time_down = matcher.group(f"time_down{idx}")

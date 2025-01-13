@@ -248,19 +248,23 @@ class AbstractConnection:
         )
 
     async def control_motor_relay_position(
-        self, motor: lcn_defs.MotorPort, position: float
+        self,
+        motor: lcn_defs.MotorPort,
+        position: float,
+        mode: lcn_defs.MotorPositionMode,
     ) -> bool:
         """Control motor position via relays and BS4.
 
-        :param    MotorPort     motor:      The motor port of the LCN module
-        :param    float         position:   The position to set in percentage (0..100)
+        :param    MotorPort         motor:      The motor port of the LCN module
+        :param    float             position:   The position to set in percentage (0..100)
+        :param    MotorPositionMode mode:       The motor position mode
 
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
         return await self.send_command(
             self.wants_ack,
-            PckGenerator.control_motor_relay_position(motor, int(2 * position)),
+            PckGenerator.control_motor_relay_position(motor, position, mode),
         )
 
     async def control_motors_outputs(
@@ -865,9 +869,13 @@ class ModuleConnection(AbstractConnection):
         """
         await self.acknowledges.put(code)
 
-    async def activate_status_request_handler(self, item: Any) -> None:
+    async def activate_status_request_handler(
+        self, item: Any, option: Any = None
+    ) -> None:
         """Activate a specific TimeoutRetryHandler for status requests."""
-        self.task_registry.create_task(self.status_requests_handler.activate(item))
+        self.task_registry.create_task(
+            self.status_requests_handler.activate(item, option)
+        )
 
     async def activate_status_request_handlers(self) -> None:
         """Activate all TimeoutRetryHandlers for status requests."""

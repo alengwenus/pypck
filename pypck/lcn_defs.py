@@ -1282,9 +1282,10 @@ class MotorReverseTime(Enum):
 class MotorPositionMode(Enum):
     """Motor position mode used in LCN commands."""
 
-    NONE = auto()
-    BS4 = auto()
-    EMULATED = auto()
+    NONE = "NONE"
+    BS4 = "BS4"
+    MODULE = "MODULE"
+    EMULATED = "EMULATED"
 
 
 class RelVarRef(Enum):
