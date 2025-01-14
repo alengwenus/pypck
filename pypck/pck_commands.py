@@ -545,49 +545,75 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def control_motors_relays(states: list[lcn_defs.MotorStateModifier]) -> str:
+    def control_motor_relays(
+        motor_id: int,
+        state: lcn_defs.MotorStateModifier,
+        mode: lcn_defs.MotorPositionMode = lcn_defs.MotorPositionMode.NONE,
+    ) -> str:
         """Generate a command to control motors via relays.
 
-        :param    MotorStateModifier    states:    The 4 modifiers for the
-                                                   motor states as a list
+        :param    int                 motor_id:    The motor id 0..3
+        :param    MotorStateModifier  state:       The modifier for the
+                                                   motor state
         :return:  The PCK command (without address header) as text
         :rtype:   str
         """
-        if len(states) != 4:
-            raise ValueError("Invalid states length.")
-        ret = "R8"
-        for state in states:
-            if state == lcn_defs.MotorStateModifier.UP:
-                ret += lcn_defs.RelayStateModifier.ON.value
-                ret += lcn_defs.RelayStateModifier.OFF.value
-            elif state == lcn_defs.MotorStateModifier.DOWN:
-                ret += lcn_defs.RelayStateModifier.ON.value
-                ret += lcn_defs.RelayStateModifier.ON.value
-            elif state == lcn_defs.MotorStateModifier.STOP:
-                ret += lcn_defs.RelayStateModifier.OFF.value
-                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
-            elif state == lcn_defs.MotorStateModifier.TOGGLEONOFF:
-                ret += lcn_defs.RelayStateModifier.TOGGLE.value
-                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
-            elif state == lcn_defs.MotorStateModifier.TOGGLEDIR:
-                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
-                ret += lcn_defs.RelayStateModifier.TOGGLE.value
-            elif state == lcn_defs.MotorStateModifier.CYCLE:
-                ret += lcn_defs.RelayStateModifier.TOGGLE.value
-                ret += lcn_defs.RelayStateModifier.TOGGLE.value
-            elif state == lcn_defs.MotorStateModifier.NOCHANGE:
-                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
-                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
+        if 0 > motor_id > 3:
+            raise ValueError("Invalid motor id")
 
-        return ret
+        if mode not in lcn_defs.MotorPositionMode:
+            raise ValueError("Wrong motor position mode")
+
+        if mode == lcn_defs.MotorPositionMode.BS4:
+            if state not in [
+                lcn_defs.MotorStateModifier.UP,
+                lcn_defs.MotorStateModifier.DOWN,
+            ]:
+                raise ValueError("Invalid motor state for BS4 mode")
+
+            new_motor_id = [1, 2, 5, 6][motor_id]
+            # AU=window open / cover down
+            # ZU=window close / cover up
+            action = "AU" if state == lcn_defs.MotorStateModifier.DOWN else "ZU"
+            return f"R8M{new_motor_id}{action}"
+
+        # lcn_defs.MotorPositionMode.NONE
+        if state == lcn_defs.MotorStateModifier.UP:
+            port_onoff = lcn_defs.RelayStateModifier.ON
+            port_updown = lcn_defs.RelayStateModifier.OFF
+        elif state == lcn_defs.MotorStateModifier.DOWN:
+            port_onoff = lcn_defs.RelayStateModifier.ON
+            port_updown = lcn_defs.RelayStateModifier.ON
+        elif state == lcn_defs.MotorStateModifier.STOP:
+            port_onoff = lcn_defs.RelayStateModifier.OFF
+            port_updown = lcn_defs.RelayStateModifier.NOCHANGE
+        elif state == lcn_defs.MotorStateModifier.TOGGLEONOFF:
+            port_onoff = lcn_defs.RelayStateModifier.TOGGLE
+            port_updown = lcn_defs.RelayStateModifier.NOCHANGE
+        elif state == lcn_defs.MotorStateModifier.TOGGLEDIR:
+            port_onoff = lcn_defs.RelayStateModifier.NOCHANGE
+            port_updown = lcn_defs.RelayStateModifier.TOGGLE
+        elif state == lcn_defs.MotorStateModifier.CYCLE:
+            port_onoff = lcn_defs.RelayStateModifier.TOGGLE
+            port_updown = lcn_defs.RelayStateModifier.TOGGLE
+        elif state == lcn_defs.MotorStateModifier.NOCHANGE:
+            port_onoff = lcn_defs.RelayStateModifier.NOCHANGE
+            port_updown = lcn_defs.RelayStateModifier.NOCHANGE
+        else:
+            raise ValueError("Invalid motor state")
+
+        states = [lcn_defs.RelayStateModifier.NOCHANGE] * 8
+        states[motor_id * 2] = port_onoff
+        states[motor_id * 2 + 1] = port_updown
+        return "R8" + "".join([state.value for state in states])
 
     @staticmethod
-    def control_motor_relay_position(
-        motor: lcn_defs.MotorPort, position: float, mode: lcn_defs.MotorPositionMode
+    def control_motor_relays_position(
+        motor_id: int, position: float, mode: lcn_defs.MotorPositionMode
     ) -> str:
         """Control motor position via relays and BS4.
 
-        :param    MotorPort         motor:      The motor port of the LCN module
+        :param    int               motor_id:   The motor port of the LCN module
         :param    float             position:   The position to set in percentage (0..100)
         :param    MotorPositionMode mode:       The motor position mode
 
@@ -597,23 +623,13 @@ class PckGenerator:
         if mode not in (lcn_defs.MotorPositionMode.BS4,):
             raise ValueError("Wrong motor position mode")
 
-        if motor not in (
-            lcn_defs.MotorPort.MOTOR1,
-            lcn_defs.MotorPort.MOTOR2,
-            lcn_defs.MotorPort.MOTOR3,
-            lcn_defs.MotorPort.MOTOR4,
-        ):
-            raise ValueError("Invalid motor.")
-        motor_id = [1, 2, 5, 6][motor.value]
+        if 0 > motor_id > 3:
+            raise ValueError("Invalid motor")
+        new_motor_id = [1, 2, 5, 6][motor_id]
 
-        if position == 0:
-            action = "AU"
-        elif position == 100:
-            action = "ZU"
-        else:
-            action = f"GP{int(2 * position):03d}"
+        action = f"GP{int(2 * position):03d}"
 
-        return f"R8M{motor_id}{action}"
+        return f"R8M{new_motor_id}{action}"
 
     @staticmethod
     def request_motor_position_status(motor_pair: int) -> str:
@@ -629,7 +645,7 @@ class PckGenerator:
         return f"R8M{7 if motor_pair else 3}P{motor_pair + 1}"
 
     @staticmethod
-    def control_motors_outputs(
+    def control_motor_outputs(
         state: lcn_defs.MotorStateModifier,
         reverse_time: lcn_defs.MotorReverseTime | None = None,
     ) -> str:

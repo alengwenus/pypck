@@ -7,6 +7,7 @@ from pypck.lcn_defs import (
     BeepSound,
     KeyLockStateModifier,
     LedStatus,
+    MotorPositionMode,
     MotorReverseTime,
     MotorStateModifier,
     OutputPort,
@@ -194,23 +195,32 @@ COMMANDS = {
         ],
     ),
     # Motor state manipulation
-    "R810110---": (
-        PckGenerator.control_motors_relays,
-        [
-            MotorStateModifier.UP,
-            MotorStateModifier.DOWN,
-            MotorStateModifier.STOP,
-            MotorStateModifier.NOCHANGE,
-        ],
+    "R8--10----": (
+        PckGenerator.control_motor_relays,
+        1,
+        MotorStateModifier.UP,
     ),
-    "R8U--UUU--": (
-        PckGenerator.control_motors_relays,
-        [
-            MotorStateModifier.TOGGLEONOFF,
-            MotorStateModifier.TOGGLEDIR,
-            MotorStateModifier.CYCLE,
-            MotorStateModifier.NOCHANGE,
-        ],
+    "R8-----U--": (
+        PckGenerator.control_motor_relays,
+        2,
+        MotorStateModifier.TOGGLEDIR,
+    ),
+    "R8UU------": (
+        PckGenerator.control_motor_relays,
+        0,
+        MotorStateModifier.CYCLE,
+    ),
+    "R8M1GP200": (
+        PckGenerator.control_motor_relays_position,
+        0,
+        100.0,
+        MotorPositionMode.BS4,
+    ),
+    "R8M6GP100": (
+        PckGenerator.control_motor_relays_position,
+        3,
+        50.0,
+        MotorPositionMode.BS4,
     ),
     "R8M3P1": (
         PckGenerator.request_motor_position_status,
@@ -221,41 +231,41 @@ COMMANDS = {
         1,
     ),
     "X2001228000": (
-        PckGenerator.control_motors_outputs,
+        PckGenerator.control_motor_outputs,
         MotorStateModifier.UP,
         MotorReverseTime.RT70,
     ),
     "A1DI100008": (
-        PckGenerator.control_motors_outputs,
+        PckGenerator.control_motor_outputs,
         MotorStateModifier.UP,
         MotorReverseTime.RT600,
     ),
     "A1DI100011": (
-        PckGenerator.control_motors_outputs,
+        PckGenerator.control_motor_outputs,
         MotorStateModifier.UP,
         MotorReverseTime.RT1200,
     ),
     "X2001000228": (
-        PckGenerator.control_motors_outputs,
+        PckGenerator.control_motor_outputs,
         MotorStateModifier.DOWN,
         MotorReverseTime.RT70,
     ),
     "A2DI100008": (
-        PckGenerator.control_motors_outputs,
+        PckGenerator.control_motor_outputs,
         MotorStateModifier.DOWN,
         MotorReverseTime.RT600,
     ),
     "A2DI100011": (
-        PckGenerator.control_motors_outputs,
+        PckGenerator.control_motor_outputs,
         MotorStateModifier.DOWN,
         MotorReverseTime.RT1200,
     ),
     "AY000000": (
-        PckGenerator.control_motors_outputs,
+        PckGenerator.control_motor_outputs,
         MotorStateModifier.STOP,
     ),
     "JE": (
-        PckGenerator.control_motors_outputs,
+        PckGenerator.control_motor_outputs,
         MotorStateModifier.CYCLE,
     ),
     # Variable manipulation

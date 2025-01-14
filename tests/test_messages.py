@@ -244,7 +244,7 @@ MESSAGES = {
     "=M000010.RM1100?1234567890RM2200200??": [
         (
             ModStatusMotorPositionBS4,
-            1,
+            0,
             100,
             None,
             12345,
@@ -252,7 +252,7 @@ MESSAGES = {
         ),
         (
             ModStatusMotorPositionBS4,
-            2,
+            1,
             200,
             200,
             None,
