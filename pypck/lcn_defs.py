@@ -1284,7 +1284,7 @@ class MotorPositionMode(Enum):
 
     NONE = "NONE"
     BS4 = "BS4"
-    # MODULE = "MODULE"
+    MODULE = "MODULE"
     # EMULATED = "EMULATED"
 
 

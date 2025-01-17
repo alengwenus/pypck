@@ -598,7 +598,10 @@ class ModStatusOutputNative(ModInput):
 
 
 class ModStatusRelays(ModInput):
-    """Status of 8 relays received from an LCN module."""
+    """Status of 8 relays received from an LCN module.
+
+    Includes helper functions for motor states based on LCN wiring.
+    """
 
     def __init__(self, physical_source_addr: LcnAddr, states: list[bool]):
         """Construct ModInput object."""
@@ -615,6 +618,43 @@ class ModStatusRelays(ModInput):
         :rtype:   bool
         """
         return self.states[relay_id]
+
+    def get_motor_onoff_relay(self, motor_id: int) -> int:
+        """Get the motor on/off relay id."""
+        if 0 > motor_id > 3:
+            raise ValueError("Motor id must be in range 0..3")
+        return motor_id * 2
+
+    def get_motor_updown_relay(self, motor_id: int) -> int:
+        """Get the motor up/down relay id."""
+        if 0 > motor_id > 3:
+            raise ValueError("Motor id must be in range 0..3")
+        return motor_id * 2 + 1
+
+    def motor_is_on(self, motor_id: int) -> bool:
+        """Check if a motor is on."""
+        return self.states[self.get_motor_onoff_relay(motor_id)]
+
+    def is_opening(self, motor_id: int) -> bool:
+        """Check if a motor is opening."""
+        if self.motor_is_on(motor_id):
+            return not self.states[self.get_motor_updown_relay(motor_id)]
+        return False
+
+    def is_closing(self, motor_id: int) -> bool:
+        """Check if a motor is closing."""
+        if self.motor_is_on(motor_id):
+            return self.states[self.get_motor_updown_relay(motor_id)]
+        return False
+
+    def is_assumed_closed(self, motor_id: int) -> bool:
+        """Check if a motor is closed.
+
+        The closed state is assumed if the motor direction is down and the motor is switched off."
+        """
+        if not self.motor_is_on(motor_id):
+            return self.states[self.get_motor_updown_relay(motor_id)]
+        return False
 
     @staticmethod
     def try_parse(data: str) -> list[Input] | None:

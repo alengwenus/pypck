@@ -620,16 +620,25 @@ class PckGenerator:
         :return:  The PCK command (without address header) as text
         :rtype:   str
         """
-        if mode not in (lcn_defs.MotorPositionMode.BS4,):
+        if mode not in (
+            lcn_defs.MotorPositionMode.BS4,
+            lcn_defs.MotorPositionMode.MODULE,
+        ):
             raise ValueError("Wrong motor position mode")
 
         if 0 > motor_id > 3:
             raise ValueError("Invalid motor")
-        new_motor_id = [1, 2, 5, 6][motor_id]
 
-        action = f"GP{int(2 * position):03d}"
+        if mode == lcn_defs.MotorPositionMode.BS4:
+            new_motor_id = [1, 2, 5, 6][motor_id]
 
-        return f"R8M{new_motor_id}{action}"
+            action = f"GP{int(2 * position):03d}"
+
+            return f"R8M{new_motor_id}{action}"
+        elif mode == lcn_defs.MotorPositionMode.MODULE:
+            return ""
+
+        return ""
 
     @staticmethod
     def request_motor_position_status(motor_pair: int) -> str:
