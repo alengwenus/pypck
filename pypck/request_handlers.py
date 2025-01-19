@@ -628,7 +628,7 @@ class StatusRequestsHandler:
             self.request_status_relays.activate()
         elif item in lcn_defs.MotorPort:
             self.request_status_relays.activate()
-            if option == lcn_defs.MotorPositionMode.BS4:
+            if option == lcn_defs.MotorPositioningMode.BS4:
                 self.request_status_motor_positions[item.value // 2].activate()
         elif item in lcn_defs.BinSensorPort:
             self.request_status_bin_sensors.activate()

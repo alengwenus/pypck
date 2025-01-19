@@ -7,7 +7,7 @@ from pypck.lcn_defs import (
     BeepSound,
     KeyLockStateModifier,
     LedStatus,
-    MotorPositionMode,
+    MotorPositioningMode,
     MotorReverseTime,
     MotorStateModifier,
     OutputPort,
@@ -72,9 +72,9 @@ COMMANDS = {
     # General status commands
     "SK": (PckGenerator.segment_coupler_scan,),
     "SN": (PckGenerator.request_serial,),
-    **{f"NMN{block+1}": (PckGenerator.request_name, block) for block in range(2)},
-    **{f"NMK{block+1}": (PckGenerator.request_comment, block) for block in range(3)},
-    **{f"NMO{block+1}": (PckGenerator.request_oem_text, block) for block in range(4)},
+    **{f"NMN{block + 1}": (PckGenerator.request_name, block) for block in range(2)},
+    **{f"NMK{block + 1}": (PckGenerator.request_comment, block) for block in range(3)},
+    **{f"NMO{block + 1}": (PckGenerator.request_oem_text, block) for block in range(4)},
     "GP": (PckGenerator.request_group_membership_static,),
     "GD": (PckGenerator.request_group_membership_dynamic,),
     # Output, relay, binsensors, ... status commands
@@ -88,7 +88,7 @@ COMMANDS = {
     "STX": (PckGenerator.request_key_lock_status,),
     # Variable status (new commands)
     **{
-        f"MWT{Var.to_var_id(var)+1:03d}": (
+        f"MWT{Var.to_var_id(var) + 1:03d}": (
             PckGenerator.request_var_status,
             var,
             NEW_VAR_SW_AGE,
@@ -96,7 +96,7 @@ COMMANDS = {
         for var in Var.variables  # type: ignore
     },
     **{
-        f"MWS{Var.to_set_point_id(var)+1:03d}": (
+        f"MWS{Var.to_set_point_id(var) + 1:03d}": (
             PckGenerator.request_var_status,
             var,
             NEW_VAR_SW_AGE,
@@ -104,7 +104,7 @@ COMMANDS = {
         for var in Var.set_points  # type: ignore
     },
     **{
-        f"MWC{Var.to_s0_id(var)+1:03d}": (
+        f"MWC{Var.to_s0_id(var) + 1:03d}": (
             PckGenerator.request_var_status,
             var,
             NEW_VAR_SW_AGE,
@@ -112,7 +112,7 @@ COMMANDS = {
         for var in Var.s0s  # type: ignore
     },
     **{
-        f"SE{Var.to_thrs_register_id(var)+1:03d}": (
+        f"SE{Var.to_thrs_register_id(var) + 1:03d}": (
             PckGenerator.request_var_status,
             var,
             NEW_VAR_SW_AGE,
@@ -132,11 +132,11 @@ COMMANDS = {
     },
     # Output manipulation
     **{
-        f"A{output+1:d}DI050123": (PckGenerator.dim_output, output, 50.0, 123)
+        f"A{output + 1:d}DI050123": (PckGenerator.dim_output, output, 50.0, 123)
         for output in range(4)
     },
     **{
-        f"O{output+1:d}DI101123": (PckGenerator.dim_output, output, 50.5, 123)
+        f"O{output + 1:d}DI101123": (PckGenerator.dim_output, output, 50.5, 123)
         for output in range(4)
     },
     "OY100100100100123": (PckGenerator.dim_all_outputs, 50.0, 123, 0x180501),
@@ -146,23 +146,23 @@ COMMANDS = {
     "AE123": (PckGenerator.dim_all_outputs, 100.0, 123, 0x180500),
     "AH050": (PckGenerator.dim_all_outputs, 50.0, 123, 0x180500),
     **{
-        f"A{output+1:d}AD050": (PckGenerator.rel_output, output, 50.0)
+        f"A{output + 1:d}AD050": (PckGenerator.rel_output, output, 50.0)
         for output in range(4)
     },
     **{
-        f"A{output+1:d}SB050": (PckGenerator.rel_output, output, -50.0)
+        f"A{output + 1:d}SB050": (PckGenerator.rel_output, output, -50.0)
         for output in range(4)
     },
     **{
-        f"O{output+1:d}AD101": (PckGenerator.rel_output, output, 50.5)
+        f"O{output + 1:d}AD101": (PckGenerator.rel_output, output, 50.5)
         for output in range(4)
     },
     **{
-        f"O{output+1:d}SB101": (PckGenerator.rel_output, output, -50.5)
+        f"O{output + 1:d}SB101": (PckGenerator.rel_output, output, -50.5)
         for output in range(4)
     },
     **{
-        f"A{output+1:d}TA123": (PckGenerator.toggle_output, output, 123)
+        f"A{output + 1:d}TA123": (PckGenerator.toggle_output, output, 123)
         for output in range(4)
     },
     "AU123": (PckGenerator.toggle_all_outputs, 123),
@@ -214,13 +214,13 @@ COMMANDS = {
         PckGenerator.control_motor_relays_position,
         0,
         100.0,
-        MotorPositionMode.BS4,
+        MotorPositioningMode.BS4,
     ),
     "R8M6GP100": (
         PckGenerator.control_motor_relays_position,
         3,
         50.0,
-        MotorPositionMode.BS4,
+        MotorPositioningMode.BS4,
     ),
     "R8M3P1": (
         PckGenerator.request_motor_position_status,
@@ -296,7 +296,7 @@ COMMANDS = {
         if var != Var.TVAR
     },
     **{
-        f"RE{('A','B')[nvar]}S{('A','P')[nref]}-500": (
+        f"RE{('A', 'B')[nvar]}S{('A', 'P')[nref]}-500": (
             PckGenerator.var_rel,
             var,
             ref,
@@ -308,7 +308,7 @@ COMMANDS = {
         for sw_age in (0x170206, 0x170205)
     },
     **{
-        f"RE{('A','B')[nvar]}S{('A','P')[nref]}+500": (
+        f"RE{('A', 'B')[nvar]}S{('A', 'P')[nref]}+500": (
             PckGenerator.var_rel,
             var,
             ref,
@@ -320,7 +320,7 @@ COMMANDS = {
         for sw_age in (0x170206, 0x170205)
     },
     **{
-        f"SS{('R','E')[nref]}0500SR{r+1}{i+1}": (
+        f"SS{('R', 'E')[nref]}0500SR{r + 1}{i + 1}": (
             PckGenerator.var_rel,
             Var.thresholds[r][i],  # type: ignore
             ref,
@@ -332,7 +332,7 @@ COMMANDS = {
         for nref, ref in enumerate(RelVarRef)
     },
     **{
-        f"SS{('R','E')[nref]}0500AR{r+1}{i+1}": (
+        f"SS{('R', 'E')[nref]}0500AR{r + 1}{i + 1}": (
             PckGenerator.var_rel,
             Var.thresholds[r][i],  # type: ignore
             ref,
@@ -344,7 +344,7 @@ COMMANDS = {
         for nref, ref in enumerate(RelVarRef)
     },
     **{
-        f"SS{('R','E')[nref]}0500S{1<<(4-i):05b}": (
+        f"SS{('R', 'E')[nref]}0500S{1 << (4 - i):05b}": (
             PckGenerator.var_rel,
             Var.thresholds[0][i],  # type: ignore
             ref,
@@ -355,7 +355,7 @@ COMMANDS = {
         for nref, ref in enumerate(RelVarRef)
     },
     **{
-        f"SS{('R','E')[nref]}0500A{1<<(4-i):05b}": (
+        f"SS{('R', 'E')[nref]}0500A{1 << (4 - i):05b}": (
             PckGenerator.var_rel,
             Var.thresholds[0][i],  # type: ignore
             ref,
@@ -367,7 +367,7 @@ COMMANDS = {
     },
     # Led manipulation
     **{
-        f"LA{led+1:03d}{state.value}": (PckGenerator.control_led, led, state)
+        f"LA{led + 1:03d}{state.value}": (PckGenerator.control_led, led, state)
         for led in range(12)
         for state in LedStatus
     },
@@ -397,7 +397,7 @@ COMMANDS = {
         if dcmd != SendKeyCommand.DONTSEND
     },
     **{
-        f"TV{('A','B','C','D')[table]}040{unit.value}11001110": (
+        f"TV{('A', 'B', 'C', 'D')[table]}040{unit.value}11001110": (
             PckGenerator.send_keys_hit_deferred,
             table,
             40,
@@ -409,7 +409,7 @@ COMMANDS = {
     },
     # Lock keys
     **{
-        f"TX{('A','B','C','D')[table]}10U--01U": (
+        f"TX{('A', 'B', 'C', 'D')[table]}10U--01U": (
             PckGenerator.lock_keys,
             table,
             [
@@ -436,15 +436,15 @@ COMMANDS = {
     },
     # Lock regulator
     **{
-        f"RE{('A','B')[reg]:s}XS": (PckGenerator.lock_regulator, reg, True, -1)
+        f"RE{('A', 'B')[reg]:s}XS": (PckGenerator.lock_regulator, reg, True, -1)
         for reg in range(2)
     },
     **{
-        f"RE{('A','B')[reg]:s}XA": (PckGenerator.lock_regulator, reg, False, -1)
+        f"RE{('A', 'B')[reg]:s}XA": (PckGenerator.lock_regulator, reg, False, -1)
         for reg in range(2)
     },
     **{
-        f"X2030{0x40*reg + 0x07:03d}{2*value:03d}": (
+        f"X2030{0x40 * reg + 0x07:03d}{2 * value:03d}": (
             PckGenerator.lock_regulator,
             reg,
             True,
@@ -455,11 +455,11 @@ COMMANDS = {
         for value in (0, 50, 100)
     },
     **{
-        f"RE{('A','B')[reg]:s}XS": (PckGenerator.lock_regulator, reg, True, 0x120301)
+        f"RE{('A', 'B')[reg]:s}XS": (PckGenerator.lock_regulator, reg, True, 0x120301)
         for reg in range(2)
     },
     **{
-        f"RE{('A','B')[reg]:s}XA": (PckGenerator.lock_regulator, reg, False, 0x120301)
+        f"RE{('A', 'B')[reg]:s}XA": (PckGenerator.lock_regulator, reg, False, 0x120301)
         for reg in range(2)
     },
     # scenes
@@ -509,7 +509,7 @@ COMMANDS = {
     ),
     # dynamic text
     **{
-        f"GTDT{row+1:d}{part+1:d}asdfasdfasdf".encode(): (
+        f"GTDT{row + 1:d}{part + 1:d}asdfasdfasdf".encode(): (
             PckGenerator.dyn_text_part,
             row,
             part,

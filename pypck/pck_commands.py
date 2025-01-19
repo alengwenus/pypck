@@ -548,7 +548,7 @@ class PckGenerator:
     def control_motor_relays(
         motor_id: int,
         state: lcn_defs.MotorStateModifier,
-        mode: lcn_defs.MotorPositionMode = lcn_defs.MotorPositionMode.NONE,
+        mode: lcn_defs.MotorPositioningMode = lcn_defs.MotorPositioningMode.NONE,
     ) -> str:
         """Generate a command to control motors via relays.
 
@@ -561,10 +561,10 @@ class PckGenerator:
         if 0 > motor_id > 3:
             raise ValueError("Invalid motor id")
 
-        if mode not in lcn_defs.MotorPositionMode:
+        if mode not in lcn_defs.MotorPositioningMode:
             raise ValueError("Wrong motor position mode")
 
-        if mode == lcn_defs.MotorPositionMode.BS4:
+        if mode == lcn_defs.MotorPositioningMode.BS4:
             if state not in [
                 lcn_defs.MotorStateModifier.UP,
                 lcn_defs.MotorStateModifier.DOWN,
@@ -577,7 +577,7 @@ class PckGenerator:
             action = "AU" if state == lcn_defs.MotorStateModifier.DOWN else "ZU"
             return f"R8M{new_motor_id}{action}"
 
-        # lcn_defs.MotorPositionMode.NONE
+        # lcn_defs.MotorPositioningMode.NONE
         if state == lcn_defs.MotorStateModifier.UP:
             port_onoff = lcn_defs.RelayStateModifier.ON
             port_updown = lcn_defs.RelayStateModifier.OFF
@@ -609,33 +609,33 @@ class PckGenerator:
 
     @staticmethod
     def control_motor_relays_position(
-        motor_id: int, position: float, mode: lcn_defs.MotorPositionMode
+        motor_id: int, position: float, mode: lcn_defs.MotorPositioningMode
     ) -> str:
         """Control motor position via relays and BS4.
 
-        :param    int               motor_id:   The motor port of the LCN module
-        :param    float             position:   The position to set in percentage (0..100)
-        :param    MotorPositionMode mode:       The motor position mode
+        :param    int                   motor_id:   The motor port of the LCN module
+        :param    float                 position:   The position to set in percentage (0..100)
+        :param    MotorPositioningMode  mode:       The motor positioning mode
 
         :return:  The PCK command (without address header) as text
         :rtype:   str
         """
         if mode not in (
-            lcn_defs.MotorPositionMode.BS4,
-            lcn_defs.MotorPositionMode.MODULE,
+            lcn_defs.MotorPositioningMode.BS4,
+            lcn_defs.MotorPositioningMode.MODULE,
         ):
-            raise ValueError("Wrong motor position mode")
+            raise ValueError("Wrong motor positioning mode")
 
         if 0 > motor_id > 3:
             raise ValueError("Invalid motor")
 
-        if mode == lcn_defs.MotorPositionMode.BS4:
+        if mode == lcn_defs.MotorPositioningMode.BS4:
             new_motor_id = [1, 2, 5, 6][motor_id]
 
             action = f"GP{int(2 * position):03d}"
 
             return f"R8M{new_motor_id}{action}"
-        elif mode == lcn_defs.MotorPositionMode.MODULE:
+        elif mode == lcn_defs.MotorPositioningMode.MODULE:
             return ""
 
         return ""
@@ -809,16 +809,11 @@ class PckGenerator:
             if var_id == 0:
                 # Old command for variable 1 / T-var (compatible with all
                 # modules)
-                pck = "Z" f"{'A' if value >= 0 else 'S'}" f"{abs(value)}"
+                pck = f"Z{'A' if value >= 0 else 'S'}{abs(value)}"
             else:
                 # New command for variable 1-12 (compatible with all modules,
                 # since LCN-PCHK 2.8)
-                pck = (
-                    "Z"
-                    f"{'+' if value >= 0 else '-'}"
-                    f"{var_id + 1:03d}"
-                    f"{abs(value)}"
-                )
+                pck = f"Z{'+' if value >= 0 else '-'}{var_id + 1:03d}{abs(value)}"
             return pck
 
         set_point_id = lcn_defs.Var.to_set_point_id(var)
@@ -1132,7 +1127,7 @@ class PckGenerator:
             raise ValueError("Wrong target_value.")
         if (target_value != -1) and (software_serial >= 0x120301) and state:
             reg_byte = reg_id * 0x40 + 0x07
-            return f"X2{0x1E:03d}{reg_byte:03d}{int(2*target_value):03d}"
+            return f"X2{0x1E:03d}{reg_byte:03d}{int(2 * target_value):03d}"
         return f"RE{'A' if reg_id == 0 else 'B'}X{'S' if state else 'A'}"
 
     @staticmethod

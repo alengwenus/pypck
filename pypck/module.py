@@ -236,13 +236,13 @@ class AbstractConnection:
         self,
         motor_id: int,
         state: lcn_defs.MotorStateModifier,
-        mode: lcn_defs.MotorPositionMode = lcn_defs.MotorPositionMode.NONE,
+        mode: lcn_defs.MotorPositioningMode = lcn_defs.MotorPositioningMode.NONE,
     ) -> bool:
         """Send a command to control motors via relays.
 
-        :param    int                 motor_id:    The motor id 0..3
-        :param    MotorStateModifier  state:       The modifier for the
-        :param    MotorPositionMode   mode:        The motor position mode (ooptional)
+        :param    int                    motor_id:    The motor id 0..3
+        :param    MotorStateModifier     state:       The modifier for the
+        :param    MotorPositioningMode   mode:        The motor positioning mode (ooptional)
 
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
@@ -255,13 +255,13 @@ class AbstractConnection:
         self,
         motor_id: int,
         position: float,
-        mode: lcn_defs.MotorPositionMode,
+        mode: lcn_defs.MotorPositioningMode,
     ) -> bool:
         """Control motor position via relays and BS4.
 
-        :param    int               motor_id:   The motor port of the LCN module
-        :param    float             position:   The position to set in percentage (0..100)
-        :param    MotorPositionMode mode:       The motor position mode
+        :param    int                  motor_id:   The motor port of the LCN module
+        :param    float                position:   The position to set in percentage (0..100)
+        :param    MotorPositioningMode mode:       The motor positioning mode
 
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool

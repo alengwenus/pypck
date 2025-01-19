@@ -1274,13 +1274,13 @@ class MotorReverseTime(Enum):
     For modules with FW<190C the release time has to be specified.
     """
 
-    RT70 = auto()  # 70ms
-    RT600 = auto()  # 600ms
-    RT1200 = auto()  # 1200ms
+    RT70 = "RT70"  # 70ms
+    RT600 = "RT600"  # 600ms
+    RT1200 = "RT1200"  # 1200ms
 
 
-class MotorPositionMode(Enum):
-    """Motor position mode used in LCN commands."""
+class MotorPositioningMode(Enum):
+    """Motor positioning mode used in LCN commands."""
 
     NONE = "NONE"
     BS4 = "BS4"
