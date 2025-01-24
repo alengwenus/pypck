@@ -1066,8 +1066,8 @@ class ModStatusSceneOutputs(ModInput):
         if matcher:
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             scene_id = int(matcher.group("scene_id"))
-            values = [int(matcher.group(f"output{i+1:d}")) for i in range(4)]
-            ramps = [int(matcher.group(f"ramp{i+1:d}")) for i in range(4)]
+            values = [int(matcher.group(f"output{i + 1:d}")) for i in range(4)]
+            ramps = [int(matcher.group(f"ramp{i + 1:d}")) for i in range(4)]
             return [ModStatusSceneOutputs(addr, scene_id, values, ramps)]
 
         return None
@@ -1111,7 +1111,7 @@ class ModStatusMotorPositionBS4(ModInput):
             motor_status_inputs: list[Input] = []
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             for idx in (1, 2):
-                motor = int(matcher.group(f"motor{idx}_id")) - 1
+                motor = matcher.group(f"motor{idx}_id")
                 position = matcher.group(f"position{idx}")
                 limit = matcher.group(f"limit{idx}")
                 time_down = matcher.group(f"time_down{idx}")
@@ -1120,7 +1120,7 @@ class ModStatusMotorPositionBS4(ModInput):
                 motor_status_inputs.append(
                     ModStatusMotorPositionBS4(
                         addr,
-                        motor,
+                        int(motor) - 1,
                         int(position),
                         None if limit == "?" else int(limit),
                         None if time_down == "?" else int(time_down),
@@ -1128,6 +1128,50 @@ class ModStatusMotorPositionBS4(ModInput):
                     )
                 )
             return motor_status_inputs
+
+        return None
+
+
+class ModStatusMotorPositionModule(ModInput):
+    """Status of motor positions received from an LCN module."""
+
+    def __init__(
+        self,
+        physical_source_addr: LcnAddr,
+        motor: int,
+        position: int,
+    ):
+        """Construct ModInput object."""
+        super().__init__(physical_source_addr)
+        self.motor = motor
+        self.position = position
+        self.position_percent = self.position
+
+    @staticmethod
+    def try_parse(data: str) -> list[Input] | None:
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_STATUS_MOTOR_POSITION_MODULE.match(data)
+        if matcher:
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            motor = matcher.group("motor_id")
+            position = matcher.group("position")
+
+            return [
+                ModStatusMotorPositionModule(
+                    addr,
+                    int(motor) - 1,
+                    int(position),
+                )
+            ]
 
         return None
 
@@ -1302,6 +1346,7 @@ class InputParser:
         ModStatusAccessControl,
         ModStatusSceneOutputs,
         ModStatusMotorPositionBS4,
+        ModStatusMotorPositionModule,
         ModSendCommandHost,
         ModSendKeysHost,
         Unknown,

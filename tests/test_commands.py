@@ -230,6 +230,18 @@ COMMANDS = {
         PckGenerator.request_motor_position_status,
         1,
     ),
+    "JH050001": (
+        PckGenerator.control_motor_relays_position,
+        0,
+        50,
+        MotorPositioningMode.MODULE,
+    ),
+    "JH100004": (
+        PckGenerator.control_motor_relays_position,
+        2,
+        100,
+        MotorPositioningMode.MODULE,
+    ),
     "X2001228000": (
         PckGenerator.control_motor_outputs,
         MotorStateModifier.UP,

@@ -192,13 +192,19 @@ class PckParser:
         r"(?P<code1>\d{3})(?P<code2>\d{3})(?P<code3>\d{3})"
     )
 
-    # Pattern to parse motor position status messages.
+    # Pattern to parse motor position BS4 status messages.
     PATTERN_STATUS_MOTOR_POSITION_BS4 = re.compile(
         r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\."
-        r"RM(?P<motor1_id>\d)(?P<position1>[0-9]{3})(?P<limit1>[0-9]{3}|\?)"
+        r"RM(?P<motor1_id>[1-4])(?P<position1>[0-9]{3})(?P<limit1>[0-9]{3}|\?)"
         r"(?P<time_down1>[0-9]{5}|\?)(?P<time_up1>[0-9]{5}|\?)"
-        r"RM(?P<motor2_id>\d)(?P<position2>[0-9]{3})(?P<limit2>[0-9]{3}|\?)"
+        r"RM(?P<motor2_id>[1-4])(?P<position2>[0-9]{3})(?P<limit2>[0-9]{3}|\?)"
         r"(?P<time_down2>[0-9]{5}|\?)(?P<time_up2>[0-9]{5}|\?)"
+    )
+
+    # Pattern to parse motor position module status messages.
+    PATTERN_STATUS_MOTOR_POSITION_MODULE = re.compile(
+        r":M(?P<seg_id>\d{3})(?P<mod_id>\d{3})"
+        r"P(?P<motor_id>[1-4])(?P<position>[0-9]{3})"
     )
 
     @staticmethod
@@ -578,6 +584,7 @@ class PckGenerator:
             return f"R8M{new_motor_id}{action}"
 
         # lcn_defs.MotorPositioningMode.NONE
+        # lcn_defs.MotorPositioningMode.MODULE
         if state == lcn_defs.MotorStateModifier.UP:
             port_onoff = lcn_defs.RelayStateModifier.ON
             port_updown = lcn_defs.RelayStateModifier.OFF
@@ -611,7 +618,7 @@ class PckGenerator:
     def control_motor_relays_position(
         motor_id: int, position: float, mode: lcn_defs.MotorPositioningMode
     ) -> str:
-        """Control motor position via relays and BS4.
+        """Control motor position via relays and BS4 or module.
 
         :param    int                   motor_id:   The motor port of the LCN module
         :param    float                 position:   The position to set in percentage (0..100)
@@ -631,12 +638,11 @@ class PckGenerator:
 
         if mode == lcn_defs.MotorPositioningMode.BS4:
             new_motor_id = [1, 2, 5, 6][motor_id]
-
             action = f"GP{int(2 * position):03d}"
-
             return f"R8M{new_motor_id}{action}"
         elif mode == lcn_defs.MotorPositioningMode.MODULE:
-            return ""
+            new_motor_id = 1 << motor_id
+            return f"JH{position:03d}{new_motor_id:03d}"
 
         return ""
 

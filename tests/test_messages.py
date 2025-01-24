@@ -16,6 +16,7 @@ from pypck.inputs import (
     ModStatusKeyLocks,
     ModStatusLedsAndLogicOps,
     ModStatusMotorPositionBS4,
+    ModStatusMotorPositionModule,
     ModStatusOutput,
     ModStatusOutputNative,
     ModStatusRelays,
@@ -258,6 +259,14 @@ MESSAGES = {
             None,
             None,
         ),
+    ],
+    # Status motor position via module
+    ":M000010P1050": [
+        (
+            ModStatusMotorPositionModule,
+            0,
+            50,
+        )
     ],
     # SKH
     "+M004000010.SKH000001": [(ModSendCommandHost, (0, 1))],
