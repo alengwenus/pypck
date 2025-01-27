@@ -254,8 +254,8 @@ MESSAGES = {
         (
             ModStatusMotorPositionBS4,
             1,
-            200,
-            200,
+            0,
+            0,
             None,
             None,
         ),

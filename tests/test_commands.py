@@ -213,7 +213,7 @@ COMMANDS = {
     "R8M1GP200": (
         PckGenerator.control_motor_relays_position,
         0,
-        100.0,
+        0.0,
         MotorPositioningMode.BS4,
     ),
     "R8M6GP100": (

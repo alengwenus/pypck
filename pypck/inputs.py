@@ -1074,7 +1074,10 @@ class ModStatusSceneOutputs(ModInput):
 
 
 class ModStatusMotorPositionBS4(ModInput):
-    """Status of motor positions (if BS4 connected) received from an LCN module."""
+    """Status of motor positions (if BS4 connected) received from an LCN module.
+
+    Position is given in percentage: 0: cover closed, 100: cover open.
+    """
 
     def __init__(
         self,
@@ -1121,8 +1124,8 @@ class ModStatusMotorPositionBS4(ModInput):
                     ModStatusMotorPositionBS4(
                         addr,
                         int(motor) - 1,
-                        int(position),
-                        None if limit == "?" else int(limit),
+                        200 - int(position),
+                        None if limit == "?" else 200 - int(limit),
                         None if time_down == "?" else int(time_down),
                         None if time_up == "?" else int(time_up),
                     )
