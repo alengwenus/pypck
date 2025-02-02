@@ -164,12 +164,22 @@ class PchkConnectionManager:
                     break
 
                 try:
-                    message = data.decode().split(PckGenerator.TERMINATION)[0]
+                    message = data.decode("utf-8").split(PckGenerator.TERMINATION)[0]
                 except UnicodeDecodeError as err:
-                    _LOGGER.warning(
-                        "PCK decoding error: %s - skipping received PCK message", err
-                    )
-                    continue
+                    try:
+                        message = data.decode("cp1250").split(PckGenerator.TERMINATION)[
+                            0
+                        ]
+                        _LOGGER.warning(
+                            "Incorrect PCK encoding detected, possibly caused by LinHK: %s - PCK recovered using cp1250",
+                            err,
+                        )
+                    except UnicodeDecodeError as err2:
+                        _LOGGER.warning(
+                            "PCK decoding error: %s - skipping received PCK message",
+                            err2,
+                        )
+                        continue
                 await self.process_message(message)
         except asyncio.CancelledError:
             pass
