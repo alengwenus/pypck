@@ -65,10 +65,7 @@ class TimeoutRetryHandler:
     async def done(self) -> None:
         """Signal the completion of the TimeoutRetryHandler."""
         if self.timeout_loop_task is not None:
-            try:
-                await self.timeout_loop_task
-            except asyncio.CancelledError:
-                pass
+            await self.timeout_loop_task
 
     async def cancel(self) -> None:
         """Must be called when a response (requested or not) is received."""
