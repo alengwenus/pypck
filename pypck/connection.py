@@ -181,10 +181,8 @@ class PchkConnectionManager:
                         )
                         continue
                 await self.process_message(message)
-        except asyncio.CancelledError:
-            pass
-
-        _LOGGER.debug("Read data loop closed")
+        finally:
+            _LOGGER.debug("Read data loop closed")
 
     async def write_data_loop(self) -> None:
         """Processes queue and writes data."""
@@ -204,14 +202,11 @@ class PchkConnectionManager:
                 self.writer.write(data)
                 await self.writer.drain()
                 self.last_bus_activity = time.time()
-        except asyncio.CancelledError:
-            pass
-
-        # empty the queue
-        while not self.buffer.empty():
-            await self.buffer.get()
-
-        _LOGGER.debug("Write data loop closed")
+        finally:
+            # empty the queue
+            while not self.buffer.empty():
+                await self.buffer.get()
+            _LOGGER.debug("Write data loop closed")
 
     # Open/close connection, authentication & setup.
 
