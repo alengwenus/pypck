@@ -1074,14 +1074,17 @@ class ModStatusSceneOutputs(ModInput):
 
 
 class ModStatusMotorPositionBS4(ModInput):
-    """Status of motor positions (if BS4 connected) received from an LCN module."""
+    """Status of motor positions (if BS4 connected) received from an LCN module.
+
+    Position and limit is in percent. 0%: cover closed, 100%: cover open.
+    """
 
     def __init__(
         self,
         physical_source_addr: LcnAddr,
         motor: int,
-        position: int,
-        limit: int | None = None,
+        position: float,
+        limit: float | None = None,
         time_down: int | None = None,
         time_up: int | None = None,
     ):
@@ -1089,7 +1092,6 @@ class ModStatusMotorPositionBS4(ModInput):
         super().__init__(physical_source_addr)
         self.motor = motor
         self.position = position
-        self.position_percent = self.position // 2
         self.limit = limit
         self.time_down = time_down
         self.time_up = time_up
@@ -1121,8 +1123,8 @@ class ModStatusMotorPositionBS4(ModInput):
                     ModStatusMotorPositionBS4(
                         addr,
                         int(motor) - 1,
-                        200 - int(position),
-                        None if limit == "?" else 200 - int(limit),
+                        (200 - int(position)) / 2,
+                        None if limit == "?" else (200 - int(limit)) / 2,
                         None if time_down == "?" else int(time_down),
                         None if time_up == "?" else int(time_up),
                     )
@@ -1133,19 +1135,21 @@ class ModStatusMotorPositionBS4(ModInput):
 
 
 class ModStatusMotorPositionModule(ModInput):
-    """Status of motor positions received from an LCN module."""
+    """Status of motor positions received from an LCN module.
+
+    Position is in percent. 0%: cover closed, 100%: cover open.
+    """
 
     def __init__(
         self,
         physical_source_addr: LcnAddr,
         motor: int,
-        position: int,
+        position: float,
     ):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.motor = motor
         self.position = position
-        self.position_percent = self.position
 
     @staticmethod
     def try_parse(data: str) -> list[Input] | None:
@@ -1169,7 +1173,7 @@ class ModStatusMotorPositionModule(ModInput):
                 ModStatusMotorPositionModule(
                     addr,
                     int(motor) - 1,
-                    int(position),
+                    float(position),
                 )
             ]
 

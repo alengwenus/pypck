@@ -246,7 +246,7 @@ MESSAGES = {
         (
             ModStatusMotorPositionBS4,
             0,
-            100,
+            50,
             None,
             12345,
             67890,
