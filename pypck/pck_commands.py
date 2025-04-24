@@ -192,6 +192,21 @@ class PckParser:
         r"(?P<code1>\d{3})(?P<code2>\d{3})(?P<code3>\d{3})"
     )
 
+    # Pattern to parse motor position BS4 status messages.
+    PATTERN_STATUS_MOTOR_POSITION_BS4 = re.compile(
+        r"=M(?P<seg_id>\d{3})(?P<mod_id>\d{3})\."
+        r"RM(?P<motor1_id>[1-4])(?P<position1>[0-9]{3})(?P<limit1>[0-9]{3}|\?)"
+        r"(?P<time_down1>[0-9]{5}|\?)(?P<time_up1>[0-9]{5}|\?)"
+        r"RM(?P<motor2_id>[1-4])(?P<position2>[0-9]{3})(?P<limit2>[0-9]{3}|\?)"
+        r"(?P<time_down2>[0-9]{5}|\?)(?P<time_up2>[0-9]{5}|\?)"
+    )
+
+    # Pattern to parse motor position module status messages.
+    PATTERN_STATUS_MOTOR_POSITION_MODULE = re.compile(
+        r":M(?P<seg_id>\d{3})(?P<mod_id>\d{3})"
+        r"P(?P<motor_id>[1-4])(?P<position>[0-9]{3})"
+    )
+
     @staticmethod
     def get_boolean_value(input_byte: int) -> list[bool]:
         """Get boolean representation for the given byte.
@@ -536,44 +551,117 @@ class PckGenerator:
         return ret
 
     @staticmethod
-    def control_motors_relays(states: list[lcn_defs.MotorStateModifier]) -> str:
+    def control_motor_relays(
+        motor_id: int,
+        state: lcn_defs.MotorStateModifier,
+        mode: lcn_defs.MotorPositioningMode = lcn_defs.MotorPositioningMode.NONE,
+    ) -> str:
         """Generate a command to control motors via relays.
 
-        :param    MotorStateModifier    states:    The 4 modifiers for the
-                                                   motor states as a list
+        :param    int                 motor_id:    The motor id 0..3
+        :param    MotorStateModifier  state:       The modifier for the
+                                                   motor state
         :return:  The PCK command (without address header) as text
         :rtype:   str
         """
-        if len(states) != 4:
-            raise ValueError("Invalid states length.")
-        ret = "R8"
-        for state in states:
-            if state == lcn_defs.MotorStateModifier.UP:
-                ret += lcn_defs.RelayStateModifier.ON.value
-                ret += lcn_defs.RelayStateModifier.OFF.value
-            elif state == lcn_defs.MotorStateModifier.DOWN:
-                ret += lcn_defs.RelayStateModifier.ON.value
-                ret += lcn_defs.RelayStateModifier.ON.value
-            elif state == lcn_defs.MotorStateModifier.STOP:
-                ret += lcn_defs.RelayStateModifier.OFF.value
-                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
-            elif state == lcn_defs.MotorStateModifier.TOGGLEONOFF:
-                ret += lcn_defs.RelayStateModifier.TOGGLE.value
-                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
-            elif state == lcn_defs.MotorStateModifier.TOGGLEDIR:
-                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
-                ret += lcn_defs.RelayStateModifier.TOGGLE.value
-            elif state == lcn_defs.MotorStateModifier.CYCLE:
-                ret += lcn_defs.RelayStateModifier.TOGGLE.value
-                ret += lcn_defs.RelayStateModifier.TOGGLE.value
-            elif state == lcn_defs.MotorStateModifier.NOCHANGE:
-                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
-                ret += lcn_defs.RelayStateModifier.NOCHANGE.value
+        if 0 > motor_id > 3:
+            raise ValueError("Invalid motor id")
 
-        return ret
+        if mode not in lcn_defs.MotorPositioningMode:
+            raise ValueError("Wrong motor position mode")
+
+        if mode == lcn_defs.MotorPositioningMode.BS4:
+            if state not in [
+                lcn_defs.MotorStateModifier.UP,
+                lcn_defs.MotorStateModifier.DOWN,
+            ]:
+                raise ValueError("Invalid motor state for BS4 mode")
+
+            new_motor_id = [1, 2, 5, 6][motor_id]
+            # AU=window open / cover down
+            # ZU=window close / cover up
+            action = "AU" if state == lcn_defs.MotorStateModifier.DOWN else "ZU"
+            return f"R8M{new_motor_id}{action}"
+
+        # lcn_defs.MotorPositioningMode.NONE
+        # lcn_defs.MotorPositioningMode.MODULE
+        if state == lcn_defs.MotorStateModifier.UP:
+            port_onoff = lcn_defs.RelayStateModifier.ON
+            port_updown = lcn_defs.RelayStateModifier.OFF
+        elif state == lcn_defs.MotorStateModifier.DOWN:
+            port_onoff = lcn_defs.RelayStateModifier.ON
+            port_updown = lcn_defs.RelayStateModifier.ON
+        elif state == lcn_defs.MotorStateModifier.STOP:
+            port_onoff = lcn_defs.RelayStateModifier.OFF
+            port_updown = lcn_defs.RelayStateModifier.NOCHANGE
+        elif state == lcn_defs.MotorStateModifier.TOGGLEONOFF:
+            port_onoff = lcn_defs.RelayStateModifier.TOGGLE
+            port_updown = lcn_defs.RelayStateModifier.NOCHANGE
+        elif state == lcn_defs.MotorStateModifier.TOGGLEDIR:
+            port_onoff = lcn_defs.RelayStateModifier.NOCHANGE
+            port_updown = lcn_defs.RelayStateModifier.TOGGLE
+        elif state == lcn_defs.MotorStateModifier.CYCLE:
+            port_onoff = lcn_defs.RelayStateModifier.TOGGLE
+            port_updown = lcn_defs.RelayStateModifier.TOGGLE
+        elif state == lcn_defs.MotorStateModifier.NOCHANGE:
+            port_onoff = lcn_defs.RelayStateModifier.NOCHANGE
+            port_updown = lcn_defs.RelayStateModifier.NOCHANGE
+        else:
+            raise ValueError("Invalid motor state")
+
+        states = [lcn_defs.RelayStateModifier.NOCHANGE] * 8
+        states[motor_id * 2] = port_onoff
+        states[motor_id * 2 + 1] = port_updown
+        return "R8" + "".join([state.value for state in states])
 
     @staticmethod
-    def control_motors_outputs(
+    def control_motor_relays_position(
+        motor_id: int, position: float, mode: lcn_defs.MotorPositioningMode
+    ) -> str:
+        """Control motor position via relays and BS4 or module.
+
+        :param    int                   motor_id:   The motor port of the LCN module
+        :param    float                 position:   The position to set in percentage (0..100)
+                                                    (0: closed cover, 100: open cover)
+        :param    MotorPositioningMode  mode:       The motor positioning mode
+
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        if mode not in (
+            lcn_defs.MotorPositioningMode.BS4,
+            lcn_defs.MotorPositioningMode.MODULE,
+        ):
+            raise ValueError("Wrong motor positioning mode")
+
+        if 0 > motor_id > 3:
+            raise ValueError("Invalid motor")
+
+        if mode == lcn_defs.MotorPositioningMode.BS4:
+            new_motor_id = [1, 2, 5, 6][motor_id]
+            action = f"GP{int(200 - 2 * position):03d}"
+            return f"R8M{new_motor_id}{action}"
+        elif mode == lcn_defs.MotorPositioningMode.MODULE:
+            new_motor_id = 1 << motor_id
+            return f"JH{position:03d}{new_motor_id:03d}"
+
+        return ""
+
+    @staticmethod
+    def request_motor_position_status(motor_pair: int) -> str:
+        """Generate a motor position status request for BS4.
+
+        :param    int    motor_pair:    Motor pair 0: 1, 2; 1: 3, 4
+
+        :return:    The PCK command (without address header) as text
+        :rtype:    str
+        """
+        if motor_pair not in [0, 1]:
+            raise ValueError("Invalid motor_pair.")
+        return f"R8M{7 if motor_pair else 3}P{motor_pair + 1}"
+
+    @staticmethod
+    def control_motor_outputs(
         state: lcn_defs.MotorStateModifier,
         reverse_time: lcn_defs.MotorReverseTime | None = None,
     ) -> str:
@@ -728,16 +816,11 @@ class PckGenerator:
             if var_id == 0:
                 # Old command for variable 1 / T-var (compatible with all
                 # modules)
-                pck = "Z" f"{'A' if value >= 0 else 'S'}" f"{abs(value)}"
+                pck = f"Z{'A' if value >= 0 else 'S'}{abs(value)}"
             else:
                 # New command for variable 1-12 (compatible with all modules,
                 # since LCN-PCHK 2.8)
-                pck = (
-                    "Z"
-                    f"{'+' if value >= 0 else '-'}"
-                    f"{var_id + 1:03d}"
-                    f"{abs(value)}"
-                )
+                pck = f"Z{'+' if value >= 0 else '-'}{var_id + 1:03d}{abs(value)}"
             return pck
 
         set_point_id = lcn_defs.Var.to_set_point_id(var)
@@ -1051,7 +1134,7 @@ class PckGenerator:
             raise ValueError("Wrong target_value.")
         if (target_value != -1) and (software_serial >= 0x120301) and state:
             reg_byte = reg_id * 0x40 + 0x07
-            return f"X2{0x1E:03d}{reg_byte:03d}{int(2*target_value):03d}"
+            return f"X2{0x1E:03d}{reg_byte:03d}{int(2 * target_value):03d}"
         return f"RE{'A' if reg_id == 0 else 'B'}X{'S' if state else 'A'}"
 
     @staticmethod

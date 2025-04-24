@@ -398,8 +398,10 @@ class ModSn(ModInput):
                 ValueError
             ):  # unconventional manufacturer code (e.g., due to LinHK VM)
                 manu = 0xFF
-                _LOGGER.debug(
-                    "Unconventional manufacturer code: %s. Defaulting to 0x%02X",
+                _LOGGER.warning(
+                    "Unconventional manufacturer code for module (S%d, M%d): %s. Defaulting to 0x%02X",
+                    addr.seg_id,
+                    addr.addr_id,
                     matcher.group("manu"),
                     manu,
                 )
@@ -596,7 +598,10 @@ class ModStatusOutputNative(ModInput):
 
 
 class ModStatusRelays(ModInput):
-    """Status of 8 relays received from an LCN module."""
+    """Status of 8 relays received from an LCN module.
+
+    Includes helper functions for motor states based on LCN wiring.
+    """
 
     def __init__(self, physical_source_addr: LcnAddr, states: list[bool]):
         """Construct ModInput object."""
@@ -613,6 +618,43 @@ class ModStatusRelays(ModInput):
         :rtype:   bool
         """
         return self.states[relay_id]
+
+    def get_motor_onoff_relay(self, motor_id: int) -> int:
+        """Get the motor on/off relay id."""
+        if 0 > motor_id > 3:
+            raise ValueError("Motor id must be in range 0..3")
+        return motor_id * 2
+
+    def get_motor_updown_relay(self, motor_id: int) -> int:
+        """Get the motor up/down relay id."""
+        if 0 > motor_id > 3:
+            raise ValueError("Motor id must be in range 0..3")
+        return motor_id * 2 + 1
+
+    def motor_is_on(self, motor_id: int) -> bool:
+        """Check if a motor is on."""
+        return self.states[self.get_motor_onoff_relay(motor_id)]
+
+    def is_opening(self, motor_id: int) -> bool:
+        """Check if a motor is opening."""
+        if self.motor_is_on(motor_id):
+            return not self.states[self.get_motor_updown_relay(motor_id)]
+        return False
+
+    def is_closing(self, motor_id: int) -> bool:
+        """Check if a motor is closing."""
+        if self.motor_is_on(motor_id):
+            return self.states[self.get_motor_updown_relay(motor_id)]
+        return False
+
+    def is_assumed_closed(self, motor_id: int) -> bool:
+        """Check if a motor is closed.
+
+        The closed state is assumed if the motor direction is down and the motor is switched off."
+        """
+        if not self.motor_is_on(motor_id):
+            return self.states[self.get_motor_updown_relay(motor_id)]
+        return False
 
     @staticmethod
     def try_parse(data: str) -> list[Input] | None:
@@ -1024,9 +1066,116 @@ class ModStatusSceneOutputs(ModInput):
         if matcher:
             addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
             scene_id = int(matcher.group("scene_id"))
-            values = [int(matcher.group(f"output{i+1:d}")) for i in range(4)]
-            ramps = [int(matcher.group(f"ramp{i+1:d}")) for i in range(4)]
+            values = [int(matcher.group(f"output{i + 1:d}")) for i in range(4)]
+            ramps = [int(matcher.group(f"ramp{i + 1:d}")) for i in range(4)]
             return [ModStatusSceneOutputs(addr, scene_id, values, ramps)]
+
+        return None
+
+
+class ModStatusMotorPositionBS4(ModInput):
+    """Status of motor positions (if BS4 connected) received from an LCN module.
+
+    Position and limit is in percent. 0%: cover closed, 100%: cover open.
+    """
+
+    def __init__(
+        self,
+        physical_source_addr: LcnAddr,
+        motor: int,
+        position: float,
+        limit: float | None = None,
+        time_down: int | None = None,
+        time_up: int | None = None,
+    ):
+        """Construct ModInput object."""
+        super().__init__(physical_source_addr)
+        self.motor = motor
+        self.position = position
+        self.limit = limit
+        self.time_down = time_down
+        self.time_up = time_up
+
+    @staticmethod
+    def try_parse(data: str) -> list[Input] | None:
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_STATUS_MOTOR_POSITION_BS4.match(data)
+        if matcher:
+            motor_status_inputs: list[Input] = []
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            for idx in (1, 2):
+                motor = matcher.group(f"motor{idx}_id")
+                position = matcher.group(f"position{idx}")
+                limit = matcher.group(f"limit{idx}")
+                time_down = matcher.group(f"time_down{idx}")
+                time_up = matcher.group(f"time_up{idx}")
+
+                motor_status_inputs.append(
+                    ModStatusMotorPositionBS4(
+                        addr,
+                        int(motor) - 1,
+                        (200 - int(position)) / 2,
+                        None if limit == "?" else (200 - int(limit)) / 2,
+                        None if time_down == "?" else int(time_down),
+                        None if time_up == "?" else int(time_up),
+                    )
+                )
+            return motor_status_inputs
+
+        return None
+
+
+class ModStatusMotorPositionModule(ModInput):
+    """Status of motor positions received from an LCN module.
+
+    Position is in percent. 0%: cover closed, 100%: cover open.
+    """
+
+    def __init__(
+        self,
+        physical_source_addr: LcnAddr,
+        motor: int,
+        position: float,
+    ):
+        """Construct ModInput object."""
+        super().__init__(physical_source_addr)
+        self.motor = motor
+        self.position = position
+
+    @staticmethod
+    def try_parse(data: str) -> list[Input] | None:
+        """Try to parse the given input text.
+
+        Will return a list of parsed Inputs. The list might be empty (but not
+        null).
+
+        :param    data    str:    The input data received from LCN-PCHK
+
+        :return:            The parsed Inputs (never null)
+        :rtype:             List with instances of :class:`~pypck.input.Input`
+        """
+        matcher = PckParser.PATTERN_STATUS_MOTOR_POSITION_MODULE.match(data)
+        if matcher:
+            addr = LcnAddr(int(matcher.group("seg_id")), int(matcher.group("mod_id")))
+            motor = matcher.group("motor_id")
+            position = matcher.group("position")
+
+            return [
+                ModStatusMotorPositionModule(
+                    addr,
+                    int(motor) - 1,
+                    float(position),
+                )
+            ]
 
         return None
 
@@ -1200,6 +1349,8 @@ class InputParser:
         ModStatusKeyLocks,
         ModStatusAccessControl,
         ModStatusSceneOutputs,
+        ModStatusMotorPositionBS4,
+        ModStatusMotorPositionModule,
         ModSendCommandHost,
         ModSendKeysHost,
         Unknown,

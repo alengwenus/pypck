@@ -466,6 +466,17 @@ class StatusRequestsHandler:
             self.request_status_relays_timeout
         )
 
+        # Motor positions request status (1, 2 and 3, 4)
+        self.request_status_motor_positions = []
+        for motor_pair in range(2):
+            trh = TimeoutRetryHandler(
+                self.task_registry, -1, self.settings["MAX_STATUS_POLLED_VALUEAGE"]
+            )
+            trh.set_timeout_callback(
+                self.request_status_motor_positions_timeout, motor_pair
+            )
+            self.request_status_motor_positions.append(trh)
+
         # Binary-sensors request status (all 8)
         self.request_status_bin_sensors = TimeoutRetryHandler(
             self.task_registry, -1, self.settings["MAX_STATUS_EVENTBASED_VALUEAGE"]
@@ -542,6 +553,15 @@ class StatusRequestsHandler:
                 False, PckGenerator.request_relays_status()
             )
 
+    async def request_status_motor_positions_timeout(
+        self, failed: bool = False, motor_pair: int = 0
+    ) -> None:
+        """Is called on motor position status request timeout."""
+        if not failed:
+            await self.addr_conn.send_command(
+                False, PckGenerator.request_motor_position_status(motor_pair)
+            )
+
     async def request_status_bin_sensors_timeout(self, failed: bool = False) -> None:
         """Is called on binary sensor status request timeout."""
         if not failed:
@@ -589,7 +609,7 @@ class StatusRequestsHandler:
                 False, PckGenerator.request_key_lock_status()
             )
 
-    async def activate(self, item: Any) -> None:
+    async def activate(self, item: Any, option: Any = None) -> None:
         """Activate status requests for given item."""
         await self.addr_conn.conn.segment_scan_completed_event.wait()
         # handle variables independently
@@ -608,6 +628,8 @@ class StatusRequestsHandler:
             self.request_status_relays.activate()
         elif item in lcn_defs.MotorPort:
             self.request_status_relays.activate()
+            if option == lcn_defs.MotorPositioningMode.BS4:
+                self.request_status_motor_positions[item.value // 2].activate()
         elif item in lcn_defs.BinSensorPort:
             self.request_status_bin_sensors.activate()
         elif item in lcn_defs.LedPort:
@@ -627,6 +649,7 @@ class StatusRequestsHandler:
             await self.request_status_relays.cancel()
         elif item in lcn_defs.MotorPort:
             await self.request_status_relays.cancel()
+            await self.request_status_motor_positions[item.value // 2].cancel()
         elif item in lcn_defs.BinSensorPort:
             await self.request_status_bin_sensors.cancel()
         elif item in lcn_defs.LedPort:

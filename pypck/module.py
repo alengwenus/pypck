@@ -232,22 +232,46 @@ class AbstractConnection:
             self.wants_ack, PckGenerator.control_relays_timer(time_msec, states)
         )
 
-    async def control_motors_relays(
-        self, states: list[lcn_defs.MotorStateModifier]
+    async def control_motor_relays(
+        self,
+        motor_id: int,
+        state: lcn_defs.MotorStateModifier,
+        mode: lcn_defs.MotorPositioningMode = lcn_defs.MotorPositioningMode.NONE,
     ) -> bool:
         """Send a command to control motors via relays.
 
-        :param    states:   The 4 modifiers for the cover states as a list
-        :type     states:   list(:class: `~pypck.lcn-defs.MotorStateModifier`)
+        :param    int                    motor_id:    The motor id 0..3
+        :param    MotorStateModifier     state:       The modifier for the
+        :param    MotorPositioningMode   mode:        The motor positioning mode (ooptional)
 
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
         return await self.send_command(
-            self.wants_ack, PckGenerator.control_motors_relays(states)
+            self.wants_ack, PckGenerator.control_motor_relays(motor_id, state, mode)
         )
 
-    async def control_motors_outputs(
+    async def control_motor_relays_position(
+        self,
+        motor_id: int,
+        position: float,
+        mode: lcn_defs.MotorPositioningMode,
+    ) -> bool:
+        """Control motor position via relays and BS4.
+
+        :param    int                  motor_id:   The motor port of the LCN module
+        :param    float                position:   The position to set in percentage (0..100)
+        :param    MotorPositioningMode mode:       The motor positioning mode
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.send_command(
+            self.wants_ack,
+            PckGenerator.control_motor_relays_position(motor_id, position, mode),
+        )
+
+    async def control_motor_outputs(
         self,
         state: lcn_defs.MotorStateModifier,
         reverse_time: lcn_defs.MotorReverseTime | None = None,
@@ -264,7 +288,7 @@ class AbstractConnection:
         """
         return await self.send_command(
             self.wants_ack,
-            PckGenerator.control_motors_outputs(state, reverse_time),
+            PckGenerator.control_motor_outputs(state, reverse_time),
         )
 
     async def activate_scene(
@@ -736,7 +760,7 @@ class GroupConnection(AbstractConnection):
             result &= await super().var_rel(var, value, software_serial=0)
         return result
 
-    async def activate_status_request_handler(self, item: Any) -> None:
+    async def activate_status_request_handler(self, item: Any, option: Any) -> None:
         """Activate a specific TimeoutRetryHandler for status requests."""
         await self.conn.segment_scan_completed_event.wait()
 
@@ -849,9 +873,13 @@ class ModuleConnection(AbstractConnection):
         """
         await self.acknowledges.put(code)
 
-    async def activate_status_request_handler(self, item: Any) -> None:
+    async def activate_status_request_handler(
+        self, item: Any, option: Any = None
+    ) -> None:
         """Activate a specific TimeoutRetryHandler for status requests."""
-        self.task_registry.create_task(self.status_requests_handler.activate(item))
+        self.task_registry.create_task(
+            self.status_requests_handler.activate(item, option)
+        )
 
     async def activate_status_request_handlers(self) -> None:
         """Activate all TimeoutRetryHandlers for status requests."""

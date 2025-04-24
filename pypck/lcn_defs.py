@@ -228,7 +228,7 @@ def ramp_value_to_time(ramp_value: int) -> int:
     :rtype: int
     """
     if not 0 <= ramp_value <= 250:
-        raise ValueError("Ramp value has to be in range 0..250.")
+        raise ValueError("Ramp value has to be in range 0..250")
 
     if ramp_value < 10:
         times = [0, 250, 500, 660, 1000, 1400, 2000, 3000, 4000, 5000]
@@ -250,7 +250,7 @@ def time_to_native_value(time_msec: int) -> int:
     :rtype: int
     """
     if not 0 <= time_msec <= 240960:
-        raise ValueError("Time has to be in range 0..240960ms.")
+        raise ValueError("Time has to be in range 0..240960ms")
     time_scaled = time_msec / (1000 * 0.03 * 32.0) + 1.0
 
     pre_decimal = int(time_scaled).bit_length() - 1
@@ -264,7 +264,6 @@ def native_value_to_time(value: int) -> int:
     """Convert native LCN value to time.
 
     Scales the given byte value (0..255) to a time value in milliseconds.
-    Inverse to time_to_native_value().
 
     :param    int    value:    Duration of timer in native LCN units
 
@@ -272,13 +271,46 @@ def native_value_to_time(value: int) -> int:
     :rtype: int
     """
     if not 0 <= value <= 255:
-        raise ValueError("Value has to be in range 0..255.")
+        raise ValueError("Value has to be in range 0..255")
     pre_decimal = value // 32
     decimal = value / 32 - pre_decimal
 
     time_scaled = (1 << pre_decimal) * (decimal + 1)
 
     time_msec = (time_scaled - 1) * 1000 * 0.03 * 32
+    return int(time_msec)
+
+
+def motor_position_time_to_native_value(time_msec: int) -> int:
+    """Convert time to native LCN time value.
+
+    Scales the given time value in milliseconds to a two-byte value.
+
+    :param    int    time_msec:    Duration of timer in milliseconds (1001..65535000)
+
+    :returns: The duration in native LCN units
+    :rtype: int
+    """
+    if not 1001 <= time_msec <= 65535000:
+        raise ValueError("Time has to be in range 1001..65535000ms")
+    value = 0xFFFF * 1000 / time_msec
+    return int(value)
+
+
+def native_value_to_motor_position_time(value: int) -> int:
+    """Convert native LCN value to time.
+
+    Scales the given two-byte value (1..65535) to a time value in milliseconds.
+
+    :param    int    value:    Duration of timer in native LCN units
+
+    :returns: The duration in milliseconds
+    :rtype: int
+    """
+    if not 1 <= value <= 0xFFFF:
+        raise ValueError("Value has to be in range 1..65535")
+
+    time_msec = 0xFFFF * 1000 / value
     return int(time_msec)
 
 
@@ -1242,9 +1274,18 @@ class MotorReverseTime(Enum):
     For modules with FW<190C the release time has to be specified.
     """
 
-    RT70 = auto()  # 70ms
-    RT600 = auto()  # 600ms
-    RT1200 = auto()  # 1200ms
+    RT70 = "RT70"  # 70ms
+    RT600 = "RT600"  # 600ms
+    RT1200 = "RT1200"  # 1200ms
+
+
+class MotorPositioningMode(Enum):
+    """Motor positioning mode used in LCN commands."""
+
+    NONE = "NONE"
+    BS4 = "BS4"
+    MODULE = "MODULE"
+    # EMULATED = "EMULATED"
 
 
 class RelVarRef(Enum):
