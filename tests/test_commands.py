@@ -210,6 +210,24 @@ COMMANDS = {
         0,
         MotorStateModifier.CYCLE,
     ),
+    "R8M1ZU": (
+        PckGenerator.control_motor_relays,
+        0,
+        MotorStateModifier.UP,
+        MotorPositioningMode.BS4,
+    ),
+    "R8M2AU": (
+        PckGenerator.control_motor_relays,
+        1,
+        MotorStateModifier.DOWN,
+        MotorPositioningMode.BS4,
+    ),
+    "R8M5ST": (
+        PckGenerator.control_motor_relays,
+        2,
+        MotorStateModifier.STOP,
+        MotorPositioningMode.BS4,
+    ),
     "R8M1GP200": (
         PckGenerator.control_motor_relays_position,
         0,

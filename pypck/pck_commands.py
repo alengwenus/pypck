@@ -571,16 +571,18 @@ class PckGenerator:
             raise ValueError("Wrong motor position mode")
 
         if mode == lcn_defs.MotorPositioningMode.BS4:
-            if state not in [
-                lcn_defs.MotorStateModifier.UP,
-                lcn_defs.MotorStateModifier.DOWN,
-            ]:
+            new_motor_id = [1, 2, 5, 6][motor_id]
+            if state == lcn_defs.MotorStateModifier.DOWN:
+                # AU=window open / cover down
+                action = "AU"
+            elif state == lcn_defs.MotorStateModifier.UP:
+                # ZU=window close / cover up
+                action = "ZU"
+            elif state == lcn_defs.MotorStateModifier.STOP:
+                action = "ST"
+            else:
                 raise ValueError("Invalid motor state for BS4 mode")
 
-            new_motor_id = [1, 2, 5, 6][motor_id]
-            # AU=window open / cover down
-            # ZU=window close / cover up
-            action = "AU" if state == lcn_defs.MotorStateModifier.DOWN else "ZU"
             return f"R8M{new_motor_id}{action}"
 
         # lcn_defs.MotorPositioningMode.NONE
