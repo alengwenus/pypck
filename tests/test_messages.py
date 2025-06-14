@@ -261,11 +261,11 @@ MESSAGES = {
         ),
     ],
     # Status motor position via module
-    ":M000010P1050": [
+    ":M000010P1070": [
         (
             ModStatusMotorPositionModule,
             0,
-            50,
+            30,
         )
     ],
     # SKH

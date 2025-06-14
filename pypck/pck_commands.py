@@ -645,7 +645,7 @@ class PckGenerator:
             return f"R8M{new_motor_id}{action}"
         elif mode == lcn_defs.MotorPositioningMode.MODULE:
             new_motor_id = 1 << motor_id
-            return f"JH{position:03d}{new_motor_id:03d}"
+            return f"JH{100 - position:03d}{new_motor_id:03d}"
 
         return ""
 

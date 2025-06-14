@@ -1173,7 +1173,7 @@ class ModStatusMotorPositionModule(ModInput):
                 ModStatusMotorPositionModule(
                     addr,
                     int(motor) - 1,
-                    float(position),
+                    100 - float(position),
                 )
             ]
 
