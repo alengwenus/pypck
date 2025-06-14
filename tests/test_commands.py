@@ -254,10 +254,10 @@ COMMANDS = {
         50,
         MotorPositioningMode.MODULE,
     ),
-    "JH100004": (
+    "JH030004": (
         PckGenerator.control_motor_relays_position,
         2,
-        100,
+        70,
         MotorPositioningMode.MODULE,
     ),
     "X2001228000": (
