@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
@@ -22,6 +23,8 @@ from pypck.request_handlers import (
 
 if TYPE_CHECKING:
     from pypck.connection import PchkConnectionManager
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class AbstractConnection:
@@ -1051,3 +1054,137 @@ class ModuleConnection(AbstractConnection):
         static_groups = await self.static_groups_request_handler.request()
         dynamic_groups = await self.dynamic_groups_request_handler.request()
         return static_groups | dynamic_groups
+
+    # Request methods
+
+    async def input_received(
+        self, expected_input_type: type[inputs.ModInput], **input_args: Any
+    ) -> inputs.ModInput | None:
+        """Wait for a specific input to be received."""
+        return_input: inputs.ModInput | None = None
+        input_event = asyncio.Event()
+
+        def input_callback(inp: inputs.Input) -> None:
+            nonlocal return_input
+            if isinstance(inp, expected_input_type):
+                if all(
+                    getattr(inp, attr) == value for attr, value in input_args.items()
+                ):
+                    input_event.set()
+                    return_input = inp
+
+        unregister_callback = self.register_for_inputs(input_callback)
+
+        try:
+            async with asyncio.timeout(self.conn.settings["DEFAULT_TIMEOUT"]):
+                await input_event.wait()
+        except asyncio.TimeoutError:
+            pass
+        unregister_callback()
+        return return_input
+
+    async def request_status_output(
+        self, output_port: lcn_defs.OutputPort
+    ) -> inputs.ModStatusOutput | None:
+        """Request the status of an output port from a module."""
+        inp = None
+        for _ in range(self.conn.settings["NUM_TRIES"]):
+            await self.send_command(
+                False, PckGenerator.request_output_status(output_port.value)
+            )
+            if inp := cast(
+                inputs.ModStatusOutput,
+                await self.input_received(
+                    inputs.ModStatusOutput, output_id=output_port.value
+                ),
+            ):
+                break
+        return inp
+
+    async def request_status_relays(self) -> inputs.ModStatusRelays | None:
+        """Request the status of relays from a module."""
+        inp = None
+        for _ in range(self.conn.settings["NUM_TRIES"]):
+            await self.send_command(False, PckGenerator.request_relays_status())
+            if inp := cast(
+                inputs.ModStatusRelays,
+                await self.input_received(inputs.ModStatusRelays),
+            ):
+                break
+        return inp
+
+    async def request_status_motor_position(
+        self, motor: lcn_defs.MotorPort, positioning_mode: lcn_defs.MotorPositioningMode
+    ) -> inputs.ModStatusMotorPositionBS4 | None:
+        """Request the status of motor positions from a module."""
+        if positioning_mode != lcn_defs.MotorPositioningMode.BS4:
+            _LOGGER.debug("Only BS4 mode is supported for motor position requests.")
+            return None
+        inp = None
+        for _ in range(self.conn.settings["NUM_TRIES"]):
+            await self.send_command(
+                False, PckGenerator.request_motor_position_status(motor.value // 2)
+            )
+            if inp := cast(
+                inputs.ModStatusMotorPositionBS4,
+                await self.input_received(
+                    inputs.ModStatusMotorPositionBS4, motor=motor.value
+                ),
+            ):
+                break
+        return inp
+
+    async def request_status_binary_sensors(self) -> inputs.ModInput | None:
+        """Request the status of binary sensors from a module."""
+        inp = None
+        for _ in range(self.conn.settings["NUM_TRIES"]):
+            await self.send_command(False, PckGenerator.request_bin_sensors_status())
+            if inp := await self.input_received(inputs.ModStatusBinSensors):
+                break
+        return inp
+
+    async def request_status_variable(
+        self, variable: lcn_defs.Var
+    ) -> inputs.ModStatusVar | None:
+        """Request the status of a variable from a module."""
+        inp = None
+        for _ in range(self.conn.settings["NUM_TRIES"]):
+            await self.send_command(
+                False,
+                PckGenerator.request_var_status(variable, self.software_serial),
+            )
+            if inp := cast(
+                inputs.ModStatusVar,
+                await self.input_received(inputs.ModStatusVar, var=variable),
+            ):
+                if inp.orig_var == lcn_defs.Var.UNKNOWN:
+                    # Response without type (%Msssaaa.wwwww)
+                    inp.var = variable
+                break
+        return inp
+
+    async def request_status_led_and_logic_ops(
+        self,
+    ) -> inputs.ModStatusLedsAndLogicOps | None:
+        """Request the status of LEDs and logic operations from a module."""
+        inp = None
+        for _ in range(self.conn.settings["NUM_TRIES"]):
+            await self.send_command(False, PckGenerator.request_leds_and_logic_ops())
+            if inp := cast(
+                inputs.ModStatusLedsAndLogicOps,
+                await self.input_received(inputs.ModStatusLedsAndLogicOps),
+            ):
+                break
+        return inp
+
+    async def request_status_locked_keys(self) -> inputs.ModStatusKeyLocks | None:
+        """Request the status of locked keys from a module."""
+        inp = None
+        for _ in range(self.conn.settings["NUM_TRIES"]):
+            await self.send_command(False, PckGenerator.request_key_lock_status())
+            if inp := cast(
+                inputs.ModStatusKeyLocks,
+                await self.input_received(inputs.ModStatusKeyLocks),
+            ):
+                break
+        return inp
