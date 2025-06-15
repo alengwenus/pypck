@@ -1460,7 +1460,9 @@ default_connection_settings: dict[str, Any] = {
     # been send which
     # potentially changed
     # that status
+    "MAX_RESPONSE_AGE": 60,  # Age in seconds after which stored responses are purged
     "BUS_IDLE_TIME": 0.05,  # Time to wait for message traffic before sending
     "PING_SEND_DELAY": 600,  # The default timeout for pings sent to PCHK
     "PING_RECV_TIMEOUT": 10,  # The default timeout for pings expected from PCHK
+    "PING_MODULE_TIMEOUT": 60,  # The delay before sending a ping to a module
 }

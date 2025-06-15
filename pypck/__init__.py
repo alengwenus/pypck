@@ -8,7 +8,6 @@ from pypck import (
     lcn_defs,
     module,
     pck_commands,
-    timeout_retry,
 )
 
 __all__ = [
@@ -19,5 +18,4 @@ __all__ = [
     "lcn_defs",
     "module",
     "pck_commands",
-    "timeout_retry",
 ]

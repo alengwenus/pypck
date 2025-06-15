@@ -3,25 +3,175 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable, Sequence
+import logging
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
 from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
 from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
-from pypck.request_handlers import (
-    CommentRequestHandler,
-    GroupMembershipDynamicRequestHandler,
-    GroupMembershipStaticRequestHandler,
-    NameRequestHandler,
-    OemTextRequestHandler,
-    SerialRequestHandler,
-    StatusRequestsHandler,
-)
 
 if TYPE_CHECKING:
     from pypck.connection import PchkConnectionManager
+
+_LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class Serials:
+    """Data class for module serials."""
+
+    hardware_serial: int
+    manu: int
+    software_serial: int
+    hardware_type: lcn_defs.HardwareType
+
+
+@dataclass(unsafe_hash=True)
+class StatusRequest:
+    """Data class for status requests."""
+
+    type: type[inputs.Input]  # Type of the input expected as response
+    parameters: frozenset[tuple[str, Any]]  # {(parameter_name, parameter_value)}
+    timestamp: float = field(
+        compare=False
+    )  # timestamp the response was received; -1=no timestamp
+    response: asyncio.Future[inputs.Input] = field(
+        compare=False
+    )  # Future to hold the response input object
+
+
+class StatusRequester:
+    """Handling of status requests."""
+
+    def __init__(
+        self,
+        device_connection: ModuleConnection,
+    ) -> None:
+        """Initialize the context."""
+        self.device_connection = device_connection
+        self.last_requests: set[StatusRequest] = set()
+        self.unregister_inputs = self.device_connection.register_for_inputs(
+            self.input_callback
+        )
+        self.max_response_age = self.device_connection.conn.settings["MAX_RESPONSE_AGE"]
+        # asyncio.get_running_loop().create_task(self.prune_loop())
+
+    async def prune_loop(self) -> None:
+        """Periodically prune old status requests."""
+        while True:
+            await asyncio.sleep(self.max_response_age)
+            self.prune_status_requests()
+
+    def prune_status_requests(self) -> None:
+        """Prune old status requests."""
+        entries_to_remove = {
+            request
+            for request in self.last_requests
+            if asyncio.get_running_loop().time() - request.timestamp
+            > self.max_response_age
+        }
+        for entry in entries_to_remove:
+            entry.response.cancel()
+        self.last_requests.difference_update(entries_to_remove)
+
+    def get_status_requests(
+        self,
+        request_type: type[inputs.Input],
+        parameters: frozenset[tuple[str, Any]] | None = None,
+        max_age: int = 0,
+    ) -> list[StatusRequest]:
+        """Get the status requests for the given type and parameters."""
+        if parameters is None:
+            parameters = frozenset()
+        loop = asyncio.get_running_loop()
+        results = [
+            request
+            for request in self.last_requests
+            if request.type == request_type
+            and parameters.issubset(request.parameters)
+            and (
+                (request.timestamp == -1)
+                or (max_age == -1)
+                or (loop.time() - request.timestamp < max_age)
+            )
+        ]
+        results.sort(key=lambda request: request.timestamp, reverse=True)
+        return results
+
+    def input_callback(self, inp: inputs.Input) -> None:
+        """Handle incoming inputs and set the result for the corresponding requests."""
+        requests = [
+            request
+            for request in self.get_status_requests(type(inp))
+            if all(
+                getattr(inp, parameter_name) == parameter_value
+                for parameter_name, parameter_value in request.parameters
+            )
+        ]
+        for request in requests:
+            if request.response.done() or request.response.cancelled():
+                continue
+            request.timestamp = asyncio.get_running_loop().time()
+            request.response.set_result(inp)
+
+    async def request(
+        self,
+        response_type: type[inputs.Input],
+        request_pck: str,
+        request_acknowledge: bool = False,
+        max_age: int = 0,  # -1: no age limit / infinite age
+        **request_kwargs: Any,
+    ) -> inputs.Input | None:
+        """Execute a status request and wait for the response."""
+        parameters = frozenset(request_kwargs.items())
+
+        # check if we already have a received response for the current request
+        if requests := self.get_status_requests(response_type, parameters, max_age):
+            try:
+                async with asyncio.timeout(
+                    self.device_connection.conn.settings["DEFAULT_TIMEOUT"]
+                ):
+                    return await requests[0].response
+            except asyncio.TimeoutError:
+                return None
+            except asyncio.CancelledError:
+                return None
+
+        # no stored request or forced request: set up a new request
+        request = StatusRequest(
+            response_type,
+            frozenset(request_kwargs.items()),
+            -1,
+            asyncio.get_running_loop().create_future(),
+        )
+
+        self.last_requests.discard(request)
+        self.last_requests.add(request)
+        result = None
+        # send the request up to NUM_TRIES and wait for response future completion
+        for _ in range(self.device_connection.conn.settings["NUM_TRIES"]):
+            await self.device_connection.send_command(request_acknowledge, request_pck)
+
+            try:
+                async with asyncio.timeout(
+                    self.device_connection.conn.settings["DEFAULT_TIMEOUT"]
+                ):
+                    # Need to shield the future. Otherwise it would get cancelled.
+                    result = await asyncio.shield(request.response)
+                    break
+            except asyncio.TimeoutError:
+                continue
+            except asyncio.CancelledError:
+                break
+
+        # if we got no results, remove the request from the set
+        if result is None:
+            request.response.cancel()
+            self.last_requests.discard(request)
+        return result
 
 
 class AbstractConnection:
@@ -34,17 +184,14 @@ class AbstractConnection:
         self,
         conn: PchkConnectionManager,
         addr: LcnAddr,
-        software_serial: int | None = None,
         wants_ack: bool = False,
     ) -> None:
         """Construct AbstractConnection instance."""
         self.conn = conn
         self.addr = addr
         self.wants_ack = wants_ack
-
-        if software_serial is None:
-            software_serial = -1
-        self._software_serial: int = software_serial
+        self.serials = Serials(-1, -1, -1, lcn_defs.HardwareType.UNKNOWN)
+        self._serials_known = asyncio.Event()
 
     @property
     def task_registry(self) -> TaskRegistry:
@@ -65,47 +212,6 @@ class AbstractConnection:
     def is_group(self) -> int:
         """Return whether this connection refers to a module or group."""
         return self.addr.is_group
-
-    @property
-    def serials(self) -> dict[str, int | lcn_defs.HardwareType]:
-        """Return serial numbers of a module."""
-        return {
-            "hardware_serial": -1,
-            "manu": -1,
-            "software_serial": self._software_serial,
-            "hardware_type": lcn_defs.HardwareType.UNKNOWN,
-        }
-
-    @property
-    def hardware_serial(self) -> int:
-        """Get the hardware serial number."""
-        return cast(int, self.serials["hardware_serial"])
-
-    @property
-    def software_serial(self) -> int:
-        """Get the software serial number."""
-        return cast(int, self.serials["software_serial"])
-
-    @property
-    def manu(self) -> int:
-        """Get the manufacturing number."""
-        return cast(int, self.serials["manu"])
-
-    @property
-    def hardware_type(self) -> lcn_defs.HardwareType:
-        """Get the hardware type."""
-        return cast(lcn_defs.HardwareType, self.serials["hardware_type"])
-
-    @property
-    def serial_known(self) -> Awaitable[bool]:
-        """Check if serials have already been received from module."""
-        event = asyncio.Event()
-        event.set()
-        return event.wait()
-
-    async def request_serials(self) -> dict[str, int | lcn_defs.HardwareType]:
-        """Request module serials."""
-        return self.serials
 
     async def send_command(self, wants_ack: bool, pck: str | bytes) -> bool:
         """Send a command to the module represented by this class.
@@ -138,9 +244,7 @@ class AbstractConnection:
             self.wants_ack, PckGenerator.dim_output(output_id, percent, ramp)
         )
 
-    async def dim_all_outputs(
-        self, percent: float, ramp: int, software_serial: int | None = None
-    ) -> bool:
+    async def dim_all_outputs(self, percent: float, ramp: int) -> bool:
         """Send a dim command for all output-ports.
 
         :param    float  percent:           Brightness in percent 0..100
@@ -151,13 +255,10 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        if software_serial is None:
-            await self.serial_known
-            software_serial = self.software_serial
-
+        await self._serials_known.wait()
         return await self.send_command(
             self.wants_ack,
-            PckGenerator.dim_all_outputs(percent, ramp, software_serial),
+            PckGenerator.dim_all_outputs(percent, ramp, self.serials.software_serial),
         )
 
     async def rel_output(self, output_id: int, percent: float) -> bool:
@@ -404,7 +505,7 @@ class AbstractConnection:
         var: lcn_defs.Var,
         value: float | lcn_defs.VarValue,
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
-        software_serial: int | None = None,
+        software_serial: int = -1,
     ) -> bool:
         """Send a command to set the absolute value to a variable.
 
@@ -418,9 +519,9 @@ class AbstractConnection:
         if not isinstance(value, lcn_defs.VarValue):
             value = lcn_defs.VarValue.from_var_unit(value, unit, True)
 
-        if software_serial is None:
-            await self.serial_known
-            software_serial = self.software_serial
+        if software_serial == -1:
+            await self._serials_known.wait()
+            software_serial = self.serials.software_serial
 
         if lcn_defs.Var.to_var_id(var) != -1:
             # Absolute commands for variables 1-12 are not supported
@@ -433,23 +534,25 @@ class AbstractConnection:
             # We fake the missing command by using reset and relative
             # commands.
             success = await self.send_command(
-                self.wants_ack, PckGenerator.var_reset(var, software_serial)
+                self.wants_ack,
+                PckGenerator.var_reset(var, software_serial),
             )
             if not success:
                 return False
             return await self.send_command(
                 self.wants_ack,
                 PckGenerator.var_rel(
-                    var, lcn_defs.RelVarRef.CURRENT, value.to_native(), software_serial
+                    var,
+                    lcn_defs.RelVarRef.CURRENT,
+                    value.to_native(),
+                    software_serial,
                 ),
             )
         return await self.send_command(
             self.wants_ack, PckGenerator.var_abs(var, value.to_native())
         )
 
-    async def var_reset(
-        self, var: lcn_defs.Var, software_serial: int | None = None
-    ) -> bool:
+    async def var_reset(self, var: lcn_defs.Var, software_serial: int = -1) -> bool:
         """Send a command to reset the variable value.
 
         :param    Var    var:    Variable
@@ -457,9 +560,9 @@ class AbstractConnection:
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
-        if software_serial is None:
-            await self.serial_known
-            software_serial = self.software_serial
+        if software_serial == -1:
+            await self._serials_known.wait()
+            software_serial = self.serials.software_serial
 
         return await self.send_command(
             self.wants_ack, PckGenerator.var_reset(var, software_serial)
@@ -471,7 +574,7 @@ class AbstractConnection:
         value: float | lcn_defs.VarValue,
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         value_ref: lcn_defs.RelVarRef = lcn_defs.RelVarRef.CURRENT,
-        software_serial: int | None = None,
+        software_serial: int = -1,
     ) -> bool:
         """Send a command to change the value of a variable.
 
@@ -486,9 +589,9 @@ class AbstractConnection:
         if not isinstance(value, lcn_defs.VarValue):
             value = lcn_defs.VarValue.from_var_unit(value, unit, False)
 
-        if software_serial is None:
-            await self.serial_known
-            software_serial = self.software_serial
+        if software_serial == -1:
+            await self._serials_known.wait()
+            software_serial = self.serials.software_serial
 
         return await self.send_command(
             self.wants_ack,
@@ -510,7 +613,7 @@ class AbstractConnection:
         return await self.send_command(
             self.wants_ack,
             PckGenerator.lock_regulator(
-                reg_id, state, self.software_serial, target_value
+                reg_id, state, self.serials.software_serial, target_value
             ),
         )
 
@@ -678,18 +781,18 @@ class GroupConnection(AbstractConnection):
         self,
         conn: PchkConnectionManager,
         addr: LcnAddr,
-        software_serial: int = 0x170206,
     ):
         """Construct GroupConnection instance."""
         assert addr.is_group
-        super().__init__(conn, addr, software_serial=software_serial, wants_ack=False)
+        super().__init__(conn, addr, wants_ack=False)
+        self._serials_known.set()
 
     async def var_abs(
         self,
         var: lcn_defs.Var,
         value: float | lcn_defs.VarValue,
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
-        software_serial: int | None = None,
+        software_serial: int = -1,
     ) -> bool:
         """Send a command to set the absolute value to a variable.
 
@@ -737,7 +840,7 @@ class GroupConnection(AbstractConnection):
         value: float | lcn_defs.VarValue,
         unit: lcn_defs.VarUnit = lcn_defs.VarUnit.NATIVE,
         value_ref: lcn_defs.RelVarRef = lcn_defs.RelVarRef.CURRENT,
-        software_serial: int | None = None,
+        software_serial: int = -1,
     ) -> bool:
         """Send a command to change the value of a variable.
 
@@ -763,15 +866,6 @@ class GroupConnection(AbstractConnection):
             result &= await super().var_rel(var, value, software_serial=0)
         return result
 
-    async def activate_status_request_handler(self, item: Any, option: Any) -> None:
-        """Activate a specific TimeoutRetryHandler for status requests."""
-        await self.conn.segment_scan_completed_event.wait()
-
-    async def activate_status_request_handlers(self) -> None:
-        """Activate all TimeoutRetryHandlers for status requests."""
-        # self.request_serial.activate()
-        await self.conn.segment_scan_completed_event.wait()
-
 
 class ModuleConnection(AbstractConnection):
     """Organizes communication with a specific module or group."""
@@ -780,17 +874,12 @@ class ModuleConnection(AbstractConnection):
         self,
         conn: PchkConnectionManager,
         addr: LcnAddr,
-        activate_status_requests: bool = False,
         has_s0_enabled: bool = False,
-        software_serial: int | None = None,
         wants_ack: bool = True,
     ):
         """Construct ModuleConnection instance."""
         assert not addr.is_group
-        super().__init__(
-            conn, addr, software_serial=software_serial, wants_ack=wants_ack
-        )
-        self.activate_status_requests = activate_status_requests
+        super().__init__(conn, addr, wants_ack=wants_ack)
         self.has_s0_enabled = has_s0_enabled
 
         self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
@@ -798,34 +887,15 @@ class ModuleConnection(AbstractConnection):
         # List of queued acknowledge codes from the LCN modules.
         self.acknowledges: asyncio.Queue[int] = asyncio.Queue()
 
-        # RequestHandlers
-        num_tries: int = self.conn.settings["NUM_TRIES"]
-        timeout: int = self.conn.settings["DEFAULT_TIMEOUT"]
+        # StatusRequester
+        self.status_requester = StatusRequester(self)
 
-        # Serial Number request
-        self.serials_request_handler = SerialRequestHandler(
-            self,
-            num_tries,
-            timeout,
-            software_serial=software_serial,
-        )
+        self.task_registry.create_task(self.request_module_properties())
 
-        # Name, Comment, OemText requests
-        self.name_request_handler = NameRequestHandler(self, num_tries, timeout)
-        self.comment_request_handler = CommentRequestHandler(self, num_tries, timeout)
-        self.oem_text_request_handler = OemTextRequestHandler(self, num_tries, timeout)
-
-        # Group membership request
-        self.static_groups_request_handler = GroupMembershipStaticRequestHandler(
-            self, num_tries, timeout
-        )
-        self.dynamic_groups_request_handler = GroupMembershipDynamicRequestHandler(
-            self, num_tries, timeout
-        )
-
-        self.status_requests_handler = StatusRequestsHandler(self)
-        if self.activate_status_requests:
-            self.task_registry.create_task(self.activate_status_request_handlers())
+    async def request_module_properties(self) -> None:
+        """Request module properties (serials)."""
+        self.serials = await self.request_serials()
+        self._serials_known.set()
 
     async def send_command(self, wants_ack: bool, pck: str | bytes) -> bool:
         """Send a command to the module represented by this class.
@@ -837,6 +907,10 @@ class ModuleConnection(AbstractConnection):
             return await self.send_command_with_ack(pck)
 
         return await super().send_command(False, pck)
+
+    async def serials_known(self) -> None:
+        """Wait until the serials of this module are known."""
+        await self._serials_known.wait()
 
     # ##
     # ## Retry logic if an acknowledge is requested
@@ -876,37 +950,6 @@ class ModuleConnection(AbstractConnection):
         """
         await self.acknowledges.put(code)
 
-    async def activate_status_request_handler(
-        self, item: Any, option: Any = None
-    ) -> None:
-        """Activate a specific TimeoutRetryHandler for status requests."""
-        self.task_registry.create_task(
-            self.status_requests_handler.activate(item, option)
-        )
-
-    async def activate_status_request_handlers(self) -> None:
-        """Activate all TimeoutRetryHandlers for status requests."""
-        self.task_registry.create_task(
-            self.status_requests_handler.activate_all(activate_s0=self.has_s0_enabled)
-        )
-
-    async def cancel_status_request_handler(self, item: Any) -> None:
-        """Cancel a specific TimeoutRetryHandler for status requests."""
-        await self.status_requests_handler.cancel(item)
-
-    async def cancel_status_request_handlers(self) -> None:
-        """Canecl all TimeoutRetryHandlers for status requests."""
-        await self.status_requests_handler.cancel_all()
-
-    async def cancel_requests(self) -> None:
-        """Cancel all TimeoutRetryHandlers."""
-        await self.cancel_status_request_handlers()
-        await self.serials_request_handler.cancel()
-        await self.name_request_handler.cancel()
-        await self.oem_text_request_handler.cancel()
-        await self.static_groups_request_handler.cancel()
-        await self.dynamic_groups_request_handler.cancel()
-
     def set_s0_enabled(self, s0_enabled: bool) -> None:
         """Set the activation status for S0 variables.
 
@@ -944,14 +987,10 @@ class ModuleConnection(AbstractConnection):
             await self.on_ack(inp.code)
             return None
 
-        # handle typeless variable responses
-        if isinstance(inp, inputs.ModStatusVar):
-            inp = self.status_requests_handler.preprocess_modstatusvar(inp)
-
         for input_callback in self.input_callbacks:
             input_callback(inp)
 
-    def dump_details(self) -> dict[str, Any]:
+    async def dump_details(self) -> dict[str, Any]:
         """Dump detailed information about this module."""
         is_local_segment = self.addr.seg_id in (0, self.conn.local_seg_id)
         return {
@@ -959,95 +998,232 @@ class ModuleConnection(AbstractConnection):
             "address": self.addr.addr_id,
             "is_local_segment": is_local_segment,
             "serials": {
-                "hardware_serial": f"{self.hardware_serial:10X}",
-                "manu": f"{self.manu:02X}",
-                "software_serial": f"{self.software_serial:06X}",
-                "hardware_type": f"{self.hardware_type.value:d}",
-                "hardware_name": self.hardware_type.description,
+                "hardware_serial": f"{self.serials.hardware_serial:10X}",
+                "manu": f"{self.serials.manu:02X}",
+                "software_serial": f"{self.serials.software_serial:06X}",
+                "hardware_type": f"{self.serials.hardware_type.value:d}",
+                "hardware_name": self.serials.hardware_type.description,
             },
-            "name": self.name,
-            "comment": self.comment,
-            "oem_text": self.oem_text,
+            "name": await self.request_name(),
+            "comment": await self.request_comment(),
+            "oem_text": await self.request_oem_text(),
             "groups": {
-                "static": sorted(addr.addr_id for addr in self.static_groups),
-                "dynamic": sorted(addr.addr_id for addr in self.dynamic_groups),
+                "static": sorted(
+                    addr.addr_id
+                    for addr in await self.request_group_memberships(dynamic=False)
+                ),
+                "dynamic": sorted(
+                    addr.addr_id
+                    for addr in await self.request_group_memberships(dynamic=True)
+                ),
             },
         }
 
-    # ##
-    # ## Requests
-    # ##
+    # Request status methods
 
-    # ## properties
+    async def request_status_output(
+        self, output_port: lcn_defs.OutputPort, max_age: int = 0
+    ) -> inputs.ModStatusOutput | None:
+        """Request the status of an output port from a module."""
+        result = await self.status_requester.request(
+            response_type=inputs.ModStatusOutput,
+            request_pck=PckGenerator.request_output_status(output_id=output_port.value),
+            max_age=max_age,
+            output_id=output_port.value,
+        )
 
-    @property
-    def serials(self) -> dict[str, int | lcn_defs.HardwareType]:
-        """Return serials number information."""
-        return self.serials_request_handler.serials
+        return cast(inputs.ModStatusOutput, result)
 
-    @property
-    def name(self) -> str:
-        """Return stored name."""
-        return self.name_request_handler.name
+    async def request_status_relays(
+        self, max_age: int = 0
+    ) -> inputs.ModStatusRelays | None:
+        """Request the status of relays from a module."""
+        result = await self.status_requester.request(
+            response_type=inputs.ModStatusRelays,
+            request_pck=PckGenerator.request_relays_status(),
+            max_age=max_age,
+        )
 
-    @property
-    def comment(self) -> str:
-        """Return stored comments."""
-        return self.comment_request_handler.comment
+        return cast(inputs.ModStatusRelays, result)
 
-    @property
-    def oem_text(self) -> list[str]:
-        """Return stored OEM text."""
-        return self.oem_text_request_handler.oem_text
+    async def request_status_motor_position(
+        self,
+        motor: lcn_defs.MotorPort,
+        positioning_mode: lcn_defs.MotorPositioningMode,
+        max_age: int = 0,
+    ) -> inputs.ModStatusMotorPositionBS4 | None:
+        """Request the status of motor positions from a module."""
+        if positioning_mode != lcn_defs.MotorPositioningMode.BS4:
+            _LOGGER.debug("Only BS4 mode is supported for motor position requests.")
+            return None
 
-    @property
-    def static_groups(self) -> set[LcnAddr]:
-        """Return static group membership."""
-        return self.static_groups_request_handler.groups
+        result = await self.status_requester.request(
+            response_type=inputs.ModStatusMotorPositionBS4,
+            request_pck=PckGenerator.request_motor_position_status(motor.value // 2),
+            max_age=max_age,
+            motor=motor.value,
+        )
 
-    @property
-    def dynamic_groups(self) -> set[LcnAddr]:
-        """Return dynamic group membership."""
-        return self.dynamic_groups_request_handler.groups
+        return cast(inputs.ModStatusMotorPositionBS4, result)
 
-    @property
-    def groups(self) -> set[LcnAddr]:
-        """Return static and dynamic group membership."""
-        return self.static_groups | self.dynamic_groups
+    async def request_status_binary_sensors(
+        self, max_age: int = 0
+    ) -> inputs.ModStatusBinSensors | None:
+        """Request the status of binary sensors from a module."""
+        result = await self.status_requester.request(
+            response_type=inputs.ModStatusBinSensors,
+            request_pck=PckGenerator.request_bin_sensors_status(),
+            max_age=max_age,
+        )
 
-    # ## future properties
+        return cast(inputs.ModStatusBinSensors, result)
 
-    @property
-    def serial_known(self) -> Awaitable[bool]:
-        """Check if serials have already been received from module."""
-        return self.serials_request_handler.serial_known.wait()
+    async def request_status_variable(
+        self,
+        variable: lcn_defs.Var,
+        max_age: int = 0,
+    ) -> inputs.ModStatusVar | None:
+        """Request the status of a variable from a module."""
+        # do not use buffered response for old modules
+        # (variable response is typeless)
+        if self.serials.software_serial < 0x170206:
+            max_age = 0
 
-    async def request_serials(self) -> dict[str, int | lcn_defs.HardwareType]:
+        result = await self.status_requester.request(
+            response_type=inputs.ModStatusVar,
+            request_pck=PckGenerator.request_var_status(
+                variable, self.serials.software_serial
+            ),
+            max_age=max_age,
+            var=variable,
+        )
+
+        result = cast(inputs.ModStatusVar, result)
+        if result:
+            if result.orig_var == lcn_defs.Var.UNKNOWN:
+                # Response without type (%Msssaaa.wwwww)
+                result.var = variable
+        return result
+
+    async def request_status_led_and_logic_ops(
+        self, max_age: int = 0
+    ) -> inputs.ModStatusLedsAndLogicOps | None:
+        """Request the status of LEDs and logic operations from a module."""
+        result = await self.status_requester.request(
+            response_type=inputs.ModStatusLedsAndLogicOps,
+            request_pck=PckGenerator.request_leds_and_logic_ops(),
+            max_age=max_age,
+        )
+
+        return cast(inputs.ModStatusLedsAndLogicOps, result)
+
+    async def request_status_locked_keys(
+        self, max_age: int = 0
+    ) -> inputs.ModStatusKeyLocks | None:
+        """Request the status of locked keys from a module."""
+        result = await self.status_requester.request(
+            response_type=inputs.ModStatusKeyLocks,
+            request_pck=PckGenerator.request_key_lock_status(),
+            max_age=max_age,
+        )
+
+        return cast(inputs.ModStatusKeyLocks, result)
+
+    # Request module properties
+
+    async def request_serials(self, max_age: int = 0) -> Serials:
         """Request module serials."""
-        return await self.serials_request_handler.request()
+        result = cast(
+            inputs.ModSn | None,
+            await self.status_requester.request(
+                response_type=inputs.ModSn,
+                request_pck=PckGenerator.request_serial(),
+                max_age=max_age,
+            ),
+        )
 
-    async def request_name(self) -> str:
+        if result is None:
+            return Serials(-1, -1, -1, lcn_defs.HardwareType.UNKNOWN)
+        return Serials(
+            result.hardware_serial,
+            result.manu,
+            result.software_serial,
+            result.hardware_type,
+        )
+
+    async def request_name(self, max_age: int = 0) -> str | None:
         """Request module name."""
-        return await self.name_request_handler.request()
+        coros = [
+            self.status_requester.request(
+                response_type=inputs.ModNameComment,
+                request_pck=PckGenerator.request_name(block_id),
+                max_age=max_age,
+                command="N",
+                block_id=block_id,
+            )
+            for block_id in [0, 1]
+        ]
 
-    async def request_comment(self) -> str:
-        """Request comments from a module."""
-        return await self.comment_request_handler.request()
+        coro_results = [await coro for coro in coros]
+        if not all(coro_results):
+            return None
+        results = cast(list[inputs.ModNameComment], coro_results)
+        name = "".join([result.text for result in results if result])
+        return name
 
-    async def request_oem_text(self) -> list[str]:
-        """Request OEM text from a module."""
-        return await self.oem_text_request_handler.request()
+    async def request_comment(self, max_age: int = 0) -> str | None:
+        """Request module name."""
+        coros = [
+            self.status_requester.request(
+                response_type=inputs.ModNameComment,
+                request_pck=PckGenerator.request_comment(block_id),
+                max_age=max_age,
+                command="K",
+                block_id=block_id,
+            )
+            for block_id in [0, 1, 2]
+        ]
 
-    async def request_static_groups(self) -> set[LcnAddr]:
-        """Request module static group memberships."""
-        return set(await self.static_groups_request_handler.request())
+        coro_results = [await coro for coro in coros]
+        if not all(coro_results):
+            return None
+        results = cast(list[inputs.ModNameComment], coro_results)
+        name = "".join([result.text for result in results if result])
+        return name
 
-    async def request_dynamic_groups(self) -> set[LcnAddr]:
-        """Request module dynamic group memberships."""
-        return set(await self.dynamic_groups_request_handler.request())
+    async def request_oem_text(self, max_age: int = 0) -> str | None:
+        """Request module name."""
+        coros = [
+            self.status_requester.request(
+                response_type=inputs.ModNameComment,
+                request_pck=PckGenerator.request_oem_text(block_id),
+                max_age=max_age,
+                command="O",
+                block_id=block_id,
+            )
+            for block_id in [0, 1, 2, 3]
+        ]
 
-    async def request_groups(self) -> set[LcnAddr]:
-        """Request module group memberships."""
-        static_groups = await self.static_groups_request_handler.request()
-        dynamic_groups = await self.dynamic_groups_request_handler.request()
-        return static_groups | dynamic_groups
+        coro_results = [await coro for coro in coros]
+        if not all(coro_results):
+            return None
+        results = cast(list[inputs.ModNameComment], coro_results)
+        name = "".join([result.text for result in results if result])
+        return name
+
+    async def request_group_memberships(
+        self, dynamic: bool = False, max_age: int = 0
+    ) -> set[LcnAddr]:
+        """Request module static/dynamic group memberships."""
+        result = await self.status_requester.request(
+            response_type=inputs.ModStatusGroups,
+            request_pck=(
+                PckGenerator.request_group_membership_dynamic()
+                if dynamic
+                else PckGenerator.request_group_membership_static()
+            ),
+            max_age=max_age,
+            dynamic=dynamic,
+        )
+
+        return set(cast(inputs.ModStatusGroups, result).groups)
