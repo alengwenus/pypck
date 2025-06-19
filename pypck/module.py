@@ -174,19 +174,22 @@ class AbstractConnection:
             self.wants_ack, PckGenerator.rel_output(output_id, percent)
         )
 
-    async def toggle_output(self, output_id: int, ramp: int) -> bool:
+    async def toggle_output(
+        self, output_id: int, ramp: int, to_memory: bool = False
+    ) -> bool:
         """Send a command that toggles a single output-port.
 
         Toggle mode: (on->off, off->on).
 
         :param    int    output_id:    Output id 0..3
         :param    int    ramp:         Ramp time in milliseconds
+        :param    bool   to_memory:    If True, the dimming status is stored
 
         :returns:    True if command was sent successfully, False otherwise
         :rtype:      bool
         """
         return await self.send_command(
-            self.wants_ack, PckGenerator.toggle_output(output_id, ramp)
+            self.wants_ack, PckGenerator.toggle_output(output_id, ramp, to_memory)
         )
 
     async def toggle_all_outputs(self, ramp: int) -> bool:
