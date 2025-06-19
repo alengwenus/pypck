@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
@@ -801,6 +802,12 @@ class ModuleConnection(AbstractConnection):
         # List of queued acknowledge codes from the LCN modules.
         self.acknowledges: asyncio.Queue[int] = asyncio.Queue()
 
+        # Last status requests
+        self.last_relays_status_request: float = 0
+        self.last_relays_status_response: inputs.ModStatusRelays | None = None
+        self.last_binsensors_status_request: float = 0
+        self.last_binsensors_status_response: inputs.ModStatusBinSensors | None = None
+
         # RequestHandlers
         num_tries: int = self.conn.settings["NUM_TRIES"]
         timeout: int = self.conn.settings["DEFAULT_TIMEOUT"]
@@ -1101,9 +1108,16 @@ class ModuleConnection(AbstractConnection):
                 break
         return inp
 
-    async def request_status_relays(self) -> inputs.ModStatusRelays | None:
+    async def request_status_relays(
+        self, scan_interval: int = 0
+    ) -> inputs.ModStatusRelays | None:
         """Request the status of relays from a module."""
         inp = None
+
+        if self.last_relays_status_request + scan_interval > time.time():
+            return self.last_relays_status_response
+        self.last_relays_status_request = time.time()
+
         for _ in range(self.conn.settings["NUM_TRIES"]):
             await self.send_command(False, PckGenerator.request_relays_status())
             if inp := cast(
@@ -1111,6 +1125,7 @@ class ModuleConnection(AbstractConnection):
                 await self.input_received(inputs.ModStatusRelays),
             ):
                 break
+        self.last_relays_status_response = inp
         return inp
 
     async def request_status_motor_position(
@@ -1134,13 +1149,24 @@ class ModuleConnection(AbstractConnection):
                 break
         return inp
 
-    async def request_status_binary_sensors(self) -> inputs.ModInput | None:
+    async def request_status_binary_sensors(
+        self, scan_interval: int = 0
+    ) -> inputs.ModStatusBinSensors | None:
         """Request the status of binary sensors from a module."""
         inp = None
+
+        if self.last_binsensors_status_request + scan_interval > time.time():
+            return self.last_binsensors_status_response
+        self.last_binsensors_status_request = time.time()
+
         for _ in range(self.conn.settings["NUM_TRIES"]):
             await self.send_command(False, PckGenerator.request_bin_sensors_status())
-            if inp := await self.input_received(inputs.ModStatusBinSensors):
+            if inp := cast(
+                inputs.ModStatusBinSensors,
+                await self.input_received(inputs.ModStatusBinSensors),
+            ):
                 break
+        self.last_binsensors_status_response = inp
         return inp
 
     async def request_status_variable(
