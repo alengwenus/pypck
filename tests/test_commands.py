@@ -165,6 +165,10 @@ COMMANDS = {
         f"A{output + 1:d}TA123": (PckGenerator.toggle_output, output, 123)
         for output in range(4)
     },
+    **{
+        f"A{output + 1:d}MT123": (PckGenerator.toggle_output, output, 123, True)
+        for output in range(4)
+    },
     "AU123": (PckGenerator.toggle_all_outputs, 123),
     # Relay state manipulation
     "R80-1U1-U0": (
