@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Coroutine, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from pypck import inputs, lcn_defs
@@ -26,6 +26,55 @@ if TYPE_CHECKING:
     from pypck.connection import PchkConnectionManager
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class StatusRequester:
+    """Context manager for status requests."""
+
+    def __init__(
+        self,
+        device_connection: ModuleConnection,
+    ) -> None:
+        """Initialize the context."""
+        self.device_connection = device_connection
+
+    async def execute(
+        self,
+        response_type: type[inputs.Input],
+        request_coro: Coroutine[Any, Any, bool],
+        scan_interval: int = 0,
+        **request_kwargs: Any,
+    ) -> inputs.Input | None:
+        """Execute a status request and wait for the response."""
+        response_event = asyncio.Event()
+        result: inputs.Input | None = None
+
+        def input_callback(inp: inputs.Input) -> None:
+            """Callback for inputs."""
+            if isinstance(inp, response_type):
+                nonlocal result
+                if all(
+                    getattr(inp, attr) == value
+                    for attr, value in request_kwargs.items()
+                ):
+                    response_event.set()
+                    result = inp
+
+        unregister_callback = self.device_connection.register_for_inputs(input_callback)
+
+        await request_coro
+
+        try:
+            async with asyncio.timeout(
+                self.device_connection.conn.settings["DEFAULT_TIMEOUT"]
+            ):
+                await response_event.wait()
+        except asyncio.TimeoutError:
+            pass
+
+        unregister_callback()
+
+        return result
 
 
 class AbstractConnection:
@@ -802,6 +851,9 @@ class ModuleConnection(AbstractConnection):
         # List of queued acknowledge codes from the LCN modules.
         self.acknowledges: asyncio.Queue[int] = asyncio.Queue()
 
+        # StatusRequester
+        self.status_requester = StatusRequester(self)
+
         # Last status requests
         self.last_relays_status_request: float = 0
         self.last_relays_status_response: inputs.ModStatusRelays | None = None
@@ -1068,45 +1120,22 @@ class ModuleConnection(AbstractConnection):
 
     # Request methods
 
-    async def input_received(
-        self, expected_input_type: type[inputs.ModInput], **input_args: Any
-    ) -> inputs.ModInput | None:
-        """Wait for a specific input to be received."""
-        return_input: inputs.ModInput | None = None
-        input_event = asyncio.Event()
-
-        def input_callback(inp: inputs.Input) -> None:
-            nonlocal return_input
-            if isinstance(inp, expected_input_type):
-                if all(
-                    getattr(inp, attr) == value for attr, value in input_args.items()
-                ):
-                    input_event.set()
-                    return_input = inp
-
-        unregister_callback = self.register_for_inputs(input_callback)
-
-        try:
-            async with asyncio.timeout(self.conn.settings["DEFAULT_TIMEOUT"]):
-                await input_event.wait()
-        except asyncio.TimeoutError:
-            pass
-        unregister_callback()
-        return return_input
-
     async def request_status_output(
         self, output_port: lcn_defs.OutputPort
     ) -> inputs.ModStatusOutput | None:
         """Request the status of an output port from a module."""
-        await self.send_command(
-            False, PckGenerator.request_output_status(output_port.value)
+        request_coro = self.send_command(
+            False, PckGenerator.request_output_status(output_id=output_port.value)
         )
-        return cast(
-            inputs.ModStatusOutput,
-            await self.input_received(
-                inputs.ModStatusOutput, output_id=output_port.value
-            ),
+
+        result = await self.status_requester.execute(
+            response_type=inputs.ModStatusOutput,
+            request_coro=request_coro,
+            scan_interval=0,
+            output_id=output_port.value,
         )
+
+        return cast(inputs.ModStatusOutput, result)
 
     async def request_status_relays(
         self, scan_interval: int = 0
@@ -1116,13 +1145,17 @@ class ModuleConnection(AbstractConnection):
             return self.last_relays_status_response
         self.last_relays_status_request = time.time()
 
-        await self.send_command(False, PckGenerator.request_relays_status())
-        inp = cast(
-            inputs.ModStatusRelays,
-            await self.input_received(inputs.ModStatusRelays),
+        request_coro = self.send_command(False, PckGenerator.request_relays_status())
+
+        result = await self.status_requester.execute(
+            response_type=inputs.ModStatusRelays,
+            request_coro=request_coro,
+            scan_interval=scan_interval,
         )
-        self.last_relays_status_response = inp
-        return inp
+
+        result = cast(inputs.ModStatusRelays, result)
+        self.last_relays_status_response = result
+        return result
 
     async def request_status_motor_position(
         self, motor: lcn_defs.MotorPort, positioning_mode: lcn_defs.MotorPositioningMode
@@ -1131,15 +1164,19 @@ class ModuleConnection(AbstractConnection):
         if positioning_mode != lcn_defs.MotorPositioningMode.BS4:
             _LOGGER.debug("Only BS4 mode is supported for motor position requests.")
             return None
-        await self.send_command(
+
+        request_coro = self.send_command(
             False, PckGenerator.request_motor_position_status(motor.value // 2)
         )
-        return cast(
-            inputs.ModStatusMotorPositionBS4,
-            await self.input_received(
-                inputs.ModStatusMotorPositionBS4, motor=motor.value
-            ),
+
+        result = await self.status_requester.execute(
+            response_type=inputs.ModStatusMotorPositionBS4,
+            request_coro=request_coro,
+            scan_interval=0,
+            motor=motor.value,
         )
+
+        return cast(inputs.ModStatusMotorPositionBS4, result)
 
     async def request_status_binary_sensors(
         self, scan_interval: int = 0
@@ -1149,31 +1186,41 @@ class ModuleConnection(AbstractConnection):
             return self.last_binsensors_status_response
         self.last_binsensors_status_request = time.time()
 
-        await self.send_command(False, PckGenerator.request_bin_sensors_status())
-        inp = cast(
-            inputs.ModStatusBinSensors,
-            await self.input_received(inputs.ModStatusBinSensors),
+        request_coro = self.send_command(
+            False, PckGenerator.request_bin_sensors_status()
         )
-        self.last_binsensors_status_response = inp
-        return inp
+        result = await self.status_requester.execute(
+            response_type=inputs.ModStatusBinSensors,
+            request_coro=request_coro,
+            scan_interval=scan_interval,
+        )
+
+        result = cast(inputs.ModStatusBinSensors, result)
+        self.last_binsensors_status_response = result
+        return result
 
     async def request_status_variable(
         self, variable: lcn_defs.Var
     ) -> inputs.ModStatusVar | None:
         """Request the status of a variable from a module."""
-        inp = None
-        await self.send_command(
+        request_coro = self.send_command(
             False,
             PckGenerator.request_var_status(variable, self.software_serial),
         )
-        if inp := cast(
-            inputs.ModStatusVar,
-            await self.input_received(inputs.ModStatusVar, var=variable),
-        ):
-            if inp.orig_var == lcn_defs.Var.UNKNOWN:
+
+        result = await self.status_requester.execute(
+            response_type=inputs.ModStatusVar,
+            request_coro=request_coro,
+            scan_interval=0,
+            var=variable,
+        )
+
+        result = cast(inputs.ModStatusVar, result)
+        if result:
+            if result.orig_var == lcn_defs.Var.UNKNOWN:
                 # Response without type (%Msssaaa.wwwww)
-                inp.var = variable
-        return inp
+                result.var = variable
+        return result
 
     async def request_status_led_and_logic_ops(
         self, scan_interval: int = 0
@@ -1183,18 +1230,28 @@ class ModuleConnection(AbstractConnection):
             return self.last_leds_and_logicops_status_response
         self.last_leds_and_logicops_status_request = time.time()
 
-        await self.send_command(False, PckGenerator.request_leds_and_logic_ops())
-        inp = cast(
-            inputs.ModStatusLedsAndLogicOps,
-            await self.input_received(inputs.ModStatusLedsAndLogicOps),
+        request_coro = self.send_command(
+            False, PckGenerator.request_leds_and_logic_ops()
         )
-        self.last_leds_and_logicops_status_response = inp
-        return inp
+
+        result = await self.status_requester.execute(
+            response_type=inputs.ModStatusLedsAndLogicOps,
+            request_coro=request_coro,
+            scan_interval=scan_interval,
+        )
+
+        result = cast(inputs.ModStatusLedsAndLogicOps, result)
+        self.last_leds_and_logicops_status_response = result
+        return result
 
     async def request_status_locked_keys(self) -> inputs.ModStatusKeyLocks | None:
         """Request the status of locked keys from a module."""
-        await self.send_command(False, PckGenerator.request_key_lock_status())
-        return cast(
-            inputs.ModStatusKeyLocks,
-            await self.input_received(inputs.ModStatusKeyLocks),
+        request_coro = self.send_command(False, PckGenerator.request_key_lock_status())
+
+        result = await self.status_requester.execute(
+            response_type=inputs.ModStatusKeyLocks,
+            request_coro=request_coro,
+            scan_interval=0,
         )
+
+        return cast(inputs.ModStatusKeyLocks, result)
