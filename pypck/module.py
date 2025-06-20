@@ -807,6 +807,10 @@ class ModuleConnection(AbstractConnection):
         self.last_relays_status_response: inputs.ModStatusRelays | None = None
         self.last_binsensors_status_request: float = 0
         self.last_binsensors_status_response: inputs.ModStatusBinSensors | None = None
+        self.last_leds_and_logicops_status_request: float = 0
+        self.last_leds_and_logicops_status_response: (
+            inputs.ModStatusLedsAndLogicOps | None
+        )
 
         # RequestHandlers
         num_tries: int = self.conn.settings["NUM_TRIES"]
@@ -1172,14 +1176,20 @@ class ModuleConnection(AbstractConnection):
         return inp
 
     async def request_status_led_and_logic_ops(
-        self,
+        self, scan_interval: int = 0
     ) -> inputs.ModStatusLedsAndLogicOps | None:
         """Request the status of LEDs and logic operations from a module."""
+        if self.last_leds_and_logicops_status_request + scan_interval > time.time():
+            return self.last_leds_and_logicops_status_response
+        self.last_leds_and_logicops_status_request = time.time()
+
         await self.send_command(False, PckGenerator.request_leds_and_logic_ops())
-        return cast(
+        inp = cast(
             inputs.ModStatusLedsAndLogicOps,
             await self.input_received(inputs.ModStatusLedsAndLogicOps),
         )
+        self.last_leds_and_logicops_status_response = inp
+        return inp
 
     async def request_status_locked_keys(self) -> inputs.ModStatusKeyLocks | None:
         """Request the status of locked keys from a module."""
