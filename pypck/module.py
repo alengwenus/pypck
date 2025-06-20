@@ -1094,37 +1094,29 @@ class ModuleConnection(AbstractConnection):
         self, output_port: lcn_defs.OutputPort
     ) -> inputs.ModStatusOutput | None:
         """Request the status of an output port from a module."""
-        inp = None
-        for _ in range(self.conn.settings["NUM_TRIES"]):
-            await self.send_command(
-                False, PckGenerator.request_output_status(output_port.value)
-            )
-            if inp := cast(
-                inputs.ModStatusOutput,
-                await self.input_received(
-                    inputs.ModStatusOutput, output_id=output_port.value
-                ),
-            ):
-                break
-        return inp
+        await self.send_command(
+            False, PckGenerator.request_output_status(output_port.value)
+        )
+        return cast(
+            inputs.ModStatusOutput,
+            await self.input_received(
+                inputs.ModStatusOutput, output_id=output_port.value
+            ),
+        )
 
     async def request_status_relays(
         self, scan_interval: int = 0
     ) -> inputs.ModStatusRelays | None:
         """Request the status of relays from a module."""
-        inp = None
-
         if self.last_relays_status_request + scan_interval > time.time():
             return self.last_relays_status_response
         self.last_relays_status_request = time.time()
 
-        for _ in range(self.conn.settings["NUM_TRIES"]):
-            await self.send_command(False, PckGenerator.request_relays_status())
-            if inp := cast(
-                inputs.ModStatusRelays,
-                await self.input_received(inputs.ModStatusRelays),
-            ):
-                break
+        await self.send_command(False, PckGenerator.request_relays_status())
+        inp = cast(
+            inputs.ModStatusRelays,
+            await self.input_received(inputs.ModStatusRelays),
+        )
         self.last_relays_status_response = inp
         return inp
 
@@ -1135,37 +1127,29 @@ class ModuleConnection(AbstractConnection):
         if positioning_mode != lcn_defs.MotorPositioningMode.BS4:
             _LOGGER.debug("Only BS4 mode is supported for motor position requests.")
             return None
-        inp = None
-        for _ in range(self.conn.settings["NUM_TRIES"]):
-            await self.send_command(
-                False, PckGenerator.request_motor_position_status(motor.value // 2)
-            )
-            if inp := cast(
-                inputs.ModStatusMotorPositionBS4,
-                await self.input_received(
-                    inputs.ModStatusMotorPositionBS4, motor=motor.value
-                ),
-            ):
-                break
-        return inp
+        await self.send_command(
+            False, PckGenerator.request_motor_position_status(motor.value // 2)
+        )
+        return cast(
+            inputs.ModStatusMotorPositionBS4,
+            await self.input_received(
+                inputs.ModStatusMotorPositionBS4, motor=motor.value
+            ),
+        )
 
     async def request_status_binary_sensors(
         self, scan_interval: int = 0
     ) -> inputs.ModStatusBinSensors | None:
         """Request the status of binary sensors from a module."""
-        inp = None
-
         if self.last_binsensors_status_request + scan_interval > time.time():
             return self.last_binsensors_status_response
         self.last_binsensors_status_request = time.time()
 
-        for _ in range(self.conn.settings["NUM_TRIES"]):
-            await self.send_command(False, PckGenerator.request_bin_sensors_status())
-            if inp := cast(
-                inputs.ModStatusBinSensors,
-                await self.input_received(inputs.ModStatusBinSensors),
-            ):
-                break
+        await self.send_command(False, PckGenerator.request_bin_sensors_status())
+        inp = cast(
+            inputs.ModStatusBinSensors,
+            await self.input_received(inputs.ModStatusBinSensors),
+        )
         self.last_binsensors_status_response = inp
         return inp
 
@@ -1174,43 +1158,33 @@ class ModuleConnection(AbstractConnection):
     ) -> inputs.ModStatusVar | None:
         """Request the status of a variable from a module."""
         inp = None
-        for _ in range(self.conn.settings["NUM_TRIES"]):
-            await self.send_command(
-                False,
-                PckGenerator.request_var_status(variable, self.software_serial),
-            )
-            if inp := cast(
-                inputs.ModStatusVar,
-                await self.input_received(inputs.ModStatusVar, var=variable),
-            ):
-                if inp.orig_var == lcn_defs.Var.UNKNOWN:
-                    # Response without type (%Msssaaa.wwwww)
-                    inp.var = variable
-                break
+        await self.send_command(
+            False,
+            PckGenerator.request_var_status(variable, self.software_serial),
+        )
+        inp = cast(
+            inputs.ModStatusVar,
+            await self.input_received(inputs.ModStatusVar, var=variable),
+        )
+        if inp.orig_var == lcn_defs.Var.UNKNOWN:
+            # Response without type (%Msssaaa.wwwww)
+            inp.var = variable
         return inp
 
     async def request_status_led_and_logic_ops(
         self,
     ) -> inputs.ModStatusLedsAndLogicOps | None:
         """Request the status of LEDs and logic operations from a module."""
-        inp = None
-        for _ in range(self.conn.settings["NUM_TRIES"]):
-            await self.send_command(False, PckGenerator.request_leds_and_logic_ops())
-            if inp := cast(
-                inputs.ModStatusLedsAndLogicOps,
-                await self.input_received(inputs.ModStatusLedsAndLogicOps),
-            ):
-                break
-        return inp
+        await self.send_command(False, PckGenerator.request_leds_and_logic_ops())
+        return cast(
+            inputs.ModStatusLedsAndLogicOps,
+            await self.input_received(inputs.ModStatusLedsAndLogicOps),
+        )
 
     async def request_status_locked_keys(self) -> inputs.ModStatusKeyLocks | None:
         """Request the status of locked keys from a module."""
-        inp = None
-        for _ in range(self.conn.settings["NUM_TRIES"]):
-            await self.send_command(False, PckGenerator.request_key_lock_status())
-            if inp := cast(
-                inputs.ModStatusKeyLocks,
-                await self.input_received(inputs.ModStatusKeyLocks),
-            ):
-                break
-        return inp
+        await self.send_command(False, PckGenerator.request_key_lock_status())
+        return cast(
+            inputs.ModStatusKeyLocks,
+            await self.input_received(inputs.ModStatusKeyLocks),
+        )
