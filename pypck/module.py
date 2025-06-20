@@ -1166,13 +1166,13 @@ class ModuleConnection(AbstractConnection):
             False,
             PckGenerator.request_var_status(variable, self.software_serial),
         )
-        inp = cast(
+        if inp := cast(
             inputs.ModStatusVar,
             await self.input_received(inputs.ModStatusVar, var=variable),
-        )
-        if inp.orig_var == lcn_defs.Var.UNKNOWN:
-            # Response without type (%Msssaaa.wwwww)
-            inp.var = variable
+        ):
+            if inp.orig_var == lcn_defs.Var.UNKNOWN:
+                # Response without type (%Msssaaa.wwwww)
+                inp.var = variable
         return inp
 
     async def request_status_led_and_logic_ops(
