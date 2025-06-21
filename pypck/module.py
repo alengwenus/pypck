@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable, Coroutine, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from pypck import inputs, lcn_defs
@@ -28,6 +29,14 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass
+class StatusRequest:
+    """Data class for status requests."""
+
+    timestamp: float
+    response: asyncio.Future[inputs.Input]
+
+
 class StatusRequester:
     """Context manager for status requests."""
 
@@ -37,6 +46,7 @@ class StatusRequester:
     ) -> None:
         """Initialize the context."""
         self.device_connection = device_connection
+        self.last_requests: dict[tuple[Any, ...], StatusRequest] = {}
 
     async def execute(
         self,
@@ -46,19 +56,29 @@ class StatusRequester:
         **request_kwargs: Any,
     ) -> inputs.Input | None:
         """Execute a status request and wait for the response."""
-        response_event = asyncio.Event()
-        result: inputs.Input | None = None
+        request_key = (response_type, *sorted(request_kwargs.items()))
+        last_request = self.last_requests.get(request_key)
+
+        if last_request and not last_request.response.cancelled():
+            if last_request.timestamp + scan_interval > time.time():
+                request_coro.close()
+                try:
+                    return await last_request.response
+                except asyncio.CancelledError:
+                    return None
+
+        self.last_requests[request_key] = StatusRequest(
+            time.time(), asyncio.get_running_loop().create_future()
+        )
 
         def input_callback(inp: inputs.Input) -> None:
             """Callback for inputs."""
             if isinstance(inp, response_type):
-                nonlocal result
                 if all(
                     getattr(inp, attr) == value
                     for attr, value in request_kwargs.items()
                 ):
-                    response_event.set()
-                    result = inp
+                    self.last_requests[request_key].response.set_result(inp)
 
         unregister_callback = self.device_connection.register_for_inputs(input_callback)
 
@@ -67,12 +87,18 @@ class StatusRequester:
         try:
             async with asyncio.timeout(
                 self.device_connection.conn.settings["DEFAULT_TIMEOUT"]
+                * (
+                    1
+                    + (self.device_connection.conn.settings["NUM_TRIES"] - 1)
+                    * self.device_connection.conn.settings["ACKNOWLEDGE"]
+                )
             ):
-                await response_event.wait()
+                result = await self.last_requests[request_key].response
         except asyncio.TimeoutError:
-            pass
-
-        unregister_callback()
+            self.last_requests[request_key].response.cancel()
+            result = None
+        finally:
+            unregister_callback()
 
         return result
 
@@ -1121,7 +1147,7 @@ class ModuleConnection(AbstractConnection):
     # Request methods
 
     async def request_status_output(
-        self, output_port: lcn_defs.OutputPort
+        self, output_port: lcn_defs.OutputPort, scan_interval: int = 0
     ) -> inputs.ModStatusOutput | None:
         """Request the status of an output port from a module."""
         request_coro = self.send_command(
@@ -1131,7 +1157,7 @@ class ModuleConnection(AbstractConnection):
         result = await self.status_requester.execute(
             response_type=inputs.ModStatusOutput,
             request_coro=request_coro,
-            scan_interval=0,
+            scan_interval=scan_interval,
             output_id=output_port.value,
         )
 
@@ -1141,10 +1167,6 @@ class ModuleConnection(AbstractConnection):
         self, scan_interval: int = 0
     ) -> inputs.ModStatusRelays | None:
         """Request the status of relays from a module."""
-        if self.last_relays_status_request + scan_interval > time.time():
-            return self.last_relays_status_response
-        self.last_relays_status_request = time.time()
-
         request_coro = self.send_command(False, PckGenerator.request_relays_status())
 
         result = await self.status_requester.execute(
@@ -1153,12 +1175,13 @@ class ModuleConnection(AbstractConnection):
             scan_interval=scan_interval,
         )
 
-        result = cast(inputs.ModStatusRelays, result)
-        self.last_relays_status_response = result
-        return result
+        return cast(inputs.ModStatusRelays, result)
 
     async def request_status_motor_position(
-        self, motor: lcn_defs.MotorPort, positioning_mode: lcn_defs.MotorPositioningMode
+        self,
+        motor: lcn_defs.MotorPort,
+        positioning_mode: lcn_defs.MotorPositioningMode,
+        scan_interval: int = 0,
     ) -> inputs.ModStatusMotorPositionBS4 | None:
         """Request the status of motor positions from a module."""
         if positioning_mode != lcn_defs.MotorPositioningMode.BS4:
@@ -1172,7 +1195,7 @@ class ModuleConnection(AbstractConnection):
         result = await self.status_requester.execute(
             response_type=inputs.ModStatusMotorPositionBS4,
             request_coro=request_coro,
-            scan_interval=0,
+            scan_interval=scan_interval,
             motor=motor.value,
         )
 
@@ -1182,10 +1205,6 @@ class ModuleConnection(AbstractConnection):
         self, scan_interval: int = 0
     ) -> inputs.ModStatusBinSensors | None:
         """Request the status of binary sensors from a module."""
-        if self.last_binsensors_status_request + scan_interval > time.time():
-            return self.last_binsensors_status_response
-        self.last_binsensors_status_request = time.time()
-
         request_coro = self.send_command(
             False, PckGenerator.request_bin_sensors_status()
         )
@@ -1195,12 +1214,12 @@ class ModuleConnection(AbstractConnection):
             scan_interval=scan_interval,
         )
 
-        result = cast(inputs.ModStatusBinSensors, result)
-        self.last_binsensors_status_response = result
-        return result
+        return cast(inputs.ModStatusBinSensors, result)
 
     async def request_status_variable(
-        self, variable: lcn_defs.Var
+        self,
+        variable: lcn_defs.Var,
+        scan_interval: int = 0,
     ) -> inputs.ModStatusVar | None:
         """Request the status of a variable from a module."""
         request_coro = self.send_command(
@@ -1208,10 +1227,15 @@ class ModuleConnection(AbstractConnection):
             PckGenerator.request_var_status(variable, self.software_serial),
         )
 
+        # do not use buffered response for old modules
+        # (variable response is typeless)
+        if self.software_serial < 0x170206:
+            scan_interval = 0
+
         result = await self.status_requester.execute(
             response_type=inputs.ModStatusVar,
             request_coro=request_coro,
-            scan_interval=0,
+            scan_interval=scan_interval,
             var=variable,
         )
 
@@ -1226,10 +1250,6 @@ class ModuleConnection(AbstractConnection):
         self, scan_interval: int = 0
     ) -> inputs.ModStatusLedsAndLogicOps | None:
         """Request the status of LEDs and logic operations from a module."""
-        if self.last_leds_and_logicops_status_request + scan_interval > time.time():
-            return self.last_leds_and_logicops_status_response
-        self.last_leds_and_logicops_status_request = time.time()
-
         request_coro = self.send_command(
             False, PckGenerator.request_leds_and_logic_ops()
         )
@@ -1240,18 +1260,18 @@ class ModuleConnection(AbstractConnection):
             scan_interval=scan_interval,
         )
 
-        result = cast(inputs.ModStatusLedsAndLogicOps, result)
-        self.last_leds_and_logicops_status_response = result
-        return result
+        return cast(inputs.ModStatusLedsAndLogicOps, result)
 
-    async def request_status_locked_keys(self) -> inputs.ModStatusKeyLocks | None:
+    async def request_status_locked_keys(
+        self, scan_interval: int = 0
+    ) -> inputs.ModStatusKeyLocks | None:
         """Request the status of locked keys from a module."""
         request_coro = self.send_command(False, PckGenerator.request_key_lock_status())
 
         result = await self.status_requester.execute(
             response_type=inputs.ModStatusKeyLocks,
             request_coro=request_coro,
-            scan_interval=0,
+            scan_interval=scan_interval,
         )
 
         return cast(inputs.ModStatusKeyLocks, result)
