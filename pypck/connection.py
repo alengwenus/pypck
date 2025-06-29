@@ -274,7 +274,6 @@ class PchkConnectionManager:
 
     async def async_close(self) -> None:
         """Close the active connection."""
-        await self.cancel_requests()
         if self.ping_timeout_handle is not None:
             self.ping_timeout_handle.cancel()
         await self.task_registry.cancel_all_tasks()
@@ -378,9 +377,7 @@ class PchkConnectionManager:
             addr.is_group,
         )
 
-    def get_module_conn(
-        self, addr: LcnAddr, request_serials: bool = True
-    ) -> ModuleConnection:
+    def get_module_conn(self, addr: LcnAddr) -> ModuleConnection:
         """Create and/or return the given LCN module."""
         assert not addr.is_group
         if addr.seg_id == 0 and self.local_seg_id != -1:
@@ -390,8 +387,6 @@ class PchkConnectionManager:
             address_conn = ModuleConnection(
                 self, addr, wants_ack=self.settings["ACKNOWLEDGE"]
             )
-            if request_serials:
-                self.task_registry.create_task(address_conn.request_serials())
             self.address_conns[addr] = address_conn
 
         return address_conn
@@ -403,26 +398,24 @@ class PchkConnectionManager:
             addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
         return GroupConnection(self, addr)
 
-    def get_address_conn(
-        self, addr: LcnAddr, request_serials: bool = True
-    ) -> ModuleConnection | GroupConnection:
+    def get_address_conn(self, addr: LcnAddr) -> ModuleConnection | GroupConnection:
         """Create and/or return a connection to the given module or group."""
         if addr.is_group:
             return self.get_group_conn(addr)
-        return self.get_module_conn(addr, request_serials)
+        return self.get_module_conn(addr)
 
     # Other
 
-    def dump_modules(self) -> dict[str, dict[str, dict[str, Any]]]:
-        """Dump all modules and information about them in a JSON serializable dict."""
-        dump: dict[str, dict[str, dict[str, Any]]] = {}
-        for address_conn in self.address_conns.values():
-            seg = f"{address_conn.addr.seg_id:d}"
-            addr = f"{address_conn.addr.addr_id}"
-            if seg not in dump:
-                dump[seg] = {}
-            dump[seg][addr] = address_conn.dump_details()
-        return dump
+    # def dump_modules(self) -> dict[str, dict[str, dict[str, Any]]]:
+    #     """Dump all modules and information about them in a JSON serializable dict."""
+    #     dump: dict[str, dict[str, dict[str, Any]]] = {}
+    #     for address_conn in self.address_conns.values():
+    #         seg = f"{address_conn.addr.seg_id:d}"
+    #         addr = f"{address_conn.addr.addr_id}"
+    #         if seg not in dump:
+    #             dump[seg] = {}
+    #         dump[seg][addr] = address_conn.dump_details()
+    #     return dump
 
     # Command sending / retrieval.
 
@@ -583,19 +576,6 @@ class PchkConnectionManager:
             _LOGGER.debug("%s: No segment coupler found.", self.connection_id)
 
         self.segment_scan_completed_event.set()
-
-    # Status requests, responses
-
-    async def cancel_requests(self) -> None:
-        """Cancel all TimeoutRetryHandlers."""
-        cancel_tasks = [
-            asyncio.create_task(address_conn.cancel_requests())
-            for address_conn in self.address_conns.values()
-            if isinstance(address_conn, ModuleConnection)
-        ]
-
-        if cancel_tasks:
-            await asyncio.wait(cancel_tasks)
 
     # Callbacks for inputs and events
 
