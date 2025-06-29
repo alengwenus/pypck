@@ -35,7 +35,7 @@ async def test_physical_to_logical_segment_id(
     module = pypck_client.get_address_conn(LcnAddr(20, 7, False))
     assert isinstance(module, ModuleConnection)
     with (
-        patch("tests.conftest.MockPchkConnectionManager.is_ready", result=True),
+        patch("tests.conftest.MockPchkConnectionManager.is_ready", return_value=True),
         patch.object(module, "async_process_input") as module_process_input,
     ):
         inp = ModInput(LcnAddr(20, 7, False))
