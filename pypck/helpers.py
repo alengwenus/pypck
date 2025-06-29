@@ -1,7 +1,7 @@
 """Helper functions for pypck."""
 
 import asyncio
-from collections.abc import Awaitable
+from collections.abc import Coroutine
 from typing import Any
 
 
@@ -30,9 +30,9 @@ class TaskRegistry:
         if task in self.tasks:
             self.tasks.remove(task)
 
-    def create_task(self, coro: Awaitable[Any]) -> "asyncio.Task[None]":
+    def create_task(self, coro: Coroutine[Any, Any, Any]) -> "asyncio.Task[None]":
         """Create a task and store a reference in the task registry."""
-        task = asyncio.create_task(coro)  # type: ignore
+        task: asyncio.Task[Any] = asyncio.create_task(coro)
         task.add_done_callback(self.remove_task)
         self.tasks.append(task)
         return task

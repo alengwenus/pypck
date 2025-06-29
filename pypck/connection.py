@@ -13,7 +13,7 @@ from pypck import inputs, lcn_defs
 from pypck.helpers import TaskRegistry
 from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import LcnEvent
-from pypck.module import AbstractConnection, GroupConnection, ModuleConnection
+from pypck.module import GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
 
 _LOGGER = logging.getLogger(__name__)
@@ -243,7 +243,7 @@ class PchkConnectionManager:
                     if isinstance(exc, (ConnectionRefusedError, OSError)):
                         raise PchkConnectionRefusedError()
                     else:
-                        raise awaitable.exception()  # type: ignore
+                        raise exc
 
         if pending:
             for awaitable in pending:
@@ -405,8 +405,8 @@ class PchkConnectionManager:
 
     def get_address_conn(
         self, addr: LcnAddr, request_serials: bool = True
-    ) -> AbstractConnection:
-        """Create and/or return an AbstractConnection to the given module or group."""
+    ) -> ModuleConnection | GroupConnection:
+        """Create and/or return a connection to the given module or group."""
         if addr.is_group:
             return self.get_group_conn(addr)
         return self.get_module_conn(addr, request_serials)

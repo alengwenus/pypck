@@ -3,8 +3,11 @@
 from unittest.mock import patch
 
 import pytest
+
 from pypck.lcn_addr import LcnAddr
 from pypck.module import ModuleConnection
+
+from .conftest import MockPchkConnectionManager
 
 TEST_VECTORS = {
     # empty
@@ -57,8 +60,12 @@ TEST_VECTORS = {
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("text, parts", TEST_VECTORS.items())
-async def test_dyn_text(pypck_client, text, parts):
-    """dyn_text."""
+async def test_dyn_text(
+    pypck_client: MockPchkConnectionManager,
+    text: str,
+    parts: tuple[bytes, bytes, bytes, bytes, bytes],
+) -> None:
+    """Tests for dynamic text."""
     # await pypck_client.async_connect()
     module = pypck_client.get_address_conn(LcnAddr(0, 10, False))
 
@@ -70,4 +77,4 @@ async def test_dyn_text(pypck_client, text, parts):
     _, commands = zip(*await_args)
 
     for i, part in enumerate(parts):
-        assert f"GTDT4{i+1:d}".encode() + part in commands
+        assert f"GTDT4{i + 1:d}".encode() + part in commands

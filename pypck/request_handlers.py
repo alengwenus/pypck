@@ -673,7 +673,7 @@ class StatusRequestsHandler:
             if (
                 (not activate_s0)
                 and isinstance(item, lcn_defs.Var)
-                and (item in lcn_defs.Var.s0s)  # type: ignore
+                and (item in lcn_defs.Var.s0s())
             ):
                 continue
             await self.activate(item)
