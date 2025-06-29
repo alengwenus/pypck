@@ -1,7 +1,9 @@
 """Tests for variable value and unit handling."""
 
 import math
+
 import pytest
+
 from pypck.lcn_defs import VarUnit, VarValue
 
 VARIABLE_TEST_VALUES = (
@@ -108,7 +110,7 @@ CALIBRATION_TEST_VECTORS = (
 
 
 @pytest.mark.parametrize("unit, native, expected", ROUNDTRIP_TEST_VECTORS)
-def test_roundtrip(unit, native, expected):
+def test_roundtrip(unit: VarUnit, native: int, expected: VarValue) -> None:
     """Test that variable conversion roundtrips."""
     assert (
         expected
@@ -119,6 +121,6 @@ def test_roundtrip(unit, native, expected):
 
 
 @pytest.mark.parametrize("unit, native, value", CALIBRATION_TEST_VECTORS)
-def test_calibration(unit, native, value):
+def test_calibration(unit: VarUnit, native: int, value: int | float) -> None:
     """Test proper calibration of variable conversion."""
     assert value == VarValue.to_var_unit(VarValue.from_native(native), unit)

@@ -1,5 +1,7 @@
 """Tests for input message parsing for bus messages."""
 
+from typing import Any
+
 import pytest
 
 from pypck.inputs import (
@@ -348,7 +350,10 @@ MESSAGES = {
 
 
 @pytest.mark.parametrize("message, expected", MESSAGES.items())
-def test_message_parsing_mod_inputs(message, expected):
+def test_message_parsing_mod_inputs(
+    message: str,
+    expected: list[tuple[Any, ...]],
+) -> None:
     """Test if InputMod parses message correctly."""
     inputs = InputParser.parse(message)
     assert len(inputs) == len(expected)

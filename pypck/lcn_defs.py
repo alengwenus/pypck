@@ -360,6 +360,44 @@ class Var(Enum):
     S0INPUT3 = auto()
     S0INPUT4 = auto()  # LCN-BU4LJVarValue
 
+    @classmethod
+    def variables(cls) -> list[Var]:
+        """Return a list of all variable types."""
+        return [
+            cls.VAR1ORTVAR,
+            cls.VAR2ORR1VAR,
+            cls.VAR3ORR2VAR,
+            cls.VAR4,
+            cls.VAR5,
+            cls.VAR6,
+            cls.VAR7,
+            cls.VAR8,
+            cls.VAR9,
+            cls.VAR10,
+            cls.VAR11,
+            cls.VAR12,
+        ]
+
+    @classmethod
+    def set_points(cls) -> list[Var]:
+        """Return a list of all set-point variable types."""
+        return [cls.R1VARSETPOINT, cls.R2VARSETPOINT]
+
+    @classmethod
+    def thresholds(cls) -> list[list[Var]]:
+        """Return a list of all threshold variable types."""
+        return [
+            [cls.THRS1, cls.THRS2, cls.THRS3, cls.THRS4, cls.THRS5],
+            [cls.THRS2_1, cls.THRS2_2, cls.THRS2_3, cls.THRS2_4],
+            [cls.THRS3_1, cls.THRS3_2, cls.THRS3_3, cls.THRS3_4],
+            [cls.THRS4_1, cls.THRS4_2, cls.THRS4_3, cls.THRS4_4],
+        ]
+
+    @classmethod
+    def s0s(cls) -> list[Var]:
+        """Return a list of all S0-input variable types."""
+        return [cls.S0INPUT1, cls.S0INPUT2, cls.S0INPUT3, cls.S0INPUT4]
+
     @staticmethod
     def var_id_to_var(var_id: int) -> Var:
         """Translate a given id into a variable type.
@@ -369,9 +407,9 @@ class Var(Enum):
         :returns: The translated variable enum.
         :rtype: Var
         """
-        if (var_id < 0) or (var_id >= len(Var.variables)):  # type: ignore
+        if (var_id < 0) or (var_id >= len(Var.variables())):
             raise ValueError("Bad var_id.")
-        return Var.variables[var_id]  # type: ignore
+        return Var.variables()[var_id]
 
     @staticmethod
     def set_point_id_to_var(set_point_id: int) -> Var:
@@ -382,9 +420,9 @@ class Var(Enum):
         :return: The translated var
         :rtype:  Var
         """
-        if (set_point_id < 0) or (set_point_id >= len(Var.set_points)):  # type: ignore
+        if (set_point_id < 0) or (set_point_id >= len(Var.set_points())):
             raise ValueError("Bad set_point_id.")
-        return Var.set_points[set_point_id]  # type: ignore
+        return Var.set_points()[set_point_id]
 
     @staticmethod
     def thrs_id_to_var(register_id: int, thrs_id: int) -> Var:
@@ -399,12 +437,12 @@ class Var(Enum):
         """
         if (
             (register_id < 0)
-            or (register_id >= len(Var.thresholds))  # type: ignore
+            or (register_id >= len(Var.thresholds()))
             or (thrs_id < 0)
             or (thrs_id >= (5 if (register_id == 0) else 4))
         ):
             raise ValueError("Bad register_id and/or thrs_id.")
-        return Var.thresholds[register_id][thrs_id]  # type: ignore
+        return Var.thresholds()[register_id][thrs_id]
 
     @staticmethod
     def s0_id_to_var(s0_id: int) -> Var:
@@ -415,9 +453,9 @@ class Var(Enum):
         :return:    The translated var
         :rtype:     Var
         """
-        if (s0_id < 0) or (s0_id >= len(Var.s0s)):  # type: ignore
+        if (s0_id < 0) or (s0_id >= len(Var.s0s())):
             raise ValueError("Bad s0_id.")
-        return Var.s0s[s0_id]  # type: ignore
+        return Var.s0s()[s0_id]
 
     @staticmethod
     def to_var_id(var: Var) -> int:
@@ -656,42 +694,6 @@ class Var(Enum):
         # LCN modules before 170206 will send an automatic status-message for
         # "lock", but not for "unlock"
         return (not lock_state) and (software_serial < 0x170206)
-
-
-# Helper list to get var by numeric id.
-Var.variables = [  # type: ignore
-    Var.VAR1ORTVAR,
-    Var.VAR2ORR1VAR,
-    Var.VAR3ORR2VAR,
-    Var.VAR4,
-    Var.VAR5,
-    Var.VAR6,
-    Var.VAR7,
-    Var.VAR8,
-    Var.VAR9,
-    Var.VAR10,
-    Var.VAR11,
-    Var.VAR12,
-]
-
-# Helper list to get set-point var by numeric id.
-Var.set_points = [Var.R1VARSETPOINT, Var.R2VARSETPOINT]  # type: ignore
-
-# Helper list to get threshold var by numeric id.
-Var.thresholds = [  # type: ignore
-    [Var.THRS1, Var.THRS2, Var.THRS3, Var.THRS4, Var.THRS5],
-    [Var.THRS2_1, Var.THRS2_2, Var.THRS2_3, Var.THRS2_4],
-    [Var.THRS3_1, Var.THRS3_2, Var.THRS3_3, Var.THRS3_4],
-    [Var.THRS4_1, Var.THRS4_2, Var.THRS4_3, Var.THRS4_4],
-]
-
-# Helper list to get S0-input var by numeric id.
-Var.s0s = [  # type: ignore
-    Var.S0INPUT1,
-    Var.S0INPUT2,
-    Var.S0INPUT3,
-    Var.S0INPUT4,
-]
 
 
 class VarUnit(Enum):

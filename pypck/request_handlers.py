@@ -660,6 +660,7 @@ class StatusRequestsHandler:
     async def activate_all(self, activate_s0: bool = False) -> None:
         """Activate all status requests."""
         await self.addr_conn.conn.segment_scan_completed_event.wait()
+        var_s0s = lcn_defs.Var.s0s()
         for item in (
             list(lcn_defs.OutputPort)
             + list(lcn_defs.RelayPort)
@@ -673,7 +674,7 @@ class StatusRequestsHandler:
             if (
                 (not activate_s0)
                 and isinstance(item, lcn_defs.Var)
-                and (item in lcn_defs.Var.s0s)  # type: ignore
+                and (item in var_s0s)
             ):
                 continue
             await self.activate(item)
