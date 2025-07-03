@@ -6,7 +6,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
 from pypck import inputs, lcn_defs
@@ -30,16 +30,20 @@ class Serials:
     hardware_type: lcn_defs.HardwareType
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class StatusRequest:
     """Data class for status requests."""
 
-    timestamp: float
-    response: asyncio.Future[inputs.Input]
+    type: type[inputs.Input]  # Type of the input expected as response
+    parameters: frozenset[tuple[str, Any]]  # {(parameter_name, parameter_value)}
+    timestamp: float = field(compare=False)  # timestamp the response was received
+    response: asyncio.Future[inputs.Input] = field(
+        compare=False
+    )  # Future to hold the response input object
 
 
 class StatusRequester:
-    """Context manager for status requests."""
+    """Handling of status requests."""
 
     def __init__(
         self,
@@ -47,7 +51,66 @@ class StatusRequester:
     ) -> None:
         """Initialize the context."""
         self.device_connection = device_connection
-        self.last_requests: dict[tuple[Any, ...], StatusRequest] = {}
+        self.last_requests: set[StatusRequest] = set()
+        self.unregister_inputs = self.device_connection.register_for_inputs(
+            self.input_callback
+        )
+        self.prune_age = 30  # seconds
+        asyncio.get_running_loop().create_task(self.prune_loop())
+
+    async def prune_loop(self) -> None:
+        """Periodically prune old status requests."""
+        while True:
+            await asyncio.sleep(self.prune_age)
+            self.prune_status_requests()
+
+    def prune_status_requests(self) -> None:
+        """Prune old status requests."""
+        entries_to_remove = {
+            request
+            for request in self.last_requests
+            if time.time() - request.timestamp < self.prune_age
+        }
+        for entry in entries_to_remove:
+            entry.response.cancel()
+        self.last_requests.difference_update(entries_to_remove)
+
+    def get_status_requests(
+        self,
+        request_type: type[inputs.Input],
+        parameters: frozenset[tuple[str, Any]] | None = None,
+        max_age: int = 0,
+    ) -> list[StatusRequest]:
+        """Get the status requests for the given type and parameters."""
+        if parameters is None:
+            parameters = frozenset()
+
+        results = [
+            request
+            for request in self.last_requests
+            if request.type == request_type
+            and parameters.issubset(request.parameters)
+            and (request.timestamp == -1 or time.time() - request.timestamp < max_age)
+        ]
+        results.sort(key=lambda request: request.timestamp, reverse=True)
+        return results
+
+    def input_callback(self, inp: inputs.Input) -> None:
+        """Handle incoming inputs and set the result for the corresponding requests."""
+        requests = [
+            request
+            for request in self.get_status_requests(type(inp))
+            if all(
+                getattr(inp, parameter_name) == parameter_value
+                for parameter_name, parameter_value in request.parameters
+            )
+        ]
+
+        for request in requests:
+            if request.response.done() or request.response.cancelled():
+                continue
+            request.timestamp = time.time()
+            request.response.set_result(inp)
 
     async def execute(
         self,
@@ -57,33 +120,24 @@ class StatusRequester:
         **request_kwargs: Any,
     ) -> inputs.Input | None:
         """Execute a status request and wait for the response."""
-        request_key = (response_type, *sorted(request_kwargs.items()))
-        last_request = self.last_requests.get(request_key)
+        parameters = frozenset(request_kwargs.items())
 
-        if last_request and not last_request.response.cancelled():
-            if last_request.timestamp + scan_interval > time.time():
-                try:
-                    return await last_request.response
-                except asyncio.CancelledError:
-                    return None
+        # check if we already have a received response for the current request
+        if requests := self.get_status_requests(
+            response_type, parameters, scan_interval
+        ):
+            return await requests[0].response
 
-        self.last_requests[request_key] = StatusRequest(
-            time.time(), asyncio.get_running_loop().create_future()
+        # no stored request: set up a new request
+        request = StatusRequest(
+            response_type,
+            frozenset(request_kwargs.items()),
+            -1,
+            asyncio.get_running_loop().create_future(),
         )
+        self.last_requests.add(request)
 
-        def input_callback(inp: inputs.Input) -> None:
-            """Callback for inputs."""
-            if isinstance(inp, response_type):
-                if all(
-                    getattr(inp, attr) == value
-                    for attr, value in request_kwargs.items()
-                ):
-                    last_response = self.last_requests[request_key].response
-                    if not (last_response.done() or last_response.cancelled()):
-                        last_response.set_result(inp)
-
-        unregister_callback = self.device_connection.register_for_inputs(input_callback)
-
+        result = None
         for _ in range(self.device_connection.conn.settings["NUM_TRIES"]):
             await self.device_connection.send_command(False, request_pck)
 
@@ -91,16 +145,13 @@ class StatusRequester:
                 async with asyncio.timeout(
                     self.device_connection.conn.settings["DEFAULT_TIMEOUT"]
                 ):
-                    result = await self.last_requests[request_key].response
+                    result = await request.response
                     break
             except asyncio.TimeoutError:
-                # result = None
                 continue
-        else:
-            self.last_requests[request_key].response.cancel()
-            result = None
+            except asyncio.CancelledError:
+                break
 
-        unregister_callback()
         return result
 
 
