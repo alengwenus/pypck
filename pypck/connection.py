@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from collections.abc import Callable, Iterable
 from types import TracebackType
 from typing import Any
@@ -98,7 +97,7 @@ class PchkConnectionManager:
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
         self.buffer: asyncio.Queue[bytes] = asyncio.Queue()
-        self.last_bus_activity = time.time()
+        self.last_bus_activity = asyncio.get_running_loop().time()
 
         self.username = username
         self.password = password
@@ -145,6 +144,7 @@ class PchkConnectionManager:
         """Processes incoming data."""
         assert self.reader is not None
         assert self.writer is not None
+        loop = asyncio.get_running_loop()
         _LOGGER.debug("Read data loop started")
         try:
             while not self.writer.is_closing():
@@ -152,7 +152,7 @@ class PchkConnectionManager:
                     data = await self.reader.readuntil(
                         PckGenerator.TERMINATION.encode()
                     )
-                    self.last_bus_activity = time.time()
+                    self.last_bus_activity = loop.time()
                 except (
                     asyncio.IncompleteReadError,
                     TimeoutError,
@@ -187,11 +187,12 @@ class PchkConnectionManager:
     async def write_data_loop(self) -> None:
         """Processes queue and writes data."""
         assert self.writer is not None
+        loop = asyncio.get_running_loop()
         try:
             _LOGGER.debug("Write data loop started")
             while not self.writer.is_closing():
                 data = await self.buffer.get()
-                while (time.time() - self.last_bus_activity) < self.idle_time:
+                while (loop.time() - self.last_bus_activity) < self.idle_time:
                     await asyncio.sleep(self.idle_time)
 
                 _LOGGER.debug(
@@ -201,7 +202,7 @@ class PchkConnectionManager:
                 )
                 self.writer.write(data)
                 await self.writer.drain()
-                self.last_bus_activity = time.time()
+                self.last_bus_activity = loop.time()
         finally:
             # empty the queue
             while not self.buffer.empty():
@@ -346,7 +347,7 @@ class PchkConnectionManager:
         """Ping was received."""
         if self.ping_timeout_handle is not None:
             self.ping_timeout_handle.cancel()
-        self.last_ping = time.time()
+        self.last_ping = asyncio.get_running_loop().time()
 
     def is_ready(self) -> bool:
         """Retrieve the overall connection state."""
