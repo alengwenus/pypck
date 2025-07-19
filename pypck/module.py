@@ -866,15 +866,6 @@ class GroupConnection(AbstractConnection):
             result &= await super().var_rel(var, value, software_serial=0)
         return result
 
-    # async def activate_status_request_handler(self, item: Any, option: Any) -> None:
-    #     """Activate a specific TimeoutRetryHandler for status requests."""
-    #     await self.conn.segment_scan_completed_event.wait()
-
-    # async def activate_status_request_handlers(self) -> None:
-    #     """Activate all TimeoutRetryHandlers for status requests."""
-    #     # self.request_serial.activate()
-    #     await self.conn.segment_scan_completed_event.wait()
-
 
 class ModuleConnection(AbstractConnection):
     """Organizes communication with a specific module or group."""
@@ -999,40 +990,34 @@ class ModuleConnection(AbstractConnection):
         for input_callback in self.input_callbacks:
             input_callback(inp)
 
-    # def dump_details(self) -> dict[str, Any]:
-    #     """Dump detailed information about this module."""
-    #     is_local_segment = self.addr.seg_id in (0, self.conn.local_seg_id)
-    #     return {
-    #         "segment": self.addr.seg_id,
-    #         "address": self.addr.addr_id,
-    #         "is_local_segment": is_local_segment,
-    #         "serials": {
-    #             "hardware_serial": f"{self.serials.hardware_serial:10X}",
-    #             "manu": f"{self.serials.manu:02X}",
-    #             "software_serial": f"{self.serials.software_serial:06X}",
-    #             "hardware_type": f"{self.serials.hardware_type.value:d}",
-    #             "hardware_name": self.serials.hardware_type.description,
-    #         },
-    #         "name": self.name,
-    #         "comment": self.comment,
-    #         "oem_text": self.oem_text,
-    #         "groups": {
-    #             "static": sorted(addr.addr_id for addr in self.static_groups),
-    #             "dynamic": sorted(addr.addr_id for addr in self.dynamic_groups),
-    #         },
-    #     }
-
-    # ##
-    # ## Requests
-    # ##
-
-    # async def request_comment(self) -> str:
-    #     """Request comments from a module."""
-    #     return await self.comment_request_handler.request()
-
-    # async def request_oem_text(self) -> list[str]:
-    #     """Request OEM text from a module."""
-    #     return await self.oem_text_request_handler.request()
+    async def dump_details(self) -> dict[str, Any]:
+        """Dump detailed information about this module."""
+        is_local_segment = self.addr.seg_id in (0, self.conn.local_seg_id)
+        return {
+            "segment": self.addr.seg_id,
+            "address": self.addr.addr_id,
+            "is_local_segment": is_local_segment,
+            "serials": {
+                "hardware_serial": f"{self.serials.hardware_serial:10X}",
+                "manu": f"{self.serials.manu:02X}",
+                "software_serial": f"{self.serials.software_serial:06X}",
+                "hardware_type": f"{self.serials.hardware_type.value:d}",
+                "hardware_name": self.serials.hardware_type.description,
+            },
+            "name": await self.request_name(),
+            "comment": await self.request_comment(),
+            "oem_text": await self.request_oem_text(),
+            "groups": {
+                "static": sorted(
+                    addr.addr_id
+                    for addr in await self.request_group_memberships(dynamic=False)
+                ),
+                "dynamic": sorted(
+                    addr.addr_id
+                    for addr in await self.request_group_memberships(dynamic=True)
+                ),
+            },
+        }
 
     # Request status methods
 

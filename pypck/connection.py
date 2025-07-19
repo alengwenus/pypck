@@ -407,16 +407,16 @@ class PchkConnectionManager:
 
     # Other
 
-    # def dump_modules(self) -> dict[str, dict[str, dict[str, Any]]]:
-    #     """Dump all modules and information about them in a JSON serializable dict."""
-    #     dump: dict[str, dict[str, dict[str, Any]]] = {}
-    #     for address_conn in self.address_conns.values():
-    #         seg = f"{address_conn.addr.seg_id:d}"
-    #         addr = f"{address_conn.addr.addr_id}"
-    #         if seg not in dump:
-    #             dump[seg] = {}
-    #         dump[seg][addr] = address_conn.dump_details()
-    #     return dump
+    async def dump_modules(self) -> dict[str, dict[str, dict[str, Any]]]:
+        """Dump all modules and information about them in a JSON serializable dict."""
+        dump: dict[str, dict[str, dict[str, Any]]] = {}
+        for address_conn in self.address_conns.values():
+            seg = f"{address_conn.addr.seg_id:d}"
+            addr = f"{address_conn.addr.addr_id}"
+            if seg not in dump:
+                dump[seg] = {}
+            dump[seg][addr] = await address_conn.dump_details()
+        return dump
 
     # Command sending / retrieval.
 
