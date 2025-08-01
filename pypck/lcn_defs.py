@@ -1447,6 +1447,7 @@ default_connection_settings: dict[str, Any] = {
     "DIM_MODE": OutputPortDimMode.STEPS50,
     "ACKNOWLEDGE": True,  # modules request an acknowledge command
     "DEFAULT_TIMEOUT": 3.5,  # Default timeout for send command retries
+    "MAX_PARALLEL_REQUESTS": 1,  # Maximum number of parallel requests
     "MAX_STATUS_EVENTBASED_VALUEAGE": 600,  # Poll interval for
     # status values that
     # automatically send

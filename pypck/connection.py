@@ -14,6 +14,7 @@ from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import LcnEvent
 from pypck.module import GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
+from pypck.status_requester import StatusRequester
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ class PchkConnectionManager:
         self.segment_coupler_response_received = asyncio.Lock()
 
         # All modules from or to a communication occurs are represented by a
-        # unique ModuleConnection object.  All ModuleConnection objects are
+        # unique ModuleConnection object. All ModuleConnection objects are
         # stored in this dictionary.  Communication to groups is handled by
         # GroupConnection object that are created on the fly and not stored
         # permanently.
@@ -137,6 +138,9 @@ class PchkConnectionManager:
         self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
         self.event_callbacks: set[Callable[[LcnEvent], None]] = set()
         self.register_for_events(self.event_callback)
+
+        # StatusRequester
+        self.status_requester = StatusRequester(self)
 
     # Socket read/write
 
