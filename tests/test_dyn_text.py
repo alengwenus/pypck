@@ -66,8 +66,8 @@ async def test_dyn_text(
 
     await module.dyn_text(3, text)
 
-    module.send_command.assert_awaited()
-    await_args = (call.args for call in module.send_command.await_args_list)
+    module.send_command.assert_awaited()  # type: ignore[attr-defined]
+    await_args = (call.args for call in module.send_command.await_args_list)  # type: ignore[attr-defined]
     _, commands = zip(*await_args)
 
     for i, part in enumerate(parts):
