@@ -1,6 +1,6 @@
 """Core testing functionality."""
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -10,14 +10,6 @@ from pypck.connection import PchkConnectionManager
 from pypck.lcn_addr import LcnAddr
 from pypck.module import GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
-
-if TYPE_CHECKING:
-    ModuleConnectionType = ModuleConnection
-    GroupConnectionType = GroupConnection
-else:
-    ModuleConnectionType = "MockModuleConnection"
-    GroupConnectionType = "MockGroupConnection"
-
 
 HOST = "127.0.0.1"
 PORT = 4114
