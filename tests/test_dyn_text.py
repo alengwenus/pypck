@@ -1,11 +1,8 @@
 """Module connection tests."""
 
-from unittest.mock import patch
-
 import pytest
 
 from pypck.lcn_addr import LcnAddr
-from pypck.module import ModuleConnection
 
 from .conftest import MockPchkConnectionManager
 
@@ -58,7 +55,6 @@ TEST_VECTORS = {
 }
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("text, parts", TEST_VECTORS.items())
 async def test_dyn_text(
     pypck_client: MockPchkConnectionManager,
@@ -66,14 +62,12 @@ async def test_dyn_text(
     parts: tuple[bytes, bytes, bytes, bytes, bytes],
 ) -> None:
     """Tests for dynamic text."""
-    # await pypck_client.async_connect()
     module = pypck_client.get_address_conn(LcnAddr(0, 10, False))
 
-    with patch.object(ModuleConnection, "send_command") as send_command:
-        await module.dyn_text(3, text)
+    await module.dyn_text(3, text)
 
-    send_command.assert_awaited()
-    await_args = (call.args for call in send_command.await_args_list)
+    module.send_command.assert_awaited()
+    await_args = (call.args for call in module.send_command.await_args_list)
     _, commands = zip(*await_args)
 
     for i, part in enumerate(parts):

@@ -2,16 +2,13 @@
 
 from unittest.mock import patch
 
-import pytest
-
 from pypck.inputs import Input, ModInput
 from pypck.lcn_addr import LcnAddr
 from pypck.module import ModuleConnection
 
-from ..conftest import MockPchkConnectionManager
+from .conftest import MockPchkConnectionManager
 
 
-@pytest.mark.asyncio
 async def test_message_to_input(pypck_client: MockPchkConnectionManager) -> None:
     """Test data flow from message to input."""
     inp = Input()
@@ -26,7 +23,6 @@ async def test_message_to_input(pypck_client: MockPchkConnectionManager) -> None
         pypck_client_process_input.assert_awaited_with(inp)
 
 
-@pytest.mark.asyncio
 async def test_physical_to_logical_segment_id(
     pypck_client: MockPchkConnectionManager,
 ) -> None:
