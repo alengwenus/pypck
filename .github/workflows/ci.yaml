@@ -122,7 +122,7 @@ jobs:
       - name: Run mypy
         run: |
           . venv/bin/activate
-          mypy --strict pypck
+          mypy --strict pypck tests
 
   lint-codespell:
     name: Check codespell
