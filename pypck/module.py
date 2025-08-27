@@ -1053,6 +1053,16 @@ class ModuleConnection(AbstractConnection):
         max_age: int = 0,
     ) -> inputs.ModStatusMotorPositionBS4 | None:
         """Request the status of motor positions from a module."""
+        if motor not in (
+            lcn_defs.MotorPort.MOTOR1,
+            lcn_defs.MotorPort.MOTOR2,
+            lcn_defs.MotorPort.MOTOR3,
+            lcn_defs.MotorPort.MOTOR4,
+        ):
+            _LOGGER.debug(
+                "Only MOTOR1 to MOTOR4 are supported for motor position requests."
+            )
+            return None
         if positioning_mode != lcn_defs.MotorPositioningMode.BS4:
             _LOGGER.debug("Only BS4 mode is supported for motor position requests.")
             return None

@@ -1,6 +1,7 @@
 """Core testing functionality."""
 
-from typing import Any
+import asyncio
+from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -17,19 +18,31 @@ USERNAME = "lcn"
 PASSWORD = "lcn"
 
 
+async def wait_until_called(
+    mock: AsyncMock,
+    *expected_args: Any,
+    timeout: float = 1.0,
+    **expected_kwargs: Any,
+) -> None:
+    """Wait that AsyncMock gets called with given arguments."""
+    event = asyncio.Event()
+
+    async def side_effect(*args, **kwargs):
+        """Set the event when the mock is called."""
+        if (len(expected_args) == 0 or args == expected_args) and (
+            len(expected_kwargs) == 0 or kwargs == expected_kwargs
+        ):
+            event.set()
+
+    mock.side_effect = side_effect
+
+    await asyncio.wait_for(event.wait(), timeout=timeout)
+
+
 class MockModuleConnection(ModuleConnection):
     """Fake a LCN module connection."""
 
-    status_request_handler = AsyncMock()
-    activate_status_request_handler = AsyncMock()
-    cancel_status_request_handler = AsyncMock()
-    request_name = AsyncMock(return_value="TestModule")
     send_command = AsyncMock(return_value=True)
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """Construct ModuleConnection instance."""
-        super().__init__(*args, **kwargs)
-        self.serials_request_handler.serial_known.set()
 
 
 class MockGroupConnection(GroupConnection):
@@ -52,18 +65,14 @@ class MockPchkConnectionManager(PchkConnectionManager):
     async def async_close(self) -> None:
         """Mock closing a connection to PCHK."""
 
-    def get_address_conn(
-        self, addr: LcnAddr, request_serials: bool = False
-    ) -> ModuleConnection | GroupConnection:
+    def get_address_conn(self, addr: LcnAddr) -> ModuleConnection | GroupConnection:
         """Get LCN address connection."""
-        return super().get_address_conn(addr, request_serials)
+        return super().get_address_conn(addr)
 
     @patch.object(pypck.connection, "ModuleConnection", MockModuleConnection)
-    def get_module_conn(
-        self, addr: LcnAddr, request_serials: bool = False
-    ) -> ModuleConnection:
+    def get_module_conn(self, addr: LcnAddr) -> ModuleConnection:
         """Get LCN module connection."""
-        return super().get_module_conn(addr, request_serials)
+        return super().get_module_conn(addr)
 
     @patch.object(pypck.connection, "GroupConnection", MockGroupConnection)
     def get_group_conn(self, addr: LcnAddr) -> GroupConnection:
@@ -85,12 +94,15 @@ async def pypck_client() -> MockPchkConnectionManager:
     return MockPchkConnectionManager(HOST, PORT, USERNAME, PASSWORD)
 
 
-# @pytest.fixture
-# async def module10(
-#     pypck_client: PchkConnectionManager,
-# ) -> AsyncGenerator[ModuleConnection, None]:
-#     """Create test module with addr_id 10."""
-#     lcn_addr = LcnAddr(0, 10, False)
-#     module = pypck_client.get_module_conn(lcn_addr)
-#     yield module
-#     await module.cancel_requests()
+@pytest.fixture
+async def module10(
+    pypck_client: MockPchkConnectionManager,
+) -> MockModuleConnection:
+    """Create test module with addr_id 10."""
+    lcn_addr = LcnAddr(0, 10, False)
+    with patch.object(MockModuleConnection, "request_module_properties"):
+        module = cast(MockModuleConnection, pypck_client.get_module_conn(lcn_addr))
+        await wait_until_called(cast(AsyncMock, module.request_module_properties))
+
+    module.send_command.reset_mock()
+    return module

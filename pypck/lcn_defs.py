@@ -379,6 +379,16 @@ class Var(Enum):
         ]
 
     @classmethod
+    def variables_new(cls) -> list[Var]:
+        """Return a list of all new variable types (firmware >=0x170206)."""
+        return cls.variables()
+
+    @classmethod
+    def variables_old(cls) -> list[Var]:
+        """Return a list of all variable types (firmware <0x170206)."""
+        return cls.variables()[:3]
+
+    @classmethod
     def set_points(cls) -> list[Var]:
         """Return a list of all set-point variable types."""
         return [cls.R1VARSETPOINT, cls.R2VARSETPOINT]
@@ -392,6 +402,16 @@ class Var(Enum):
             [cls.THRS3_1, cls.THRS3_2, cls.THRS3_3, cls.THRS3_4],
             [cls.THRS4_1, cls.THRS4_2, cls.THRS4_3, cls.THRS4_4],
         ]
+
+    @classmethod
+    def thresholds_new(cls) -> list[list[Var]]:
+        """Return a list of all threshold variable types (firmware >=0x170206)."""
+        return [cls.thresholds()[0][:4], *cls.thresholds()[1:]]
+
+    @classmethod
+    def thresholds_old(cls) -> list[list[Var]]:
+        """Return a list of all old threshold variable types (firmware <0x170206)."""
+        return [cls.thresholds()[0]]
 
     @classmethod
     def s0s(cls) -> list[Var]:
