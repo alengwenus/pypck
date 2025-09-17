@@ -5,12 +5,12 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
-import pypck
 from pypck.connection import PchkConnectionManager
 from pypck.lcn_addr import LcnAddr
 from pypck.module import GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
+
+import pypck
 
 HOST = "127.0.0.1"
 PORT = 4114
@@ -27,7 +27,7 @@ async def wait_until_called(
     """Wait that AsyncMock gets called with given arguments."""
     event = asyncio.Event()
 
-    async def side_effect(*args, **kwargs):
+    async def side_effect(*args: Any, **kwargs: Any) -> None:
         """Set the event when the mock is called."""
         if (len(expected_args) == 0 or args == expected_args) and (
             len(expected_kwargs) == 0 or kwargs == expected_kwargs
