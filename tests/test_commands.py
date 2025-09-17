@@ -3,7 +3,6 @@
 from typing import Any
 
 import pytest
-
 from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import (
     BeepSound,
@@ -466,7 +465,16 @@ COMMANDS: dict[str | bytes, Any] = {
             PckGenerator.lock_keys_tab_a_temporary,
             40,
             unit,
-            [True, True, False, False, True, True, True, False],
+            [
+                KeyLockStateModifier.ON,
+                KeyLockStateModifier.ON,
+                KeyLockStateModifier.OFF,
+                KeyLockStateModifier.OFF,
+                KeyLockStateModifier.ON,
+                KeyLockStateModifier.ON,
+                KeyLockStateModifier.ON,
+                KeyLockStateModifier.OFF,
+            ],
         )
         for unit in TimeUnit
     },
