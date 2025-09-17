@@ -13,6 +13,7 @@ from pypck.connection import (
     PchkConnectionRefusedError,
     PchkLicenseError,
 )
+from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import LcnEvent
 from pypck.pck_commands import PckGenerator
 
@@ -153,3 +154,16 @@ async def test_lcn_connected(pypck_client: MockPchkConnectionManager) -> None:
     event_callback.assert_has_calls(
         (call(LcnEvent.BUS_CONNECTION_STATUS_CHANGED), call(LcnEvent.BUS_CONNECTED))
     )
+
+
+async def test_new_module_on_input(
+    pypck_client: MockPchkConnectionManager,
+) -> None:
+    """Test new module detection on serial input."""
+    await pypck_client.async_connect()
+    address = LcnAddr(0, 7, False)
+    assert address not in pypck_client.address_conns.keys()
+
+    await pypck_client.async_process_input(inputs.ModAck(address, 0))
+
+    assert address in pypck_client.address_conns.keys()
