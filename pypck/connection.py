@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from collections.abc import Callable, Iterable
 from types import TracebackType
 from typing import Any
@@ -98,7 +97,7 @@ class PchkConnectionManager:
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
         self.buffer: asyncio.Queue[bytes] = asyncio.Queue()
-        self.last_bus_activity = time.time()
+        self.last_bus_activity = asyncio.get_running_loop().time()
 
         self.username = username
         self.password = password
@@ -145,6 +144,7 @@ class PchkConnectionManager:
         """Processes incoming data."""
         assert self.reader is not None
         assert self.writer is not None
+        loop = asyncio.get_running_loop()
         _LOGGER.debug("Read data loop started")
         try:
             while not self.writer.is_closing():
@@ -152,7 +152,7 @@ class PchkConnectionManager:
                     data = await self.reader.readuntil(
                         PckGenerator.TERMINATION.encode()
                     )
-                    self.last_bus_activity = time.time()
+                    self.last_bus_activity = loop.time()
                 except (
                     asyncio.IncompleteReadError,
                     TimeoutError,
@@ -187,11 +187,12 @@ class PchkConnectionManager:
     async def write_data_loop(self) -> None:
         """Processes queue and writes data."""
         assert self.writer is not None
+        loop = asyncio.get_running_loop()
         try:
             _LOGGER.debug("Write data loop started")
             while not self.writer.is_closing():
                 data = await self.buffer.get()
-                while (time.time() - self.last_bus_activity) < self.idle_time:
+                while (loop.time() - self.last_bus_activity) < self.idle_time:
                     await asyncio.sleep(self.idle_time)
 
                 _LOGGER.debug(
@@ -201,7 +202,7 @@ class PchkConnectionManager:
                 )
                 self.writer.write(data)
                 await self.writer.drain()
-                self.last_bus_activity = time.time()
+                self.last_bus_activity = loop.time()
         finally:
             # empty the queue
             while not self.buffer.empty():
@@ -274,7 +275,6 @@ class PchkConnectionManager:
 
     async def async_close(self) -> None:
         """Close the active connection."""
-        await self.cancel_requests()
         if self.ping_timeout_handle is not None:
             self.ping_timeout_handle.cancel()
         await self.task_registry.cancel_all_tasks()
@@ -347,7 +347,7 @@ class PchkConnectionManager:
         """Ping was received."""
         if self.ping_timeout_handle is not None:
             self.ping_timeout_handle.cancel()
-        self.last_ping = time.time()
+        self.last_ping = asyncio.get_running_loop().time()
 
     def is_ready(self) -> bool:
         """Retrieve the overall connection state."""
@@ -378,9 +378,7 @@ class PchkConnectionManager:
             addr.is_group,
         )
 
-    def get_module_conn(
-        self, addr: LcnAddr, request_serials: bool = True
-    ) -> ModuleConnection:
+    def get_module_conn(self, addr: LcnAddr) -> ModuleConnection:
         """Create and/or return the given LCN module."""
         assert not addr.is_group
         if addr.seg_id == 0 and self.local_seg_id != -1:
@@ -390,8 +388,6 @@ class PchkConnectionManager:
             address_conn = ModuleConnection(
                 self, addr, wants_ack=self.settings["ACKNOWLEDGE"]
             )
-            if request_serials:
-                self.task_registry.create_task(address_conn.request_serials())
             self.address_conns[addr] = address_conn
 
         return address_conn
@@ -403,17 +399,15 @@ class PchkConnectionManager:
             addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
         return GroupConnection(self, addr)
 
-    def get_address_conn(
-        self, addr: LcnAddr, request_serials: bool = True
-    ) -> ModuleConnection | GroupConnection:
+    def get_address_conn(self, addr: LcnAddr) -> ModuleConnection | GroupConnection:
         """Create and/or return a connection to the given module or group."""
         if addr.is_group:
             return self.get_group_conn(addr)
-        return self.get_module_conn(addr, request_serials)
+        return self.get_module_conn(addr)
 
     # Other
 
-    def dump_modules(self) -> dict[str, dict[str, dict[str, Any]]]:
+    async def dump_modules(self) -> dict[str, dict[str, dict[str, Any]]]:
         """Dump all modules and information about them in a JSON serializable dict."""
         dump: dict[str, dict[str, dict[str, Any]]] = {}
         for address_conn in self.address_conns.values():
@@ -421,7 +415,7 @@ class PchkConnectionManager:
             addr = f"{address_conn.addr.addr_id}"
             if seg not in dump:
                 dump[seg] = {}
-            dump[seg][addr] = address_conn.dump_details()
+            dump[seg][addr] = await address_conn.dump_details()
         return dump
 
     # Command sending / retrieval.
@@ -583,19 +577,6 @@ class PchkConnectionManager:
             _LOGGER.debug("%s: No segment coupler found.", self.connection_id)
 
         self.segment_scan_completed_event.set()
-
-    # Status requests, responses
-
-    async def cancel_requests(self) -> None:
-        """Cancel all TimeoutRetryHandlers."""
-        cancel_tasks = [
-            asyncio.create_task(address_conn.cancel_requests())
-            for address_conn in self.address_conns.values()
-            if isinstance(address_conn, ModuleConnection)
-        ]
-
-        if cancel_tasks:
-            await asyncio.wait(cancel_tasks)
 
     # Callbacks for inputs and events
 
