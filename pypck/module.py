@@ -596,7 +596,10 @@ class AbstractConnection:
         )
 
     async def lock_keys_tab_a_temporary(
-        self, delay_time: int, delay_unit: lcn_defs.TimeUnit, states: list[bool]
+        self,
+        delay_time: int,
+        delay_unit: lcn_defs.TimeUnit,
+        states: list[lcn_defs.KeyLockStateModifier],
     ) -> bool:
         """Send a command to lock keys in table A temporary.
 

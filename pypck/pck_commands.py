@@ -1048,7 +1048,9 @@ class PckGenerator:
 
     @staticmethod
     def lock_keys_tab_a_temporary(
-        time: int, time_unit: lcn_defs.TimeUnit, keys: list[bool]
+        time: int,
+        time_unit: lcn_defs.TimeUnit,
+        keys: list[lcn_defs.KeyLockStateModifier],
     ) -> str:
         """Generate a command to lock keys for table A temporary.
 
@@ -1085,7 +1087,7 @@ class PckGenerator:
             raise ValueError("Wrong time_unit.")
 
         for key in keys:
-            ret += "1" if key else "0"
+            ret += "1" if key == lcn_defs.KeyLockStateModifier.ON else "0"
 
         return ret
 
