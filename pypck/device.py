@@ -1,5 +1,7 @@
 """LCN devices: Modules and groups."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from collections.abc import Callable, Sequence
@@ -61,7 +63,7 @@ class DeviceConnection:
             self.wants_ack = False  # groups do not send acks
             self._serials_known.set()
         else:
-            self.task_registry.create_task(self._request_module_properties())
+            self.task_registry.create_task(self._request_device_properties())
 
     @property
     def task_registry(self) -> TaskRegistry:
@@ -805,7 +807,7 @@ class DeviceConnection:
     # ## Methods for requesting module properties and status
     # ##
 
-    async def _request_module_properties(self) -> None:
+    async def _request_device_properties(self) -> None:
         """Request module properties (serials)."""
         self.serials = await self.request_serials()
         self._serials_known.set()

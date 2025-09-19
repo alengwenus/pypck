@@ -7,7 +7,6 @@ from pypck import (
     inputs,
     lcn_addr,
     lcn_defs,
-    # module,
     pck_commands,
     status_requester,
 )
@@ -19,7 +18,6 @@ __all__ = [
     "inputs",
     "lcn_addr",
     "lcn_defs",
-    # "module",
     "pck_commands",
     "status_requester",
 ]

@@ -1,7 +1,6 @@
 """Module connection tests."""
 
 import pytest
-
 from pypck.lcn_addr import LcnAddr
 
 from .conftest import MockPchkConnectionManager
@@ -62,7 +61,7 @@ async def test_dyn_text(
     parts: tuple[bytes, bytes, bytes, bytes, bytes],
 ) -> None:
     """Tests for dynamic text."""
-    module = pypck_client.get_address_conn(LcnAddr(0, 10, False))
+    module = pypck_client.get_device_connection(LcnAddr(0, 10, False))
 
     await module.dyn_text(3, text)
 

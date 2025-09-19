@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 from pypck.inputs import Input, ModInput
 from pypck.lcn_addr import LcnAddr
-from pypck.module import ModuleConnection
 
 from .conftest import MockPchkConnectionManager
 
@@ -28,8 +27,8 @@ async def test_physical_to_logical_segment_id(
 ) -> None:
     """Test conversion from logical to physical segment id."""
     pypck_client.local_seg_id = 20
-    module = pypck_client.get_address_conn(LcnAddr(20, 7, False))
-    assert isinstance(module, ModuleConnection)
+    module = pypck_client.get_device_connection(LcnAddr(20, 7, False))
+    assert module.is_group is False
     with (
         patch("tests.conftest.MockPchkConnectionManager.is_ready", return_value=True),
         patch.object(module, "async_process_input") as module_process_input,
