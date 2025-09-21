@@ -1444,6 +1444,27 @@ class AccessControlPeriphery(Enum):
     CODELOCK = "codelock"
 
 
+class AcknowledgeErrorCode(Enum):
+    """Acknowledge error codes."""
+
+    UNKNOWN = -1
+    OK = 0
+    UNKNOWN_COMMAND = 5
+    WRONG_PARAMETER_COUNT = 6
+    INVALID_PARAMETER_VALUE = 7
+    CURRENTLY_NOT_ALLOWED = 8
+    NOT_ALLOWED_BY_PROGRAMMING = 9
+    INAPPROPRIATE_MODULE = 10
+    MISSING_PERIPHERY = 11
+    PROGRAMMING_MODE_REQUIRED = 12
+    FUSE_DEFECT = 14
+
+    @classmethod
+    def _missing_(cls, value: Any) -> AcknowledgeErrorCode:
+        """Handle missing values."""
+        return cls.UNKNOWN
+
+
 class LcnEvent(Enum):
     """LCN events."""
 

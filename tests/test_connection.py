@@ -4,8 +4,6 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, call, patch
 
 import pytest
-
-from pypck import inputs
 from pypck.connection import (
     PchkAuthenticationError,
     PchkConnectionFailedError,
@@ -14,8 +12,10 @@ from pypck.connection import (
     PchkLicenseError,
 )
 from pypck.lcn_addr import LcnAddr
-from pypck.lcn_defs import LcnEvent
+from pypck.lcn_defs import AcknowledgeErrorCode, LcnEvent
 from pypck.pck_commands import PckGenerator
+
+from pypck import inputs
 
 from .conftest import HOST, PASSWORD, PORT, USERNAME, MockPchkConnectionManager
 
@@ -164,6 +164,8 @@ async def test_new_module_on_input(
     address = LcnAddr(0, 7, False)
     assert address not in pypck_client.address_conns.keys()
 
-    await pypck_client.async_process_input(inputs.ModAck(address, 0))
+    await pypck_client.async_process_input(
+        inputs.ModAck(address, AcknowledgeErrorCode.OK)
+    )
 
     assert address in pypck_client.address_conns.keys()

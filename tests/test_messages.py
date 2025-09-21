@@ -3,7 +3,6 @@
 from typing import Any
 
 import pytest
-
 from pypck.inputs import (
     InputParser,
     ModAck,
@@ -28,6 +27,7 @@ from pypck.inputs import (
 from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import (
     AccessControlPeriphery,
+    AcknowledgeErrorCode,
     BatteryStatus,
     HardwareType,
     KeyAction,
@@ -41,8 +41,9 @@ from pypck.lcn_defs import (
 
 MESSAGES = {
     # Ack
-    "-M000010!": [(ModAck, -1)],
-    "-M000010005": [(ModAck, 5)],
+    "-M000010!": [(ModAck, AcknowledgeErrorCode.OK)],
+    "-M000010007": [(ModAck, AcknowledgeErrorCode.INVALID_PARAMETER_VALUE)],
+    "-M000010099": [(ModAck, AcknowledgeErrorCode.UNKNOWN)],
     # SK
     "=M000010.SK007": [(ModSk, 7)],
     # SN
