@@ -280,17 +280,15 @@ class Ping(Input):
 class ModAck(ModInput):
     """Acknowledge message received from module."""
 
-    def __init__(self, physical_source_addr: LcnAddr, code: int):
+    def __init__(
+        self, physical_source_addr: LcnAddr, code: lcn_defs.AcknowledgeErrorCode
+    ):
         """Construct ModInput object."""
         super().__init__(physical_source_addr)
         self.code = code
 
-    def get_code(self) -> int:
-        """Return the acknowledge code.
-
-        :return:    Acknowledge code.
-        :rtype:     int
-        """
+    def get_code(self) -> lcn_defs.AcknowledgeErrorCode:
+        """Return the acknowledge code."""
         return self.code
 
     @staticmethod
@@ -310,14 +308,18 @@ class ModAck(ModInput):
             addr = LcnAddr(
                 int(matcher_pos.group("seg_id")), int(matcher_pos.group("mod_id"))
             )
-            return [ModAck(addr, -1)]
+            return [ModAck(addr, lcn_defs.AcknowledgeErrorCode.OK)]
 
         matcher_neg = PckParser.PATTERN_ACK_NEG.match(data)
         if matcher_neg:
             addr = LcnAddr(
                 int(matcher_neg.group("seg_id")), int(matcher_neg.group("mod_id"))
             )
-            return [ModAck(addr, int(matcher_neg.group("code")))]
+            return [
+                ModAck(
+                    addr, lcn_defs.AcknowledgeErrorCode(int(matcher_neg.group("code")))
+                )
+            ]
 
         return None
 

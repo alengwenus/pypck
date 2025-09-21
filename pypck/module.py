@@ -888,7 +888,9 @@ class ModuleConnection(AbstractConnection):
         self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
 
         # List of queued acknowledge codes from the LCN modules.
-        self.acknowledges: asyncio.Queue[int] = asyncio.Queue()
+        self.acknowledges: asyncio.Queue[lcn_defs.AcknowledgeErrorCode] = (
+            asyncio.Queue()
+        )
 
         # StatusRequester
         self.status_requester = StatusRequester(self)
@@ -940,16 +942,17 @@ class ModuleConnection(AbstractConnection):
             except asyncio.TimeoutError:
                 count += 1
                 continue
-            if code == -1:
+            if code == lcn_defs.AcknowledgeErrorCode.OK:
                 return True
             break
         return False
 
-    async def on_ack(self, code: int = -1) -> None:
+    async def on_ack(
+        self, code: lcn_defs.AcknowledgeErrorCode = lcn_defs.AcknowledgeErrorCode.OK
+    ) -> None:
         """Is called whenever an acknowledge is received from the LCN module.
 
-        :param     int    code:           The LCN internal code. -1 means
-                                          "positive" acknowledge
+        :param     int    code:           The LCN internal code.
         """
         await self.acknowledges.put(code)
 
