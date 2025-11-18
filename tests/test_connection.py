@@ -162,10 +162,10 @@ async def test_new_module_on_input(
     """Test new module detection on serial input."""
     await pypck_client.async_connect()
     address = LcnAddr(0, 7, False)
-    assert address not in pypck_client.address_conns.keys()
+    assert address not in pypck_client.device_connections.keys()
 
     await pypck_client.async_process_input(
         inputs.ModAck(address, AcknowledgeErrorCode.OK)
     )
 
-    assert address in pypck_client.address_conns.keys()
+    assert address in pypck_client.device_connections.keys()

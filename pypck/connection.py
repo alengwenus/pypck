@@ -9,10 +9,10 @@ from types import TracebackType
 from typing import Any
 
 from pypck import inputs, lcn_defs
+from pypck.device import DeviceConnection
 from pypck.helpers import TaskRegistry
 from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import LcnEvent
-from pypck.module import GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
 
 _LOGGER = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ class PchkConnectionManager:
         # stored in this dictionary.  Communication to groups is handled by
         # GroupConnection object that are created on the fly and not stored
         # permanently.
-        self.address_conns: dict[LcnAddr, ModuleConnection] = {}
+        self.device_connections: dict[LcnAddr, DeviceConnection] = {}
         self.segment_coupler_ids: list[int] = []
 
         self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
@@ -360,15 +360,15 @@ class PchkConnectionManager:
         old_local_seg_id = self.local_seg_id
 
         self.local_seg_id = local_seg_id
-        # replace all address_conns with current local_seg_id with new
+        # replace all device_connections with current local_seg_id with new
         # local_seg_id
-        for addr in list(self.address_conns):
+        for addr in list(self.device_connections):
             if addr.seg_id == old_local_seg_id:
-                address_conn = self.address_conns.pop(addr)
+                address_conn = self.device_connections.pop(addr)
                 address_conn.addr = LcnAddr(
                     self.local_seg_id, addr.addr_id, addr.is_group
                 )
-                self.address_conns[address_conn.addr] = address_conn
+                self.device_connections[address_conn.addr] = address_conn
 
     def physical_to_logical(self, addr: LcnAddr) -> LcnAddr:
         """Convert the physical segment id of an address to the logical one."""
@@ -378,39 +378,28 @@ class PchkConnectionManager:
             addr.is_group,
         )
 
-    def get_module_conn(self, addr: LcnAddr) -> ModuleConnection:
-        """Create and/or return the given LCN module."""
-        assert not addr.is_group
-        if addr.seg_id == 0 and self.local_seg_id != -1:
-            addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
-        address_conn = self.address_conns.get(addr, None)
-        if address_conn is None:
-            address_conn = ModuleConnection(
-                self, addr, wants_ack=self.settings["ACKNOWLEDGE"]
-            )
-            self.address_conns[addr] = address_conn
-
-        return address_conn
-
-    def get_group_conn(self, addr: LcnAddr) -> GroupConnection:
-        """Create and return the GroupConnection for the given group."""
-        assert addr.is_group
-        if addr.seg_id == 0 and self.local_seg_id != -1:
-            addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
-        return GroupConnection(self, addr)
-
-    def get_address_conn(self, addr: LcnAddr) -> ModuleConnection | GroupConnection:
+    def get_device_connection(self, addr: LcnAddr) -> DeviceConnection:
         """Create and/or return a connection to the given module or group."""
-        if addr.is_group:
-            return self.get_group_conn(addr)
-        return self.get_module_conn(addr)
+        if addr.seg_id == 0 and self.local_seg_id != -1:
+            addr = LcnAddr(self.local_seg_id, addr.addr_id, addr.is_group)
+
+        device_connection = self.device_connections.get(addr, None)
+        if device_connection is None:
+            device_connection = DeviceConnection(
+                self,
+                addr,
+                wants_ack=False if addr.is_group else self.settings["ACKNOWLEDGE"],
+            )
+            self.device_connections[addr] = device_connection
+
+        return device_connection
 
     # Other
 
     async def dump_modules(self) -> dict[str, dict[str, dict[str, Any]]]:
         """Dump all modules and information about them in a JSON serializable dict."""
         dump: dict[str, dict[str, dict[str, Any]]] = {}
-        for address_conn in self.address_conns.values():
+        for address_conn in self.device_connections.values():
             seg = f"{address_conn.addr.seg_id:d}"
             addr = f"{address_conn.addr.addr_id}"
             if seg not in dump:
@@ -484,7 +473,7 @@ class PchkConnectionManager:
             if isinstance(inp, inputs.ModInput):
                 logical_source_addr = self.physical_to_logical(inp.physical_source_addr)
                 if not logical_source_addr.is_group:
-                    module_conn = self.get_module_conn(logical_source_addr)
+                    module_conn = self.get_device_connection(logical_source_addr)
                     if isinstance(inp, inputs.ModSn):
                         # used to extend scan_modules() timeout
                         if self.module_serial_number_received.locked():

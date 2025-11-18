@@ -2,20 +2,22 @@
 
 from pypck import (
     connection,
+    device,
     helpers,
     inputs,
     lcn_addr,
     lcn_defs,
-    module,
     pck_commands,
+    status_requester,
 )
 
 __all__ = [
     "connection",
-    "inputs",
+    "device",
     "helpers",
+    "inputs",
     "lcn_addr",
     "lcn_defs",
-    "module",
     "pck_commands",
+    "status_requester",
 ]

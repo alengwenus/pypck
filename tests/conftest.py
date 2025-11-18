@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from pypck.connection import PchkConnectionManager
+from pypck.device import DeviceConnection
 from pypck.lcn_addr import LcnAddr
-from pypck.module import GroupConnection, ModuleConnection
 from pypck.pck_commands import PckGenerator
 
 import pypck
@@ -39,14 +39,8 @@ async def wait_until_called(
     await asyncio.wait_for(event.wait(), timeout=timeout)
 
 
-class MockModuleConnection(ModuleConnection):
-    """Fake a LCN module connection."""
-
-    send_command = AsyncMock(return_value=True)
-
-
-class MockGroupConnection(GroupConnection):
-    """Fake a LCN group connection."""
+class MockDeviceConnection(DeviceConnection):
+    """Fake a LCN device connection."""
 
     send_command = AsyncMock(return_value=True)
 
@@ -65,15 +59,10 @@ class MockPchkConnectionManager(PchkConnectionManager):
     async def async_close(self) -> None:
         """Mock closing a connection to PCHK."""
 
-    @patch.object(pypck.connection, "ModuleConnection", MockModuleConnection)
-    def get_module_conn(self, addr: LcnAddr) -> ModuleConnection:
-        """Get LCN module connection."""
-        return super().get_module_conn(addr)
-
-    @patch.object(pypck.connection, "GroupConnection", MockGroupConnection)
-    def get_group_conn(self, addr: LcnAddr) -> GroupConnection:
-        """Get LCN group connection."""
-        return super().get_group_conn(addr)
+    @patch.object(pypck.connection, "DeviceConnection", MockDeviceConnection)
+    def get_device_connection(self, addr: LcnAddr) -> DeviceConnection:
+        """Get LCN device connection."""
+        return super().get_device_connection(addr)
 
     scan_modules = AsyncMock()
     send_command = AsyncMock()
@@ -93,12 +82,16 @@ async def pypck_client() -> MockPchkConnectionManager:
 @pytest.fixture
 async def module10(
     pypck_client: MockPchkConnectionManager,
-) -> MockModuleConnection:
+) -> MockDeviceConnection:
     """Create test module with addr_id 10."""
     lcn_addr = LcnAddr(0, 10, False)
-    with patch.object(MockModuleConnection, "request_module_properties"):
-        module = cast(MockModuleConnection, pypck_client.get_module_conn(lcn_addr))
-        await wait_until_called(cast(AsyncMock, module.request_module_properties))
+    with patch.object(
+        MockDeviceConnection, "_request_device_properties"
+    ) as mock_request_device_properties:
+        module = cast(
+            MockDeviceConnection, pypck_client.get_device_connection(lcn_addr)
+        )
+        await wait_until_called(cast(AsyncMock, mock_request_device_properties))
 
     module.send_command.reset_mock()
     return module

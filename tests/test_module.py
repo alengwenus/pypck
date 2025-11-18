@@ -4,13 +4,13 @@ import asyncio
 from itertools import chain
 
 import pytest
-
-from pypck import inputs, lcn_defs
+from pypck.device import Serials
 from pypck.lcn_addr import LcnAddr
-from pypck.module import Serials
 from pypck.pck_commands import PckGenerator
 
-from .conftest import MockModuleConnection, wait_until_called
+from pypck import inputs, lcn_defs
+
+from .conftest import MockDeviceConnection, wait_until_called
 
 RELAY_STATES = [True, False, True, False, True, False, True, False]
 BINARY_SENSOR_STATES = [True, False, True, False, True, False, True, False]
@@ -59,7 +59,7 @@ RANDOM_OEM_TEXT = "8Zmt98YjYY6ksAGNIdxNOLSOjgJpOd1SWFVLaAGpsW5BPbJJ"
     ],
 )
 async def test_request_status_output(
-    module10: MockModuleConnection, output_port: lcn_defs.OutputPort
+    module10: MockDeviceConnection, output_port: lcn_defs.OutputPort
 ) -> None:
     """Test requesting the output status of a module."""
     request_task = asyncio.create_task(module10.request_status_output(output_port))
@@ -77,7 +77,7 @@ async def test_request_status_output(
     assert result.percent == 50.0
 
 
-async def test_request_status_relays(module10: MockModuleConnection) -> None:
+async def test_request_status_relays(module10: MockDeviceConnection) -> None:
     """Test requesting the relays status of a module."""
     request_task = asyncio.create_task(module10.request_status_relays())
 
@@ -103,7 +103,7 @@ async def test_request_status_relays(module10: MockModuleConnection) -> None:
     ],
 )
 async def test_request_status_motor_position(
-    module10: MockModuleConnection, motor: lcn_defs.MotorPort
+    module10: MockDeviceConnection, motor: lcn_defs.MotorPort
 ) -> None:
     """Test requesting the motors status of a module."""
     request_task = asyncio.create_task(
@@ -123,7 +123,7 @@ async def test_request_status_motor_position(
     assert result.position == 50.0
 
 
-async def test_request_status_binary_sensors(module10: MockModuleConnection) -> None:
+async def test_request_status_binary_sensors(module10: MockDeviceConnection) -> None:
     """Test requesting the binary sensors status of a module."""
     request_task = asyncio.create_task(module10.request_status_binary_sensors())
 
@@ -158,7 +158,7 @@ async def test_request_status_binary_sensors(module10: MockModuleConnection) -> 
     ],
 )
 async def test_request_status_variable(
-    module10: MockModuleConnection, variable: lcn_defs.Var, software_serial: int
+    module10: MockDeviceConnection, variable: lcn_defs.Var, software_serial: int
 ) -> None:
     """Test requesting the variable status of a module."""
     module10.serials.software_serial = software_serial
@@ -177,7 +177,7 @@ async def test_request_status_variable(
     assert result.value == lcn_defs.VarValue.from_native(50)
 
 
-async def test_request_status_led_and_logic_ops(module10: MockModuleConnection) -> None:
+async def test_request_status_led_and_logic_ops(module10: MockDeviceConnection) -> None:
     """Test requesting the LED and logic operations status of a module."""
     request_task = asyncio.create_task(module10.request_status_led_and_logic_ops())
 
@@ -194,7 +194,7 @@ async def test_request_status_led_and_logic_ops(module10: MockModuleConnection) 
     assert result.states_logic_ops == LOGIC_OPS_STATES
 
 
-async def test_request_status_locked_keys(module10: MockModuleConnection) -> None:
+async def test_request_status_locked_keys(module10: MockDeviceConnection) -> None:
     """Test requesting the locker keys status of a module."""
     request_task = asyncio.create_task(module10.request_status_locked_keys())
 
@@ -210,7 +210,7 @@ async def test_request_status_locked_keys(module10: MockModuleConnection) -> Non
     assert result.states == LOCKED_KEY_STATES
 
 
-async def test_request_serials(module10: MockModuleConnection) -> None:
+async def test_request_serials(module10: MockDeviceConnection) -> None:
     """Test requesting serials of a module."""
     request_task = asyncio.create_task(module10.request_serials())
 
@@ -242,7 +242,7 @@ async def test_request_serials(module10: MockModuleConnection) -> None:
     ],
 )
 async def test_request_name(
-    command: str, blocks: int, text: str, module10: MockModuleConnection
+    command: str, blocks: int, text: str, module10: MockDeviceConnection
 ) -> None:
     """Test requesting the name, comment or oem_text of a module."""
     match command:
@@ -272,7 +272,7 @@ async def test_request_name(
 
 @pytest.mark.parametrize("dynamic", [True, False])
 async def test_request_group_memberships(
-    dynamic: bool, module10: MockModuleConnection
+    dynamic: bool, module10: MockDeviceConnection
 ) -> None:
     """Test requesting group memberships of a module."""
     addresses = [LcnAddr(0, 7 + id, False) for id in range(3)]

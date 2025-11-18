@@ -33,7 +33,7 @@ async def main():
         password="lcn",
         settings={"SK_NUM_TRIES": 0},
     ) as pck_client:
-        module = pck_client.get_address_conn(LcnAddr(0, 10, False))
+        module = pck_client.get_device_connection(LcnAddr(0, 10, False))
 
         await module.dim_output(0, 100, 0)
         await asyncio.sleep(1)

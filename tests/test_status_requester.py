@@ -3,16 +3,17 @@
 import asyncio
 from unittest.mock import call
 
-from pypck import inputs
-from pypck.module import StatusRequest
 from pypck.pck_commands import PckGenerator
+from pypck.status_requester import StatusRequest
 
-from .conftest import MockModuleConnection
+from pypck import inputs
+
+from .conftest import MockDeviceConnection
 
 RELAY_STATES = [True, False, True, False, True, False, True, False]
 
 
-async def test_request_status(module10: MockModuleConnection) -> None:
+async def test_request_status(module10: MockDeviceConnection) -> None:
     """Test requesting the status of a module."""
     request_task = asyncio.create_task(
         module10.status_requester.request(
@@ -38,7 +39,7 @@ async def test_request_status(module10: MockModuleConnection) -> None:
     assert result.states == RELAY_STATES
 
 
-async def test_request_status_stored(module10: MockModuleConnection) -> None:
+async def test_request_status_stored(module10: MockDeviceConnection) -> None:
     """Test requesting the status of a module with stored status request."""
     status_request = StatusRequest(
         type=inputs.ModStatusRelays,
@@ -66,7 +67,7 @@ async def test_request_status_stored(module10: MockModuleConnection) -> None:
     )
 
 
-async def test_request_status_expired(module10: MockModuleConnection) -> None:
+async def test_request_status_expired(module10: MockDeviceConnection) -> None:
     """Test requesting the status of a module with stored status request but max_age expired."""
     states = [False] * 8
     status_request = StatusRequest(
