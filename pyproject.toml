@@ -39,7 +39,7 @@ version = {file = "VERSION"}
 include = ["pypck*"]
 
 [tool.setuptools.package-data]
-mypkg = ["py.typed"]
+pypck = ["py.typed"]
 
 [tool.black]
 target-version = ["py311", "py312", "py313"]
