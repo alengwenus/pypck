@@ -140,17 +140,17 @@ async def test_request_status_binary_sensors(module10: MockDeviceConnection) -> 
 
 
 @pytest.mark.parametrize(
-    "variable, response_variable, software_serial",
+    "variable, software_serial",
     [
         *[
-            (variable, variable, 0x170206)
+            (variable, 0x170206)
             for variable in lcn_defs.Var.variables_new()
             + lcn_defs.Var.set_points()
             + list(chain(*lcn_defs.Var.thresholds_new()))
             + lcn_defs.Var.s0s()
         ],
         *[
-            (variable, lcn_defs.Var.UNKNOWN, 0x170000)
+            (variable, 0x170000)
             for variable in lcn_defs.Var.variables_old()
             + lcn_defs.Var.set_points()
             + list(chain(*lcn_defs.Var.thresholds_old()))
@@ -158,10 +158,7 @@ async def test_request_status_binary_sensors(module10: MockDeviceConnection) -> 
     ],
 )
 async def test_request_status_variable(
-    module10: MockDeviceConnection,
-    variable: lcn_defs.Var,
-    response_variable: lcn_defs.Var,
-    software_serial: int,
+    module10: MockDeviceConnection, variable: lcn_defs.Var, software_serial: int
 ) -> None:
     """Test requesting the variable status of a module."""
     module10.serials.software_serial = software_serial
@@ -169,9 +166,7 @@ async def test_request_status_variable(
 
     await wait_until_called(module10.send_command)
     await module10.async_process_input(
-        inputs.ModStatusVar(
-            module10.addr, response_variable, lcn_defs.VarValue.from_native(50)
-        )
+        inputs.ModStatusVar(module10.addr, variable, lcn_defs.VarValue.from_native(50))
     )
 
     result = await request_task

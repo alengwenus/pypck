@@ -911,9 +911,6 @@ class DeviceConnection:
         # (variable response is typeless)
         if self.serials.software_serial < 0x170206:
             max_age = 0
-            variable_response = lcn_defs.Var.UNKNOWN
-        else:
-            variable_response = variable
 
         result = await self.status_requester.request(
             response_type=inputs.ModStatusVar,
@@ -921,7 +918,7 @@ class DeviceConnection:
                 variable, self.serials.software_serial
             ),
             max_age=max_age,
-            var=variable_response,
+            var=variable,
         )
 
         result = cast(inputs.ModStatusVar, result)
