@@ -50,6 +50,8 @@ class DeviceConnection:
         self._serials_known = asyncio.Event()
 
         self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
+        self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
+        self.last_var_lock = asyncio.Lock()
 
         # List of queued acknowledge codes from the LCN modules.
         self.acknowledges: asyncio.Queue[lcn_defs.AcknowledgeErrorCode] = (
@@ -771,8 +773,28 @@ class DeviceConnection:
             await self.on_ack(inp.code)
             return None
 
+        # handle typeless variable responses
+        if isinstance(inp, inputs.ModStatusVar):
+            inp = self.preprocess_modstatusvar(inp)
+
         for input_callback in self.input_callbacks:
             input_callback(inp)
+
+    def preprocess_modstatusvar(self, inp: inputs.ModStatusVar) -> inputs.Input:
+        """Fill typeless response with last requested variable type."""
+        if inp.orig_var == lcn_defs.Var.UNKNOWN:
+            # Response without type (%Msssaaa.wwwww)
+            inp.var = self.last_requested_var_without_type_in_response
+
+            self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
+
+            if self.last_var_lock.locked():
+                self.last_var_lock.release()
+        else:
+            # Response with variable type (%Msssaaa.Avvvwww)
+            inp.var = inp.orig_var
+
+        return inp
 
     async def dump_details(self) -> dict[str, Any]:
         """Dump detailed information about this module."""
@@ -910,10 +932,14 @@ class DeviceConnection:
         # do not use buffered response for old modules
         # (variable response is typeless)
         if self.serials.software_serial < 0x170206:
-            max_age = 0
-            variable_response = lcn_defs.Var.UNKNOWN
-        else:
-            variable_response = variable
+            if not lcn_defs.Var.has_type_in_response(
+                variable, self.serials.software_serial
+            ):
+                try:
+                    await asyncio.wait_for(self.last_var_lock.acquire(), timeout=3.0)
+                except asyncio.TimeoutError:
+                    pass
+                self.last_requested_var_without_type_in_response = variable
 
         result = await self.status_requester.request(
             response_type=inputs.ModStatusVar,
@@ -921,15 +947,10 @@ class DeviceConnection:
                 variable, self.serials.software_serial
             ),
             max_age=max_age,
-            var=variable_response,
+            var=variable,
         )
 
-        result = cast(inputs.ModStatusVar, result)
-        if result:
-            if result.orig_var == lcn_defs.Var.UNKNOWN:
-                # Response without type (%Msssaaa.wwwww)
-                result.var = variable
-        return result
+        return cast(inputs.ModStatusVar, result)
 
     async def request_status_led_and_logic_ops(
         self, max_age: int = 0
