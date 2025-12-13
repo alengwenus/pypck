@@ -50,8 +50,6 @@ class DeviceConnection:
         self._serials_known = asyncio.Event()
 
         self.input_callbacks: set[Callable[[inputs.Input], None]] = set()
-        self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
-        self.last_var_lock = asyncio.Lock()
 
         # List of queued acknowledge codes from the LCN modules.
         self.acknowledges: asyncio.Queue[lcn_defs.AcknowledgeErrorCode] = (
@@ -60,6 +58,7 @@ class DeviceConnection:
 
         # StatusRequester
         self.status_requester = StatusRequester(self)
+        self.request_lock = asyncio.Lock()
 
         if self.addr.is_group:
             self.wants_ack = False  # groups do not send acks
@@ -773,28 +772,8 @@ class DeviceConnection:
             await self.on_ack(inp.code)
             return None
 
-        # handle typeless variable responses
-        if isinstance(inp, inputs.ModStatusVar):
-            inp = self.preprocess_modstatusvar(inp)
-
         for input_callback in self.input_callbacks:
             input_callback(inp)
-
-    def preprocess_modstatusvar(self, inp: inputs.ModStatusVar) -> inputs.Input:
-        """Fill typeless response with last requested variable type."""
-        if inp.orig_var == lcn_defs.Var.UNKNOWN:
-            # Response without type (%Msssaaa.wwwww)
-            inp.var = self.last_requested_var_without_type_in_response
-
-            self.last_requested_var_without_type_in_response = lcn_defs.Var.UNKNOWN
-
-            if self.last_var_lock.locked():
-                self.last_var_lock.release()
-        else:
-            # Response with variable type (%Msssaaa.Avvvwww)
-            inp.var = inp.orig_var
-
-        return inp
 
     async def dump_details(self) -> dict[str, Any]:
         """Dump detailed information about this module."""
@@ -816,11 +795,15 @@ class DeviceConnection:
             "groups": {
                 "static": sorted(
                     addr.addr_id
-                    for addr in await self.request_group_memberships(dynamic=False)
+                    for addr in (
+                        await self.request_group_memberships(dynamic=False) or set()
+                    )
                 ),
                 "dynamic": sorted(
                     addr.addr_id
-                    for addr in await self.request_group_memberships(dynamic=True)
+                    for addr in (
+                        await self.request_group_memberships(dynamic=True) or set()
+                    )
                 ),
             },
         }
@@ -851,7 +834,7 @@ class DeviceConnection:
             output_id=output_port.value,
         )
 
-        return cast(inputs.ModStatusOutput, result)
+        return cast(inputs.ModStatusOutput | None, result)
 
     async def request_status_relays(
         self, max_age: int = 0
@@ -867,7 +850,7 @@ class DeviceConnection:
             max_age=max_age,
         )
 
-        return cast(inputs.ModStatusRelays, result)
+        return cast(inputs.ModStatusRelays | None, result)
 
     async def request_status_motor_position(
         self,
@@ -901,7 +884,7 @@ class DeviceConnection:
             motor=motor.value,
         )
 
-        return cast(inputs.ModStatusMotorPositionBS4, result)
+        return cast(inputs.ModStatusMotorPositionBS4 | None, result)
 
     async def request_status_binary_sensors(
         self, max_age: int = 0
@@ -917,7 +900,7 @@ class DeviceConnection:
             max_age=max_age,
         )
 
-        return cast(inputs.ModStatusBinSensors, result)
+        return cast(inputs.ModStatusBinSensors | None, result)
 
     async def request_status_variable(
         self,
@@ -929,17 +912,17 @@ class DeviceConnection:
             _LOGGER.info("Status requests are not supported for groups.")
             return None
 
-        # do not use buffered response for old modules
-        # (variable response is typeless)
-        if self.serials.software_serial < 0x170206:
-            if not lcn_defs.Var.has_type_in_response(
-                variable, self.serials.software_serial
-            ):
-                try:
-                    await asyncio.wait_for(self.last_var_lock.acquire(), timeout=3.0)
-                except asyncio.TimeoutError:
-                    pass
-                self.last_requested_var_without_type_in_response = variable
+        response_variable = variable
+
+        # for old modules the variable response is typeless
+        # - do not use concurrent requests
+        # - do not use buffered response
+        if has_typeless_response := not lcn_defs.Var.has_type_in_response(
+            variable, self.serials.software_serial
+        ):
+            await self.request_lock.acquire()
+            max_age = 0
+            response_variable = lcn_defs.Var.UNKNOWN
 
         result = await self.status_requester.request(
             response_type=inputs.ModStatusVar,
@@ -947,10 +930,21 @@ class DeviceConnection:
                 variable, self.serials.software_serial
             ),
             max_age=max_age,
-            var=variable,
+            var=response_variable,
         )
 
-        return cast(inputs.ModStatusVar, result)
+        result = cast(inputs.ModStatusVar | None, result)
+
+        # for old modules (typeless response) we need to set the original variable
+        # - call input_callbacks with the original variable type
+        if result is not None and has_typeless_response:
+            result.var = variable
+            for input_callback in self.input_callbacks:
+                input_callback(result)
+
+        if self.request_lock.locked():
+            self.request_lock.release()
+        return result
 
     async def request_status_led_and_logic_ops(
         self, max_age: int = 0
@@ -966,7 +960,7 @@ class DeviceConnection:
             max_age=max_age,
         )
 
-        return cast(inputs.ModStatusLedsAndLogicOps, result)
+        return cast(inputs.ModStatusLedsAndLogicOps | None, result)
 
     async def request_status_locked_keys(
         self, max_age: int = 0
@@ -982,7 +976,7 @@ class DeviceConnection:
             max_age=max_age,
         )
 
-        return cast(inputs.ModStatusKeyLocks, result)
+        return cast(inputs.ModStatusKeyLocks | None, result)
 
     # Request module properties
 
@@ -1084,7 +1078,7 @@ class DeviceConnection:
 
     async def request_group_memberships(
         self, dynamic: bool = False, max_age: int = 0
-    ) -> set[LcnAddr]:
+    ) -> set[LcnAddr] | None:
         """Request module static/dynamic group memberships."""
         if self.addr.is_group:
             _LOGGER.info("Status requests are not supported for groups.")
@@ -1100,5 +1094,6 @@ class DeviceConnection:
             max_age=max_age,
             dynamic=dynamic,
         )
-
-        return set(cast(inputs.ModStatusGroups, result).groups)
+        if result is not None:
+            return set(cast(inputs.ModStatusGroups, result).groups)
+        return None
