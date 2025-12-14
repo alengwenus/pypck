@@ -165,8 +165,15 @@ async def test_request_status_variable(
     request_task = asyncio.create_task(module10.request_status_variable(variable))
 
     await wait_until_called(module10.send_command)
+    response_variable = (
+        variable
+        if lcn_defs.Var.has_type_in_response(variable, software_serial)
+        else lcn_defs.Var.UNKNOWN
+    )
     await module10.async_process_input(
-        inputs.ModStatusVar(module10.addr, variable, lcn_defs.VarValue.from_native(50))
+        inputs.ModStatusVar(
+            module10.addr, response_variable, lcn_defs.VarValue.from_native(50)
+        )
     )
 
     result = await request_task
