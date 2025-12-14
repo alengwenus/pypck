@@ -120,11 +120,18 @@ class StatusRequester:
                 async with asyncio.timeout(
                     self.device_connection.conn.settings["DEFAULT_TIMEOUT"]
                 ):
-                    return await requests[0].response
+                    response = await requests[0].response
             except asyncio.TimeoutError:
                 return None
             except asyncio.CancelledError:
                 return None
+
+            # forward the response to other input callbacks
+            for input_callback in self.device_connection.input_callbacks:
+                if input_callback is not self.input_callback:
+                    input_callback(response)
+
+            return response
 
         # no stored request or forced request: set up a new request
         request = StatusRequest(
