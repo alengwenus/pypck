@@ -880,20 +880,20 @@ class PckGenerator:
         if software_serial >= 0x170206:
             var_id = lcn_defs.Var.to_var_id(var)
             if var_id != -1:
-                return f"MWT{var_id + 1:03d}"
+                return f"MWT{var_id + 1}"
 
             set_point_id = lcn_defs.Var.to_set_point_id(var)
             if set_point_id != -1:
-                return f"MWS{set_point_id + 1:03d}"
+                return f"MWS{set_point_id + 1}"
 
             thrs_register_id = lcn_defs.Var.to_thrs_register_id(var)
             if thrs_register_id != -1:
                 # Whole register
-                return f"SE{thrs_register_id + 1:03d}"
+                return f"SE{thrs_register_id + 1}"
 
             s0_id = lcn_defs.Var.to_s0_id(var)
             if s0_id != -1:
-                return f"MWC{s0_id + 1:03d}"
+                return f"MWC{s0_id + 1}"
         else:
             if var == lcn_defs.Var.VAR1ORTVAR:
                 pck = "MWV"
