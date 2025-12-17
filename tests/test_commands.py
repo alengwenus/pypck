@@ -89,7 +89,7 @@ COMMANDS: dict[str | bytes, Any] = {
     "STX": (PckGenerator.request_key_lock_status,),
     # Variable status (new commands)
     **{
-        f"MWT{Var.to_var_id(var) + 1:03d}": (
+        f"MWT{Var.to_var_id(var) + 1}": (
             PckGenerator.request_var_status,
             var,
             NEW_VAR_SW_AGE,
@@ -97,7 +97,7 @@ COMMANDS: dict[str | bytes, Any] = {
         for var in Var.variables()
     },
     **{
-        f"MWS{Var.to_set_point_id(var) + 1:03d}": (
+        f"MWS{Var.to_set_point_id(var) + 1}": (
             PckGenerator.request_var_status,
             var,
             NEW_VAR_SW_AGE,
@@ -105,7 +105,7 @@ COMMANDS: dict[str | bytes, Any] = {
         for var in Var.set_points()
     },
     **{
-        f"MWC{Var.to_s0_id(var) + 1:03d}": (
+        f"MWC{Var.to_s0_id(var) + 1}": (
             PckGenerator.request_var_status,
             var,
             NEW_VAR_SW_AGE,
@@ -113,7 +113,7 @@ COMMANDS: dict[str | bytes, Any] = {
         for var in Var.s0s()
     },
     **{
-        f"SE{Var.to_thrs_register_id(var) + 1:03d}": (
+        f"SE{Var.to_thrs_register_id(var) + 1}": (
             PckGenerator.request_var_status,
             var,
             NEW_VAR_SW_AGE,
