@@ -24,6 +24,8 @@ class Input:
     nothing is returned.
     """
 
+    pck: str
+
     def __init__(self) -> None:
         """Construct Input object."""
 
@@ -1368,9 +1370,11 @@ class InputParser:
         :rtype:     List with instances of :class:`~pypck.input.Input`
         """
         for parser in InputParser.parsers:
-            ret: list[Input] | None = parser.try_parse(data)
-            if ret is not None:
-                return ret
+            returns: list[Input] | None = parser.try_parse(data)
+            if returns is not None:
+                for ret in returns:
+                    ret.pck = data
+                return returns
 
         # We must never get to this point since the Unknown parser matches
         # everything.

@@ -361,4 +361,6 @@ def test_message_parsing_mod_inputs(
     for idx, inp in enumerate(inputs):
         exp = (expected[idx][0])(LcnAddr(0, 10, False), *expected[idx][1:])
         assert type(inp) is type(exp)  # pylint: disable=unidiomatic-typecheck
-        assert vars(inp) == vars(exp)
+        vars_inp = vars(inp)
+        vars_inp.pop("pck")
+        assert vars_inp == vars(exp)
