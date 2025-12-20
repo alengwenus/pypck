@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 from pypck import inputs
 
@@ -14,17 +14,19 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+ResponseT = TypeVar("ResponseT", bound=inputs.Input)
+
 
 @dataclass(unsafe_hash=True)
-class StatusRequest:
+class StatusRequest(Generic[ResponseT]):
     """Data class for status requests."""
 
-    type: type[inputs.Input]  # Type of the input expected as response
+    type: type[ResponseT]  # Type of the input expected as response
     parameters: frozenset[tuple[str, Any]]  # {(parameter_name, parameter_value)}
     timestamp: float = field(
         compare=False
     )  # timestamp the response was received; -1=no timestamp
-    response: asyncio.Future[inputs.Input] = field(
+    response: asyncio.Future[ResponseT] = field(
         compare=False
     )  # Future to hold the response input object
 
@@ -32,7 +34,7 @@ class StatusRequest:
 class StatusRequester:
     """Handling of status requests."""
 
-    current_request: StatusRequest
+    current_request: StatusRequest[inputs.Input]
 
     def __init__(
         self,
@@ -40,7 +42,7 @@ class StatusRequester:
     ) -> None:
         """Initialize the context."""
         self.device_connection = device_connection
-        self.last_requests: set[StatusRequest] = set()
+        self.last_requests: set[StatusRequest[inputs.Input]] = set()
         self.max_response_age = self.device_connection.conn.settings["MAX_RESPONSE_AGE"]
         self.request_lock = asyncio.Lock()
 
@@ -61,12 +63,12 @@ class StatusRequester:
 
     async def request(
         self,
-        response_type: type[inputs.Input],
+        response_type: type[ResponseT],
         request_pck: str,
         request_acknowledge: bool = False,
         max_age: int = 0,  # -1: no age limit / infinite age
         **request_kwargs: Any,
-    ) -> inputs.Input | None:
+    ) -> ResponseT | None:
         """Execute a status request and wait for the response."""
         async with self.request_lock:
             self.current_request = StatusRequest(
@@ -104,4 +106,4 @@ class StatusRequester:
                 self.current_request.response.cancel()
 
             unregister_inputs()
-            return result
+            return cast(ResponseT | None, result)
