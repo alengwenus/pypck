@@ -827,14 +827,12 @@ class DeviceConnection:
             _LOGGER.info("Status requests are not supported for groups.")
             return None
 
-        result = await self.status_requester.request(
+        return await self.status_requester.request(
             response_type=inputs.ModStatusOutput,
             request_pck=PckGenerator.request_output_status(output_id=output_port.value),
             max_age=max_age,
             output_id=output_port.value,
         )
-
-        return cast(inputs.ModStatusOutput | None, result)
 
     async def request_status_relays(
         self, max_age: int = 0
@@ -844,13 +842,11 @@ class DeviceConnection:
             _LOGGER.info("Status requests are not supported for groups.")
             return None
 
-        result = await self.status_requester.request(
+        return await self.status_requester.request(
             response_type=inputs.ModStatusRelays,
             request_pck=PckGenerator.request_relays_status(),
             max_age=max_age,
         )
-
-        return cast(inputs.ModStatusRelays | None, result)
 
     async def request_status_motor_position(
         self,
@@ -877,14 +873,12 @@ class DeviceConnection:
             _LOGGER.debug("Only BS4 mode is supported for motor position requests.")
             return None
 
-        result = await self.status_requester.request(
+        return await self.status_requester.request(
             response_type=inputs.ModStatusMotorPositionBS4,
             request_pck=PckGenerator.request_motor_position_status(motor.value // 2),
             max_age=max_age,
             motor=motor.value,
         )
-
-        return cast(inputs.ModStatusMotorPositionBS4 | None, result)
 
     async def request_status_binary_sensors(
         self, max_age: int = 0
@@ -894,13 +888,11 @@ class DeviceConnection:
             _LOGGER.info("Status requests are not supported for groups.")
             return None
 
-        result = await self.status_requester.request(
+        return await self.status_requester.request(
             response_type=inputs.ModStatusBinSensors,
             request_pck=PckGenerator.request_bin_sensors_status(),
             max_age=max_age,
         )
-
-        return cast(inputs.ModStatusBinSensors | None, result)
 
     async def request_status_variable(
         self,
@@ -933,8 +925,6 @@ class DeviceConnection:
             var=response_variable,
         )
 
-        result = cast(inputs.ModStatusVar | None, result)
-
         # for old modules (typeless response) we need to set the original variable
         # - call input_callbacks with the original variable type
         if result is not None and has_typeless_response:
@@ -954,13 +944,11 @@ class DeviceConnection:
             _LOGGER.info("Status requests are not supported for groups.")
             return None
 
-        result = await self.status_requester.request(
+        return await self.status_requester.request(
             response_type=inputs.ModStatusLedsAndLogicOps,
             request_pck=PckGenerator.request_leds_and_logic_ops(),
             max_age=max_age,
         )
-
-        return cast(inputs.ModStatusLedsAndLogicOps | None, result)
 
     async def request_status_locked_keys(
         self, max_age: int = 0
@@ -970,13 +958,11 @@ class DeviceConnection:
             _LOGGER.info("Status requests are not supported for groups.")
             return None
 
-        result = await self.status_requester.request(
+        return await self.status_requester.request(
             response_type=inputs.ModStatusKeyLocks,
             request_pck=PckGenerator.request_key_lock_status(),
             max_age=max_age,
         )
-
-        return cast(inputs.ModStatusKeyLocks | None, result)
 
     # Request module properties
 
@@ -986,23 +972,20 @@ class DeviceConnection:
             _LOGGER.info("Status requests are not supported for groups.")
             return Serials(-1, -1, -1, lcn_defs.HardwareType.UNKNOWN)
 
-        result = cast(
-            inputs.ModSn | None,
-            await self.status_requester.request(
-                response_type=inputs.ModSn,
-                request_pck=PckGenerator.request_serial(),
-                max_age=max_age,
-            ),
+        result = await self.status_requester.request(
+            response_type=inputs.ModSn,
+            request_pck=PckGenerator.request_serial(),
+            max_age=max_age,
         )
 
-        if result is None:
-            return Serials(-1, -1, -1, lcn_defs.HardwareType.UNKNOWN)
-        return Serials(
-            result.hardware_serial,
-            result.manu,
-            result.software_serial,
-            result.hardware_type,
-        )
+        if isinstance(result, inputs.ModSn):
+            return Serials(
+                result.hardware_serial,
+                result.manu,
+                result.software_serial,
+                result.hardware_type,
+            )
+        return Serials(-1, -1, -1, lcn_defs.HardwareType.UNKNOWN)
 
     async def request_name(self, max_age: int = 0) -> str | None:
         """Request module name."""
@@ -1010,7 +993,7 @@ class DeviceConnection:
             _LOGGER.info("Status requests are not supported for groups.")
             return None
 
-        coros = [
+        coros = (
             self.status_requester.request(
                 response_type=inputs.ModNameComment,
                 request_pck=PckGenerator.request_name(block_id),
@@ -1018,8 +1001,8 @@ class DeviceConnection:
                 command="N",
                 block_id=block_id,
             )
-            for block_id in [0, 1]
-        ]
+            for block_id in (0, 1)
+        )
 
         coro_results = [await coro for coro in coros]
         if not all(coro_results):
@@ -1034,7 +1017,7 @@ class DeviceConnection:
             _LOGGER.info("Status requests are not supported for groups.")
             return None
 
-        coros = [
+        coros = (
             self.status_requester.request(
                 response_type=inputs.ModNameComment,
                 request_pck=PckGenerator.request_comment(block_id),
@@ -1042,15 +1025,15 @@ class DeviceConnection:
                 command="K",
                 block_id=block_id,
             )
-            for block_id in [0, 1, 2]
-        ]
+            for block_id in (0, 1, 2)
+        )
 
         coro_results = [await coro for coro in coros]
         if not all(coro_results):
             return None
         results = cast(list[inputs.ModNameComment], coro_results)
-        name = "".join([result.text for result in results if result])
-        return name
+        comment = "".join([result.text for result in results if result])
+        return comment
 
     async def request_oem_text(self, max_age: int = 0) -> str | None:
         """Request module name."""
@@ -1058,7 +1041,7 @@ class DeviceConnection:
             _LOGGER.info("Status requests are not supported for groups.")
             return None
 
-        coros = [
+        coros = (
             self.status_requester.request(
                 response_type=inputs.ModNameComment,
                 request_pck=PckGenerator.request_oem_text(block_id),
@@ -1066,15 +1049,15 @@ class DeviceConnection:
                 command="O",
                 block_id=block_id,
             )
-            for block_id in [0, 1, 2, 3]
-        ]
+            for block_id in (0, 1, 2, 3)
+        )
 
         coro_results = [await coro for coro in coros]
         if not all(coro_results):
             return None
         results = cast(list[inputs.ModNameComment], coro_results)
-        name = "".join([result.text for result in results if result])
-        return name
+        oem_text = "".join([result.text for result in results if result])
+        return oem_text
 
     async def request_group_memberships(
         self, dynamic: bool = False, max_age: int = 0
@@ -1095,5 +1078,5 @@ class DeviceConnection:
             dynamic=dynamic,
         )
         if result is not None:
-            return set(cast(inputs.ModStatusGroups, result).groups)
+            return set(result.groups)
         return None
