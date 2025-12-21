@@ -34,7 +34,7 @@ class StatusRequest(Generic[ResponseT]):
 class StatusRequester:
     """Handling of status requests."""
 
-    current_request: StatusRequest[inputs.Input]
+    current_request: StatusRequest[inputs.Input] | None
 
     def __init__(
         self,
@@ -42,6 +42,7 @@ class StatusRequester:
     ) -> None:
         """Initialize the context."""
         self.device_connection = device_connection
+        self.current_request = None
         self.request_cache: set[StatusRequest[inputs.Input]] = set()
         self.max_response_age = self.device_connection.conn.settings["MAX_RESPONSE_AGE"]
         self.request_lock = asyncio.Lock()
@@ -76,7 +77,10 @@ class StatusRequester:
     def input_callback(self, inp: inputs.Input) -> None:
         """Handle incoming inputs and set the result for the corresponding requests."""
         # Update current request (if it exists)
-        if not self.current_request.response.done():
+        if (
+            self.current_request is not None
+            and not self.current_request.response.done()
+        ):
             if isinstance(inp, self.current_request.type) and all(
                 getattr(inp, parameter_name) == parameter_value
                 for parameter_name, parameter_value in self.current_request.parameters
@@ -111,9 +115,8 @@ class StatusRequester:
                 max_age,
             ):
                 _LOGGER.debug(
-                    "Using cached status request for %s with parameters %s. (PCK: %s)",
-                    response_type.__name__,
-                    request_kwargs,
+                    "from %s: %s (cached)",
+                    self.device_connection.conn.connection_id,
                     requests[0].response.result().pck,
                 )
                 return requests[0].response.result()
