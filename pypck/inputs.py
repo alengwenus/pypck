@@ -24,10 +24,9 @@ class Input:
     nothing is returned.
     """
 
-    pck: str
-
     def __init__(self) -> None:
         """Construct Input object."""
+        self.pck = ""
 
     @staticmethod
     def try_parse(data: str) -> list[Input] | None:
