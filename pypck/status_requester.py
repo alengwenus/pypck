@@ -89,7 +89,7 @@ class StatusRequester:
                 self.current_request.response.set_result(inp)
 
         # Update cached requests
-        for request in self.get_status_requests(type(inp)):
+        for request in self.get_status_requests(type(inp), max_age=-1):
             if all(
                 getattr(inp, parameter_name) == parameter_value
                 for parameter_name, parameter_value in request.parameters
