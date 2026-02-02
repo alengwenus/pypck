@@ -19,7 +19,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Home Automation",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dynamic = ["version"]
 dependencies    = []
 
