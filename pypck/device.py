@@ -1008,8 +1008,8 @@ class DeviceConnection:
         if not all(coro_results):
             return None
         results = cast(list[inputs.ModNameComment], coro_results)
-        name = "".join([result.text for result in results if result])
-        return name
+        name = "".join(f"{result.text:10}" for result in results if result)
+        return name.rstrip()
 
     async def request_comment(self, max_age: int = 0) -> str | None:
         """Request module name."""
@@ -1032,8 +1032,8 @@ class DeviceConnection:
         if not all(coro_results):
             return None
         results = cast(list[inputs.ModNameComment], coro_results)
-        comment = "".join([result.text for result in results if result])
-        return comment
+        comment = "".join(f"{result.text:12}" for result in results if result)
+        return comment.rstrip()
 
     async def request_oem_text(self, max_age: int = 0) -> str | None:
         """Request module name."""
@@ -1056,8 +1056,8 @@ class DeviceConnection:
         if not all(coro_results):
             return None
         results = cast(list[inputs.ModNameComment], coro_results)
-        oem_text = "".join([result.text for result in results if result])
-        return oem_text
+        oem_text = "".join(f"{result.text:12}" for result in results if result)
+        return oem_text.rstrip()
 
     async def request_group_memberships(
         self, dynamic: bool = False, max_age: int = 0
