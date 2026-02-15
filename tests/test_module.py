@@ -40,9 +40,6 @@ LOCKED_KEY_STATES = [
     [True, True, True, True, False, False, False, False],
     [False, False, False, False, True, True, True, True],
 ]
-RANDOM_NAME = "IC77J3jmk5326OQl4zWpuENm"
-RANDOM_COMMENT = "29nCynSxzn0mrJ6kt99zsl88azVaCAFv79sh"
-RANDOM_OEM_TEXT = "8Zmt98YjYY6ksAGNIdxNOLSOjgJpOd1SWFVLaAGpsW5BPbJJ"
 
 #
 # Status requests
@@ -243,13 +240,35 @@ async def test_request_serials(module10: MockDeviceConnection) -> None:
 @pytest.mark.parametrize(
     "command, blocks, text",
     [
-        ("N", 2, RANDOM_NAME),
-        ("K", 3, RANDOM_COMMENT),
-        ("O", 4, RANDOM_OEM_TEXT),
+        ("N", ["1234567890", "ABCDEFGHIJ"], "1234567890ABCDEFGHIJ"),
+        ("N", ["12345678", "ABCDEFGH"], "12345678  ABCDEFGH"),
+        ("N", ["1234567890", ""], "1234567890"),
+        (
+            "K",
+            ["123456789012", "ABCDEFGHIJKL", "abcdefghijkl"],
+            "123456789012ABCDEFGHIJKLabcdefghijkl",
+        ),
+        (
+            "K",
+            ["1234567890", "ABCDEFGHIJ", "abcdefghij"],
+            "1234567890  ABCDEFGHIJ  abcdefghij",
+        ),
+        ("K", ["1234567890", "", ""], "1234567890"),
+        (
+            "O",
+            ["123456789012", "ABCDEFGHIJKL", "abcdefghijkl", "123456789012"],
+            "123456789012ABCDEFGHIJKLabcdefghijkl123456789012",
+        ),
+        (
+            "O",
+            ["1234567890", "ABCDEFGHIJ", "abcdefghij", "1234567890"],
+            "1234567890  ABCDEFGHIJ  abcdefghij  1234567890",
+        ),
+        ("O", ["1234567890", "", "", ""], "1234567890"),
     ],
 )
-async def test_request_name(
-    command: str, blocks: int, text: str, module10: MockDeviceConnection
+async def test_request_text(
+    command: str, blocks: list[str], text: str, module10: MockDeviceConnection
 ) -> None:
     """Test requesting the name, comment or oem_text of a module."""
     match command:
@@ -260,14 +279,14 @@ async def test_request_name(
         case "O":
             request_task = asyncio.create_task(module10.request_oem_text())
 
-    for idx in range(blocks):
+    for idx, block in enumerate(blocks):
         await wait_until_called(module10.send_command)
         await module10.async_process_input(
             inputs.ModNameComment(
                 module10.addr,
                 command=command,
                 block_id=idx,
-                text=text[idx * 12 : (idx + 1) * 12],
+                text=block,
             )
         )
 
