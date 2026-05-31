@@ -185,18 +185,18 @@ COMMANDS: dict[str | bytes, Any] = {
             RelayStateModifier.OFF,
         ],
     ),
-    "R8T03210011100": (
+    "R8T0321--111--": (
         PckGenerator.control_relays_timer,
         30 * 32,
         [
             RelayStateModifier.ON,
-            RelayStateModifier.OFF,
-            RelayStateModifier.OFF,
+            RelayStateModifier.NOCHANGE,
+            RelayStateModifier.NOCHANGE,
             RelayStateModifier.ON,
             RelayStateModifier.ON,
             RelayStateModifier.ON,
-            RelayStateModifier.OFF,
-            RelayStateModifier.OFF,
+            RelayStateModifier.NOCHANGE,
+            RelayStateModifier.NOCHANGE,
         ],
     ),
     # Motor state manipulation
