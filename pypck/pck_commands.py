@@ -546,7 +546,7 @@ class PckGenerator:
         for state in states:
             assert state in (
                 lcn_defs.RelayStateModifier.ON,
-                lcn_defs.RelayStateModifier.OFF,
+                lcn_defs.RelayStateModifier.NOCHANGE,
             )
             ret += state.value
 
