@@ -592,6 +592,20 @@ class DeviceConnection:
             ),
         )
 
+    async def lock_thresholds(
+        self, reg_id: int, states: list[lcn_defs.ThresholdLockStateModifier]
+    ) -> bool:
+        """Send a command to lock thresholds.
+
+        :param    int    reg_id:    Register id 0..3
+        :param    list(ThresholdLockStateModifier) states: The 4 threshold lock modifiers as list
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.send_command(
+            self.wants_ack, PckGenerator.lock_thresholds(reg_id, states)
+        )
+
     async def control_led(
         self, led: lcn_defs.LedPort, state: lcn_defs.LedStatus
     ) -> bool:
