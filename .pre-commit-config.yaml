@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.3
+    rev: v0.15.15
     hooks:
       - id: ruff
         args:
@@ -8,14 +8,14 @@ repos:
       - id: ruff-format
         files: ^((pypck|tests)/.+)?[^/]+\.(py|pyi)$
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
+    rev: v2.4.2
     hooks:
       - id: codespell
         args:
           - --ignore-words-list=authentification,SHS
           - --quiet-level=2
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
+    rev: v2.1.0
     hooks:
       - id: mypy
         name: mypy pypck
@@ -31,7 +31,7 @@ repos:
         # Need to enumerate the deps with type hints since requirements.txt is
         # not read by pre-commit
         additional_dependencies:
-          - pytest==8.3.4
-          - pytest-cov==6.0.0
-          - pytest-timeout==2.3.1
-          - pytest-asyncio==0.25.0
+          - pytest==9.0.3
+          - pytest-cov==7.1.0
+          - pytest-timeout==2.4.0
+          - pytest-asyncio==1.4.0
