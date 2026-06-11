@@ -18,6 +18,7 @@ from pypck.lcn_defs import (
     RelayStateModifier,
     RelVarRef,
     SendKeyCommand,
+    ThresholdLockStateModifier,
     TimeUnit,
     Var,
 )
@@ -505,6 +506,20 @@ COMMANDS: dict[str | bytes, Any] = {
     **{
         f"RE{('A', 'B')[reg]:s}XA": (PckGenerator.lock_regulator, reg, False, 0x120301)
         for reg in range(2)
+    },
+    # Lock thresholds
+    **{
+        f"SX{reg + 1:d}10-1": (
+            PckGenerator.lock_thresholds,
+            reg,
+            [
+                ThresholdLockStateModifier.ON,
+                ThresholdLockStateModifier.OFF,
+                ThresholdLockStateModifier.NOCHANGE,
+                ThresholdLockStateModifier.ON,
+            ],
+        )
+        for reg in range(4)
     },
     # scenes
     "SZR003007": (PckGenerator.request_status_scene, 3, 7),

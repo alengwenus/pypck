@@ -1138,6 +1138,27 @@ class PckGenerator:
         return f"RE{'A' if reg_id == 0 else 'B'}X{'S' if state else 'A'}"
 
     @staticmethod
+    def lock_thresholds(
+        register_id: int,
+        states: list[lcn_defs.ThresholdLockStateModifier],
+    ) -> str:
+        """Generate a command to lock thresholds of a register.
+
+        Only supported for software serial >170206.
+        :param    int    register_id:   Register id 0..3
+        :param    list(ThresholdLockStateModifier) states: The 4 threshold lock modifiers as list
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        if (register_id < 0) or (register_id > 3) or (len(states) != 4):
+            raise ValueError("Wrong register_id or states length.")
+        ret = f"SX{register_id + 1}"
+        for state in states:
+            ret += state.value
+
+        return ret
+
+    @staticmethod
     def change_scene_register(register_id: int) -> str:
         """Change the active scene register.
 

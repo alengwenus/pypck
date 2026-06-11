@@ -795,6 +795,14 @@ class VarValue:
 
     def is_locked_regulator(self) -> bool:
         """Return if regulator is locked."""
+        return self.is_locked()
+
+    def is_locked_threshold(self) -> bool:
+        """Return if threshold is locked."""
+        return self.is_locked()
+
+    def is_locked(self) -> bool:
+        """Return if variable is locked."""
         return (self.native_value & 0x8000) != 0
 
     @staticmethod
@@ -1210,7 +1218,7 @@ class VarValue:
                 raise ValueError("Wrong unit.")
 
         # handle locked regulators
-        if is_lockable_regulator_source and self.is_locked_regulator():
+        if is_lockable_regulator_source and self.is_locked():
             ret = f"({ret:s})"
 
         return ret
@@ -1332,6 +1340,14 @@ class KeyLockStateModifier(Enum):
     ON = "1"
     OFF = "0"
     TOGGLE = "U"
+    NOCHANGE = "-"
+
+
+class ThresholdLockStateModifier(Enum):
+    """Threshold-lock modifiers used in LCN commands."""
+
+    ON = "1"
+    OFF = "0"
     NOCHANGE = "-"
 
 
