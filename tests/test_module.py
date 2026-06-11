@@ -181,9 +181,11 @@ async def test_request_status_variable(
     assert result.value == lcn_defs.VarValue.from_native(50)
 
 
-async def test_request_status_led_and_logic_ops(module10: MockDeviceConnection) -> None:
+async def test_request_status_leds_and_logic_ops(
+    module10: MockDeviceConnection,
+) -> None:
     """Test requesting the LED and logic operations status of a module."""
-    request_task = asyncio.create_task(module10.request_status_led_and_logic_ops())
+    request_task = asyncio.create_task(module10.request_status_leds_and_logic_ops())
 
     await wait_until_called(module10.send_command)
     await module10.async_process_input(
