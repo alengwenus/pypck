@@ -950,7 +950,7 @@ class DeviceConnection:
             self.request_lock.release()
         return result
 
-    async def request_status_led_and_logic_ops(
+    async def request_status_leds_and_logic_ops(
         self, max_age: int = 0
     ) -> inputs.ModStatusLedsAndLogicOps | None:
         """Request the status of LEDs and logic operations from a module."""
