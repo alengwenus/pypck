@@ -3,10 +3,9 @@
 import asyncio
 from unittest.mock import call
 
+from pypck import inputs
 from pypck.pck_commands import PckGenerator
 from pypck.status_requester import StatusRequest
-
-from pypck import inputs
 
 from .conftest import MockDeviceConnection
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Callable, Iterable
 from types import TracebackType
@@ -141,7 +142,7 @@ class PchkConnectionManager:
     # Socket read/write
 
     async def read_data_loop(self) -> None:
-        """Processes incoming data."""
+        """Process incoming data."""
         assert self.reader is not None
         assert self.writer is not None
         loop = asyncio.get_running_loop()
@@ -185,7 +186,7 @@ class PchkConnectionManager:
             _LOGGER.debug("Read data loop closed")
 
     async def write_data_loop(self) -> None:
-        """Processes queue and writes data."""
+        """Process queue and write data."""
         assert self.writer is not None
         loop = asyncio.get_running_loop()
         try:
@@ -280,10 +281,8 @@ class PchkConnectionManager:
         await self.task_registry.cancel_all_tasks()
         if self.writer:
             self.writer.close()
-            try:
+            with contextlib.suppress(OSError):  # occurs when TCP connection is lost
                 await self.writer.wait_closed()
-            except OSError:  # occurs when TCP connection is lost
-                pass
 
         _LOGGER.debug("Connection to %s closed.", self.connection_id)
 
@@ -292,7 +291,7 @@ class PchkConnectionManager:
         if self.writer is not None:
             await self.writer.wait_closed()
 
-    async def __aenter__(self) -> "PchkConnectionManager":
+    async def __aenter__(self) -> PchkConnectionManager:
         """Context manager enter method."""
         await self.async_connect()
         return self
@@ -305,7 +304,6 @@ class PchkConnectionManager:
     ) -> None:
         """Context manager exit method."""
         await self.async_close()
-        return None
 
     async def on_auth(self, success: bool) -> None:
         """Is called after successful authentication."""
@@ -528,7 +526,7 @@ class PchkConnectionManager:
                         self.module_serial_number_received.acquire(),
                         timeout,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     break
 
     async def scan_segment_couplers(
@@ -558,7 +556,7 @@ class PchkConnectionManager:
                         self.segment_coupler_response_received.acquire(),
                         timeout,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     break
 
         # No segment coupler expected (num_tries=0)

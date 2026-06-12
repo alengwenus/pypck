@@ -44,6 +44,9 @@ platforms = ["any"]
 zip-safe  = false
 include-package-data = true
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
 [tool.ruff]
 cache-dir = ".cache/ruff"
 
@@ -120,6 +123,7 @@ select = [
 ]
 
 ignore = [
+    "C901", # {name} is too complex ({complexity} > {max_complexity})
     "D202", # No blank lines allowed after function docstring
     "D203", # 1 blank line required before class docstring
     "D213", # Multi-line docstring summary should start at the second line

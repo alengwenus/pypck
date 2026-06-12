@@ -136,7 +136,7 @@ class DeviceConnection:
                     self.acknowledges.get(),
                     timeout=self.conn.settings["DEFAULT_TIMEOUT"],
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 count += 1
                 continue
             if code == lcn_defs.AcknowledgeErrorCode.OK:

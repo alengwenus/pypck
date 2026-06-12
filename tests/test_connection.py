@@ -4,6 +4,8 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, call, patch
 
 import pytest
+
+from pypck import inputs
 from pypck.connection import (
     PchkAuthenticationError,
     PchkConnectionFailedError,
@@ -14,8 +16,6 @@ from pypck.connection import (
 from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import AcknowledgeErrorCode, LcnEvent
 from pypck.pck_commands import PckGenerator
-
-from pypck import inputs
 
 from .conftest import HOST, PASSWORD, PORT, USERNAME, MockPchkConnectionManager
 
@@ -162,10 +162,10 @@ async def test_new_module_on_input(
     """Test new module detection on serial input."""
     await pypck_client.async_connect()
     address = LcnAddr(0, 7, False)
-    assert address not in pypck_client.device_connections.keys()
+    assert address not in pypck_client.device_connections
 
     await pypck_client.async_process_input(
         inputs.ModAck(address, AcknowledgeErrorCode.OK)
     )
 
-    assert address in pypck_client.device_connections.keys()
+    assert address in pypck_client.device_connections

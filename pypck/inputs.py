@@ -612,8 +612,7 @@ class ModStatusRelays(ModInput):
         self.states = states
 
     def get_state(self, relay_id: int) -> bool:
-        """
-        Get the state of a single relay.
+        """Get the state of a single relay.
 
         :param    int    relay_id:    Relay id (0..7)
 

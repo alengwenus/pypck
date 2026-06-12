@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from pypck import inputs
 
@@ -18,7 +18,7 @@ ResponseT = TypeVar("ResponseT", bound=inputs.Input)
 
 
 @dataclass(unsafe_hash=True)
-class StatusRequest(Generic[ResponseT]):
+class StatusRequest[ResponseT]:
     """Data class for status requests."""
 
     type: type[ResponseT]  # Type of the input expected as response
@@ -143,7 +143,7 @@ class StatusRequester:
                         # Need to shield the future. Otherwise it would get cancelled.
                         result = await asyncio.shield(self.current_request.response)
                         break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
                 except asyncio.CancelledError:
                     break

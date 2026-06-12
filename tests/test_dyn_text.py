@@ -1,6 +1,7 @@
 """Module connection tests."""
 
 import pytest
+
 from pypck.lcn_addr import LcnAddr
 
 from .conftest import MockPchkConnectionManager

@@ -74,8 +74,8 @@ class LcnAddr:
         try:
             seg_id = int(addr_str[1:4])
             addr_id = int(addr_str[4:7])
-        except ValueError:
-            raise ValueError(f"Invalid address string: {addr_str}")
+        except ValueError as err:
+            raise ValueError(f"Invalid address string: {addr_str}") from err
         return cls(seg_id=seg_id, addr_id=addr_id, is_group=is_group)
 
     def to_string(self) -> str:
