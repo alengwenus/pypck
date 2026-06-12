@@ -55,3 +55,34 @@ class LcnAddr:
         :rtype:     int
         """
         return 0 if (self.seg_id == local_seg_id) else self.seg_id
+
+    @classmethod
+    def from_string(cls, addr_str: str) -> "LcnAddr":
+        """Parse an LCN address from a string.
+
+        :param    str addr_str:    The address string (e.g. "m001002" or "g003004")
+
+        :return:    The parsed address
+        :rtype:     LcnAddr
+        """
+        if len(addr_str) != 7:
+            raise ValueError(f"Invalid address string: {addr_str}")
+        kind = addr_str[0].lower()
+        if kind not in ("m", "g"):
+            raise ValueError(f"Invalid address kind: {kind}")
+        is_group = kind == "g"
+        try:
+            seg_id = int(addr_str[1:4])
+            addr_id = int(addr_str[4:7])
+        except ValueError:
+            raise ValueError(f"Invalid address string: {addr_str}")
+        return cls(seg_id=seg_id, addr_id=addr_id, is_group=is_group)
+
+    def to_string(self) -> str:
+        """Format the address as a string."""
+        kind = "g" if self.is_group else "m"
+        return f"{kind}{self.seg_id:03d}{self.addr_id:03d}"
+
+    def __str__(self) -> str:
+        """Format the address as a string."""
+        return self.to_string()
