@@ -773,11 +773,10 @@ class PckGenerator:
         if var_id != -1:
             if software_serial >= 0x170206:
                 pck = f"Z-{var_id + 1:03d}{4090:04d}"
+            elif var_id == 0:
+                pck = "ZS30000"
             else:
-                if var_id == 0:
-                    pck = "ZS30000"
-                else:
-                    raise ValueError("Wrong variable type.")
+                raise ValueError("Wrong variable type.")
             return pck
 
         set_point_id = lcn_defs.Var.to_set_point_id(var)

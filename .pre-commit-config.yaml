@@ -14,24 +14,23 @@ repos:
         args:
           - --ignore-words-list=authentification,SHS
           - --quiet-level=2
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.1.0
+  - repo: local
     hooks:
-      - id: mypy
-        name: mypy pypck
-        args:
-          - --strict
-        files: ^(pypck)/.+\.py$
-      - id: mypy
-        name: mypy tests
-        args:
-          - --strict
-          - --allow-untyped-defs
-        files: ^(tests)/.+\.py$
-        # Need to enumerate the deps with type hints since requirements.txt is
-        # not read by pre-commit
-        additional_dependencies:
-          - pytest==9.0.3
-          - pytest-cov==7.1.0
-          - pytest-timeout==2.4.0
-          - pytest-asyncio==1.4.0
+    - id: mypy
+      name: mypy pypck
+      entry: uv run mypy
+      language: system
+      require_serial: true
+      args:
+        - --strict
+        - -v
+      files: ^(pypck)/.+\.py$
+    - id: mypy
+      name: mypy tests
+      entry: uv run mypy
+      language: system
+      require_serial: true
+      args:
+        - --strict
+        - -v
+      files: ^(tests)/.+\.py$

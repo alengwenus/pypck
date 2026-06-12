@@ -16,7 +16,7 @@ lib64
 # Python specific
 *.pyc
 /__pycache__
-/venv
+/.venv
 
 # pytest
 .pytest_cache
@@ -45,6 +45,9 @@ desktop.ini
 
 # mypy
 /.mypy_cache/*
+
+# ruff
+.ruff_cache/*
 
 # other
 sandbox

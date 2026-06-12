@@ -3,6 +3,7 @@
 from typing import Any
 
 import pytest
+
 from pypck.lcn_addr import LcnAddr
 from pypck.lcn_defs import (
     BeepSound,

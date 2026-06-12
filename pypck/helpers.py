@@ -1,6 +1,7 @@
 """Helper functions for pypck."""
 
 import asyncio
+import contextlib
 from collections.abc import Coroutine
 from typing import Any
 
@@ -11,10 +12,9 @@ async def cancel_task(task: "asyncio.Task[Any]") -> bool:
     Wait for cancellation completed but do not propagate a possible CancelledError.
     """
     success = task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
+
     return success  # was not already done
 
 
@@ -23,7 +23,7 @@ class TaskRegistry:
 
     def __init__(self) -> None:
         """Init task registry instance."""
-        self.tasks: list["asyncio.Task[Any]"] = []
+        self.tasks: list[asyncio.Task[Any]] = []
 
     def remove_task(self, task: "asyncio.Task[None]") -> None:
         """Remove a task from the task registry."""

@@ -5,12 +5,12 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
+import pypck
 from pypck.connection import PchkConnectionManager
 from pypck.device import DeviceConnection
 from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
-
-import pypck
 
 HOST = "127.0.0.1"
 PORT = 4114

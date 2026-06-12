@@ -4,11 +4,11 @@ import asyncio
 from itertools import chain
 
 import pytest
+
+from pypck import inputs, lcn_defs
 from pypck.device import Serials
 from pypck.lcn_addr import LcnAddr
 from pypck.pck_commands import PckGenerator
-
-from pypck import inputs, lcn_defs
 
 from .conftest import MockDeviceConnection, wait_until_called
 
