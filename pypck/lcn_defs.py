@@ -318,14 +318,17 @@ class Var(Enum):
     """LCN variable types."""
 
     UNKNOWN = -1  # Used if the real type is not known (yet)
+
     VAR1ORTVAR = 0
-    TVAR = 0
-    VAR1 = 0
     VAR2ORR1VAR = 1
-    R1VAR = 1
-    VAR2 = 1
     VAR3ORR2VAR = 2
+
+    TVAR = 0
+    R1VAR = 1
     R2VAR = 2
+
+    VAR1 = 0
+    VAR2 = 1
     VAR3 = 2
     VAR4 = 3
     VAR5 = 4
@@ -336,29 +339,73 @@ class Var(Enum):
     VAR10 = 9
     VAR11 = 10
     VAR12 = 11  # Since 170206
-    R1VARSETPOINT = auto()
-    R2VARSETPOINT = auto()  # Set-points for regulators
-    THRS1 = auto()
-    THRS2 = auto()
-    THRS3 = auto()
-    THRS4 = auto()
-    THRS5 = auto()  # Register 1 (THRS5 only before 170206)
-    THRS2_1 = auto()
-    THRS2_2 = auto()
-    THRS2_3 = auto()
-    THRS2_4 = auto()  # Register 2 (since 2012)
-    THRS3_1 = auto()
-    THRS3_2 = auto()
-    THRS3_3 = auto()
-    THRS3_4 = auto()  # Register 3 (since 2012)
-    THRS4_1 = auto()
-    THRS4_2 = auto()
-    THRS4_3 = auto()
-    THRS4_4 = auto()  # Register 4 (since 2012)
-    S0INPUT1 = auto()
-    S0INPUT2 = auto()
-    S0INPUT3 = auto()
-    S0INPUT4 = auto()  # LCN-BU4LJVarValue
+
+    VARIABLE1 = 0
+    VARIABLE2 = 1
+    VARIABLE3 = 2
+    VARIABLE4 = 3
+    VARIABLE5 = 4
+    VARIABLE6 = 5
+    VARIABLE7 = 6
+    VARIABLE8 = 7
+    VARIABLE9 = 8
+    VARIABLE10 = 9
+    VARIABLE11 = 10
+    VARIABLE12 = 11  # Since 170206
+
+    R1VARSETPOINT = 101
+    R2VARSETPOINT = 102  # Set-points for regulators
+    SETPOINT1 = 101
+    SETPOINT2 = 102
+
+    THRS1 = 211
+    THRS2 = 212
+    THRS3 = 213
+    THRS4 = 214
+    THRS5 = 215  # Register 1 (THRS5 only before 170206)Wir
+    THRS1_1 = 211
+    THRS1_2 = 212
+    THRS1_3 = 213
+    THRS1_4 = 214
+    THRS2_1 = 221
+    THRS2_2 = 222
+    THRS2_3 = 223
+    THRS2_4 = 224  # Register 2 (since 2012)
+    THRS3_1 = 231
+    THRS3_2 = 232
+    THRS3_3 = 233
+    THRS3_4 = 234  # Register 3 (since 2012)
+    THRS4_1 = 241
+    THRS4_2 = 242
+    THRS4_3 = 243
+    THRS4_4 = 244  # Register 4 (since 2012)
+
+    THRESHOLD1 = 211
+    THRESHOLD2 = 212
+    THRESHOLD3 = 213
+    THRESHOLD4 = 214
+    THRESHOLD5 = 215  # Register 1 (THRS5 only before 170206)Wir
+    THRESHOLD1_1 = 211
+    THRESHOLD1_2 = 212
+    THRESHOLD1_3 = 213
+    THRESHOLD1_4 = 214
+    THRESHOLD2_1 = 221
+    THRESHOLD2_2 = 222
+    THRESHOLD2_3 = 223
+    THRESHOLD2_4 = 224  # Register 2 (since 2012)
+    THRESHOLD3_1 = 231
+    THRESHOLD3_2 = 232
+    THRESHOLD3_3 = 233
+    THRESHOLD3_4 = 234  # Register 3 (since 2012)
+    THRESHOLD4_1 = 241
+    THRESHOLD4_2 = 242
+    THRESHOLD4_3 = 243
+    THRESHOLD4_4 = 244  # Register 4 (since 2012)
+
+    S0INPUT1 = 301
+    S0INPUT2 = 302
+    S0INPUT3 = 303
+    S0INPUT4 = 304  # LCN-BU4LJVarValue
 
     @classmethod
     def variables(cls) -> list[Var]:
@@ -417,6 +464,61 @@ class Var(Enum):
     def s0s(cls) -> list[Var]:
         """Return a list of all S0-input variable types."""
         return [cls.S0INPUT1, cls.S0INPUT2, cls.S0INPUT3, cls.S0INPUT4]
+
+    @staticmethod
+    def _is_var_type(name: str, var_list: list[Var]) -> bool:
+        """Check if the given variable name is in the given list of variable types."""
+        try:
+            var = Var[name.upper()]
+            return var in var_list
+        except KeyError:
+            return False
+
+    @staticmethod
+    def is_variable(name: str) -> bool:
+        """Check if the given name is a variable."""
+        return Var._is_var_type(name, Var.variables())
+
+    @staticmethod
+    def is_variable_new(name: str) -> bool:
+        """Check if the given name is a new variable (firmware >=0x170206)."""
+        return Var._is_var_type(name, Var.variables_new())
+
+    @staticmethod
+    def is_variable_old(name: str) -> bool:
+        """Check if the given name is an old variable (firmware <0x170206)."""
+        return Var._is_var_type(name, Var.variables_old())
+
+    @staticmethod
+    def is_set_point(name: str) -> bool:
+        """Check if the given name is a set-point variable."""
+        return Var._is_var_type(name, Var.set_points())
+
+    @staticmethod
+    def is_threshold(name: str) -> bool:
+        """Check if the given name is a threshold variable."""
+        return Var._is_var_type(
+            name, [var for sublist in Var.thresholds() for var in sublist]
+        )
+
+    @staticmethod
+    def is_threshold_new(name: str) -> bool:
+        """Check if the given name is a new threshold variable (firmware >=0x170206)."""
+        return Var._is_var_type(
+            name, [var for sublist in Var.thresholds_new() for var in sublist]
+        )
+
+    @staticmethod
+    def is_threshold_old(name: str) -> bool:
+        """Check if the given name is an old threshold variable (firmware <0x170206)."""
+        return Var._is_var_type(
+            name, [var for sublist in Var.thresholds_old() for var in sublist]
+        )
+
+    @staticmethod
+    def is_s0(name: str) -> bool:
+        """Check if the given name is an S0-input variable."""
+        return Var._is_var_type(name, Var.s0s())
 
     @staticmethod
     def var_id_to_var(var_id: int) -> Var:
