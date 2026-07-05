@@ -305,6 +305,16 @@ COMMANDS: dict[str | bytes, Any] = {
         PckGenerator.control_motor_outputs,
         MotorStateModifier.CYCLE,
     ),
+    "JH050008": (
+        PckGenerator.control_motor_outputs_position,
+        50,
+        MotorPositioningMode.MODULE,
+    ),
+    "JH030008": (
+        PckGenerator.control_motor_outputs_position,
+        70,
+        MotorPositioningMode.MODULE,
+    ),
     # Variable manipulation
     **{
         f"X2{var.value | 0x40:03d}016225": (PckGenerator.update_status_var, var, 4321)

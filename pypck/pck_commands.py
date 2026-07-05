@@ -704,6 +704,27 @@ class PckGenerator:
         return ret
 
     @staticmethod
+    def control_motor_outputs_position(
+        position: float, mode: lcn_defs.MotorPositioningMode
+    ) -> str:
+        """Control motor position via module outputs.
+
+        Modules which support this feature use motor4 for positioning.
+        :param    float                 position:   The position to set in percentage (0..100)
+                                                    (0: closed cover, 100: open cover)
+        :param    MotorPositioningMode  mode:       The motor positioning mode
+
+        :return:  The PCK command (without address header) as text
+        :rtype:   str
+        """
+        motor_id = 3
+        if mode == lcn_defs.MotorPositioningMode.MODULE:
+            new_motor_id = 1 << motor_id
+            return f"JH{100 - position:03d}{new_motor_id:03d}"
+        else:
+            raise ValueError("Wrong motor positioning mode")
+
+    @staticmethod
     def request_bin_sensors_status() -> str:
         """Generate a binary-sensors status request.
 

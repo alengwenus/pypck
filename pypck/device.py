@@ -323,6 +323,25 @@ class DeviceConnection:
             PckGenerator.control_motor_outputs(state, reverse_time),
         )
 
+    async def control_motor_outputs_position(
+        self,
+        position: float,
+        mode: lcn_defs.MotorPositioningMode,
+    ) -> bool:
+        """Control motor position via module outputs.
+
+        Modules which support this feature use motor4 for positioning.
+        :param    float                position:   The position to set in percentage (0..100)
+        :param    MotorPositioningMode mode:       The motor positioning mode
+
+        :returns:    True if command was sent successfully, False otherwise
+        :rtype:      bool
+        """
+        return await self.send_command(
+            self.wants_ack,
+            PckGenerator.control_motor_outputs_position(position, mode),
+        )
+
     async def activate_scene(
         self,
         register_id: int,
