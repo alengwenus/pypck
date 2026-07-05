@@ -62,6 +62,7 @@ class MotorPort(Enum):
     MOTOR3 = 2
     MOTOR4 = 3
     OUTPUTS = 4
+    MOTOR_OUTPUTS = 4
 
 
 class LedPort(Enum):
