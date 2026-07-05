@@ -343,7 +343,7 @@ wheels = [
 
 [[package]]
 name = "pypck"
-version = "0.dev0"
+version = "0.9.15a1"
 source = { editable = "." }
 
 [package.dev-dependencies]
